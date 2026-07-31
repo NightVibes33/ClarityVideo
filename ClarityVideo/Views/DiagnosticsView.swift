@@ -8,6 +8,8 @@ struct DiagnosticsView: View {
     var body: some View {
         List {
             Section("Video Engine Diagnostics") {
+                DiagnosticRow("App", appIdentity)
+                DiagnosticRow("Source", sourceIdentity)
                 DiagnosticRow("OS", state.capabilities.osVersion)
                 DiagnosticRow("Device", state.capabilities.deviceModel)
                 DiagnosticRow("Full SR API", yesNo(state.capabilities.fullSuperResolutionAvailable))
@@ -73,6 +75,15 @@ struct DiagnosticsView: View {
         .task { await state.refreshCapabilities() }
     }
 
+    private var appIdentity: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        return version + " (" + build + ")"
+    }
+    private var sourceIdentity: String {
+        let revision = Bundle.main.object(forInfoDictionaryKey: "ClaritySourceRevision") as? String ?? "development"
+        return String(revision.prefix(12))
+    }
     private func yesNo(_ value: Bool) -> String { value ? "Available" : "Unavailable" }
     private func passFail(_ value: Bool) -> String { value ? "Passed" : "Failed" }
     private func exportReport() {
