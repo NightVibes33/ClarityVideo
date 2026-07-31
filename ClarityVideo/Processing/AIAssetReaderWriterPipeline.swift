@@ -12,6 +12,7 @@ final class AIAssetReaderWriterPipeline {
     private var remuxSession: AVAssetExportSession?
     private var frameProcessor: AppleFrameProcessorService?
     private var tiledProcessor: TiledAppleSRProcessor?
+    private var temporalDenoiser: TemporalNoiseFilterService?
     private var cancelled = false
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
 
@@ -22,6 +23,7 @@ final class AIAssetReaderWriterPipeline {
         remuxSession?.cancelExport()
         frameProcessor?.cancel()
         tiledProcessor?.cancel()
+        temporalDenoiser?.cancel()
     }
 
     func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
@@ -71,6 +73,16 @@ final class AIAssetReaderWriterPipeline {
         }
         try Task.checkCancellation()
         let sourcePixelFormat = plan.requiresTiling ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        var denoiser: TemporalNoiseFilterService?
+        if job.configuration.denoise > 0 {
+            guard probe.temporalNoiseSupported else {
+                throw AppError.unsupported("Temporal denoise is selected, but Apple reports it unavailable on this device.")
+            }
+            let service = TemporalNoiseFilterService()
+            try service.start(width: sourceWidth, height: sourceHeight, pixelFormat: sourcePixelFormat, strength: job.configuration.denoise)
+            denoiser = service
+            temporalDenoiser = service
+        }
         let assetReader = try AVAssetReader(asset: asset)
         let trackOutput = AVAssetReaderTrackOutput(
             track: track,
@@ -136,6 +148,8 @@ final class AIAssetReaderWriterPipeline {
             tiled?.endSession()
             frameProcessor = nil
             tiledProcessor = nil
+            denoiser?.endSession()
+            temporalDenoiser = nil
             reader = nil
             writer = nil
         }
@@ -152,13 +166,14 @@ final class AIAssetReaderWriterPipeline {
             }
             guard let sourceBuffer = CMSampleBufferGetImageBuffer(sample) else { continue }
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
+            let enhancementSource = try await denoiser?.process(source: sourceBuffer, presentationTime: timestamp) ?? sourceBuffer
             let aiBuffer: CVPixelBuffer
             if let tiled {
-                aiBuffer = try await tiled.process(frame: sourceBuffer, presentationTime: timestamp)
+                aiBuffer = try await tiled.process(frame: enhancementSource, presentationTime: timestamp)
             } else if useLowLatency {
-                aiBuffer = try await processor.processInActiveLowLatencySession(source: sourceBuffer, presentationTime: timestamp)
+                aiBuffer = try await processor.processInActiveLowLatencySession(source: enhancementSource, presentationTime: timestamp)
             } else {
-                aiBuffer = try await processor.processInActiveSession(source: sourceBuffer, presentationTime: timestamp, sequential: frameIndex > 0)
+                aiBuffer = try await processor.processInActiveSession(source: enhancementSource, presentationTime: timestamp, sequential: frameIndex > 0)
             }
             while !writerInput.isReadyForMoreMediaData {
                 if cancelled { throw CancellationError() }
