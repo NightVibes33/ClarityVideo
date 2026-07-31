@@ -212,7 +212,7 @@ final class TiledAppleSRProcessor {
             let enhanced = try await frameProcessor.processInActiveSession(
                 source: tile, presentationTime: presentationTime, sequential: false
             )
-            assembler.blend(tile: enhanced, into: canvas, region: region, scale: scale, overlap: overlap)
+            try assembler.blend(tile: enhanced, into: canvas, region: region, scale: scale, overlap: overlap)
         }
         return canvas
     }
