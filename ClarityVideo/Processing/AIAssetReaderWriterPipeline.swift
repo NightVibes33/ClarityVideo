@@ -330,16 +330,42 @@ final class AIAssetReaderWriterPipeline {
         try videoTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: enhancedTrack, at: .zero)
         videoTrack.preferredTransform = try await enhancedTrack.load(.preferredTransform)
         if let sourceAudio = try await sourceAsset.loadTracks(withMediaType: .audio).first,
+           let sourceVideo = try await sourceAsset.loadTracks(withMediaType: .video).first,
            let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-            let audioDuration = min(duration, try await sourceAsset.load(.duration))
-            try audioTrack.insertTimeRange(CMTimeRange(start: .zero, duration: audioDuration), of: sourceAudio, at: .zero)
+            let audioRange = try await sourceAudio.load(.timeRange)
+            let videoRange = try await sourceVideo.load(.timeRange)
+            let offsetSeconds = max(0, audioRange.start.seconds - videoRange.start.seconds)
+            let outputStart = CMTime(seconds: offsetSeconds, preferredTimescale: 600)
+            let available = max(0, duration.seconds - offsetSeconds)
+            let audioDuration = CMTime(seconds: min(audioRange.duration.seconds, available), preferredTimescale: 600)
+            if audioDuration > .zero {
+                try audioTrack.insertTimeRange(
+                    CMTimeRange(start: audioRange.start, duration: audioDuration),
+                    of: sourceAudio, at: outputStart
+                )
+            }
         }
+        let metadata = try await sourceAsset.load(.metadata)
         guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
             throw AppError.exportFailed("Audio remuxing could not be initialized.")
         }
-        session.metadata = try await sourceAsset.load(.metadata)
+        session.metadata = metadata
         remuxSession = session
-        defer { remuxSession = nil }
-        try await session.export(to: finalURL, as: .mov)
+        do {
+            try await session.export(to: finalURL, as: .mov)
+        } catch {
+            try? FileManager.default.removeItem(at: finalURL)
+            guard let fallback = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHEVCHighestQuality) else {
+                throw AppError.exportFailed("Compressed audio passthrough failed and the AAC-compatible fallback could not be initialized: " + error.localizedDescription)
+            }
+            fallback.metadata = metadata
+            remuxSession = fallback
+            do {
+                try await fallback.export(to: finalURL, as: .mov)
+            } catch {
+                throw AppError.exportFailed("Compressed audio passthrough and AAC-compatible fallback both failed: " + error.localizedDescription)
+            }
+        }
+        remuxSession = nil
     }
 }
