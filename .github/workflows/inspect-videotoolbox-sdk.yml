@@ -25,14 +25,14 @@ jobs:
             echo "SDK=$SDK"
             find "$SDK/System/Library/Frameworks/VideoToolbox.framework" -type f -maxdepth 6 -print
           } > sdk-inspection/files.txt
-          grep -R -n -B 8 -A 40 
-            -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' 
-            "$SDK/System/Library/Frameworks/VideoToolbox.framework/Headers" 
+          grep -R -n -B 8 -A 40 \
+            -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' \
+            "$SDK/System/Library/Frameworks/VideoToolbox.framework/Headers" \
             > sdk-inspection/frame-processor-headers.txt || true
-          find "$SDK/System/Library/Frameworks/VideoToolbox.framework/Modules" 
+          find "$SDK/System/Library/Frameworks/VideoToolbox.framework/Modules" \
             -type f -name '*.swiftinterface' -print0 |
-            xargs -0 grep -n -B 8 -A 45 
-              -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' 
+            xargs -0 grep -n -B 8 -A 45 \
+              -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' \
               > sdk-inspection/frame-processor-swift.txt || true
           wc -l sdk-inspection/*
       - uses: actions/upload-artifact@v4
