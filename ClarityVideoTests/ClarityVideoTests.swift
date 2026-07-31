@@ -172,3 +172,20 @@ extension ClarityVideoTests {
         XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
     }
 }
+
+
+extension ClarityVideoTests {
+    func testCodecSelectionDefaultsToHEVC() {
+        XCTAssertEqual(ExportConfiguration().codec, .hevc)
+    }
+
+    func test8KBalancedBitrateFitsConfiguredRange() {
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd8K
+        configuration.bitrateMbps = 160
+        XCTAssertEqual(StorageEstimator.estimatedOutputBytes(
+            info: VideoAssetInfo(fileName: "x.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 1, estimatedSourceBytes: 1),
+            configuration: configuration
+        ), 20_000_000)
+    }
+}

@@ -41,6 +41,12 @@ enum EnhancementMode: String, Codable, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 }
 
+enum OutputCodec: String, Codable, CaseIterable, Identifiable, Sendable {
+    case hevc = "HEVC"
+    case h264 = "H.264"
+    var id: String { rawValue }
+}
+
 enum HDRBehavior: String, Codable, CaseIterable, Identifiable, Sendable {
     case preserve = "Preserve HDR"
     case convertToSDR = "Convert to SDR"
@@ -54,6 +60,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
     var detailRecovery = 0.5
     var sharpening = 0.15
     var bitrateMbps = 55
+    var codec: OutputCodec = .hevc
     var hdrBehavior: HDRBehavior = .preserve
     var preserveFrameRate = true
 }

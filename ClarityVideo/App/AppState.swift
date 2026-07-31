@@ -126,6 +126,9 @@ final class AppState {
             defer { backgroundExecution.end() }
             do {
                 try StorageEstimator.validate(info: assetInfo, configuration: configuration)
+                if configuration.codec == .h264 && (configuration.resolution == .uhd8K || assetInfo.isHDR) {
+                    throw AppError.unsupported("H.264 is available only for 4K SDR exports. Choose HEVC for 8K or HDR sources.")
+                }
                 if assetInfo.isHDR && configuration.hdrBehavior == .preserve {
                     throw AppError.unsupported("Verified HDR preservation is not available yet for this AI path. Choose Convert to SDR; Clarity will not silently strip HDR metadata.")
                 }

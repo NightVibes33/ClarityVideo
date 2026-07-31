@@ -104,7 +104,7 @@ final class AIAssetReaderWriterPipeline {
         let assetWriter = try AVAssetWriter(outputURL: temporaryVideo, fileType: .mov)
         assetWriter.metadata = try await asset.load(.metadata)
         var videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoCodecKey: job.configuration.codec == .hevc ? AVVideoCodecType.hevc : AVVideoCodecType.h264,
             AVVideoWidthKey: Int(targetSize.width),
             AVVideoHeightKey: Int(targetSize.height),
             AVVideoCompressionPropertiesKey: [
@@ -124,8 +124,11 @@ final class AIAssetReaderWriterPipeline {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
             ]
         }
-        var selectedCodec = "HEVC"
+        var selectedCodec = job.configuration.codec.rawValue
         if !assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) {
+            guard job.configuration.codec == .hevc else {
+                throw AppError.unsupported("The hardware encoder rejected the selected 4K H.264 settings.")
+            }
             guard job.configuration.resolution == .uhd4K, !job.assetInfo.isHDR else {
                 throw AppError.unsupported("The hardware encoder rejected the selected output dimensions and HEVC settings.")
             }

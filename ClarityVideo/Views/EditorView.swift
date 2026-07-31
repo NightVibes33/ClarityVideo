@@ -20,6 +20,11 @@ struct EditorView: View {
                             Text("8K UHD \u{00B7} Experimental").tag(OutputResolution.uhd8K)
                         }
                     }.pickerStyle(.segmented)
+                    .onChange(of: state.configuration.resolution) { _, resolution in
+                        if resolution == .uhd8K && state.configuration.codec == .h264 { state.configuration.codec = .hevc }
+                        if resolution == .uhd8K && state.configuration.bitrateMbps == 55 { state.configuration.bitrateMbps = 160 }
+                        if resolution == .uhd4K && state.configuration.bitrateMbps > 110 { state.configuration.bitrateMbps = 65 }
+                    }
                     Picker("Mode", selection: $state.configuration.mode) {
                         ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -33,8 +38,19 @@ struct EditorView: View {
                     Picker("HDR", selection: $state.configuration.hdrBehavior) {
                         ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...240, step: 5)
-                    LabeledContent("Codec", value: "HEVC preferred; H.264 4K SDR fallback")
+                    Picker("Codec", selection: $state.configuration.codec) {
+                        ForEach(OutputCodec.allCases.filter { codec in
+                            codec == .hevc || (state.configuration.resolution == .uhd4K && state.assetInfo?.isHDR == false)
+                        }) { Text($0.rawValue).tag($0) }
+                    }
+                    .onChange(of: state.configuration.codec) { _, codec in
+                        if codec == .h264 && state.configuration.resolution == .uhd8K { state.configuration.codec = .hevc }
+                    }
+                    Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...300, step: 5)
+                    Toggle("Preserve source frame rate", isOn: $state.configuration.preserveFrameRate)
+                        .disabled(true)
+                    Text("Frame-rate conversion is not enabled; every export preserves source presentation timing.")
+                        .font(.caption).foregroundStyle(.secondary)
                     if let info = state.assetInfo {
                         LabeledContent("Estimated output", value: ByteCountFormatter.string(fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration), countStyle: .file))
                     }
