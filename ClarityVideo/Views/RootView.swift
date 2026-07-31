@@ -3,6 +3,7 @@ import PhotosUI
 import AVKit
 import UniformTypeIdentifiers
 import CoreTransferable
+import UIKit
 
 struct PickedMovie: Transferable {
     let url: URL
@@ -43,6 +44,12 @@ struct RootView: View {
             }
         }
         .tint(.cyan)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            state.handleMemoryPressure()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+            state.recordThermalTransition()
+        }
     }
 }
 

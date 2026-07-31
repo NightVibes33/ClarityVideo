@@ -18,6 +18,7 @@ struct DiagnosticsView: View {
                 DiagnosticRow("Main10", passFail(state.capabilities.supportsMain10))
                 DiagnosticRow("Model state", state.capabilities.modelReadiness.rawValue)
                 DiagnosticRow("Model progress", String(Int(state.capabilities.modelDownloadProgress * 100)) + "%")
+                DiagnosticRow("Last self-test", state.lastSuccessfulSelfTest?.formatted(date: .abbreviated, time: .standard) ?? "Never")
                 DiagnosticRow("Full scales", state.capabilities.supportedFullScaleFactors.map(String.init).joined(separator: ", "))
                 DiagnosticRow("720p low-latency scales", state.capabilities.supportedLowLatencyScaleFactors.map { String($0) }.joined(separator: ", "))
                 DiagnosticRow("Revisions", state.capabilities.supportedProcessorRevisions.map(String.init).joined(separator: ", "))
@@ -61,9 +62,9 @@ struct DiagnosticsView: View {
             processorRevision: state.capabilities.defaultProcessorRevision.map(String.init),
             modelStatus: state.capabilities.modelReadiness.rawValue,
             encoderResults: ["4K": state.capabilities.supports4KHEVCEncode, "8K": state.capabilities.supports8KHEVCEncode, "Main10": state.capabilities.supportsMain10],
-            peakMemoryBytes: 0,
-            thermalTransitions: [],
-            processingFPS: nil
+            peakMemoryBytes: nil,
+            thermalTransitions: state.thermalTransitions,
+            processingFPS: state.activeJob.flatMap { job in job.processingDuration.map { Double(job.processedFrames) / max(0.1, $0) } }
         )
         do {
             let encoder = JSONEncoder()

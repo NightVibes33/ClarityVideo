@@ -182,7 +182,7 @@ struct DiagnosticReport: Codable, Sendable {
     var processorRevision: String?
     var modelStatus: String
     var encoderResults: [String: Bool]
-    var peakMemoryBytes: UInt64
+    var peakMemoryBytes: UInt64?
     var thermalTransitions: [String]
     var processingFPS: Double?
 }

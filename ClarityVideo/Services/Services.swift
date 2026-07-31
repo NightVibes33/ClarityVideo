@@ -76,6 +76,21 @@ enum AssetInspector {
     }
 }
 
+private final class EncoderProbeContext: @unchecked Sendable {
+    let semaphore = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private(set) var completedFrames = 0
+    private(set) var failed = false
+
+    func record(status: OSStatus, sampleBuffer: CMSampleBuffer?) {
+        lock.withLock {
+            if status != noErr || sampleBuffer == nil { failed = true }
+            else { completedFrames += 1 }
+            if failed || completedFrames >= 3 { semaphore.signal() }
+        }
+    }
+}
+
 @MainActor
 final class CapabilityDetector {
     func detect() async -> DeviceEnhancementCapabilities {
@@ -95,36 +110,56 @@ final class CapabilityDetector {
         result.modelReadiness = appleProbe.modelReadiness
         result.modelDownloadProgress = appleProbe.modelProgress
         result.lastProbeError = appleProbe.error
-        result.supports4KHEVCEncode = encoderProbe(width: 3840, height: 2160, main10: false)
-        result.supports8KHEVCEncode = encoderProbe(width: 7680, height: 4320, main10: false)
-        result.supportsMain10 = encoderProbe(width: 3840, height: 2160, main10: true)
+        result.supports4KHEVCEncode = await encoderProbe(width: 3840, height: 2160, main10: false)
+        result.supports8KHEVCEncode = await encoderProbe(width: 7680, height: 4320, main10: false)
+        result.supportsMain10 = await encoderProbe(width: 3840, height: 2160, main10: true)
         if result.supports8KHEVCEncode { result.maximumSafeOutputSize = CGSize(width: 7680, height: 4320) }
         else if result.supports4KHEVCEncode { result.maximumSafeOutputSize = CGSize(width: 3840, height: 2160) }
         return result
     }
 
-    private func encoderProbe(width: Int32, height: Int32, main10: Bool) -> Bool {
+    private func encoderProbe(width: Int32, height: Int32, main10: Bool) async -> Bool {
+        await Task.detached(priority: .utility) {
+            Self.runEncoderProbe(width: width, height: height, main10: main10)
+        }.value
+    }
+
+    nonisolated private static func runEncoderProbe(width: Int32, height: Int32, main10: Bool) -> Bool {
+        #if targetEnvironment(simulator)
+        return false
+        #else
+        let context = EncoderProbeContext()
         var session: VTCompressionSession?
-        let specification = [kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true] as CFDictionary
+        let specification = [kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder as String: true] as CFDictionary
         let status = VTCompressionSessionCreate(
-            allocator: kCFAllocatorDefault,
-            width: width,
-            height: height,
-            codecType: kCMVideoCodecType_HEVC,
-            encoderSpecification: specification,
-            imageBufferAttributes: nil,
-            compressedDataAllocator: nil,
-            outputCallback: nil,
-            refcon: nil,
+            allocator: kCFAllocatorDefault, width: width, height: height,
+            codecType: kCMVideoCodecType_HEVC, encoderSpecification: specification,
+            imageBufferAttributes: nil, compressedDataAllocator: nil,
+            outputCallback: { refcon, _, status, _, sampleBuffer in
+                guard let refcon else { return }
+                Unmanaged<EncoderProbeContext>.fromOpaque(refcon).takeUnretainedValue()
+                    .record(status: status, sampleBuffer: sampleBuffer)
+            },
+            refcon: Unmanaged.passUnretained(context).toOpaque(),
             compressionSessionOut: &session
         )
         guard status == noErr, let session else { return false }
         defer { VTCompressionSessionInvalidate(session) }
         if main10 {
-            let profile = kVTProfileLevel_HEVC_Main10_AutoLevel
-            guard VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: profile) == noErr else { return false }
+            guard VTSessionSetProperty(session, key: kVTCompressionPropertyKey_ProfileLevel, value: kVTProfileLevel_HEVC_Main10_AutoLevel) == noErr else { return false }
         }
-        return VTCompressionSessionPrepareToEncodeFrames(session) == noErr
+        guard VTCompressionSessionPrepareToEncodeFrames(session) == noErr else { return false }
+        let pixelFormat = main10 ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let attributes = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()] as CFDictionary
+        var frame: CVPixelBuffer?
+        guard CVPixelBufferCreate(kCFAllocatorDefault, Int(width), Int(height), pixelFormat, attributes, &frame) == kCVReturnSuccess, let frame else { return false }
+        for index in 0..<3 {
+            let timestamp = CMTime(value: CMTimeValue(index), timescale: 30)
+            guard VTCompressionSessionEncodeFrame(session, imageBuffer: frame, presentationTimeStamp: timestamp, duration: CMTime(value: 1, timescale: 30), frameProperties: nil, sourceFrameRefcon: nil, infoFlagsOut: nil) == noErr else { return false }
+        }
+        guard VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid) == noErr else { return false }
+        return context.semaphore.wait(timeout: .now() + 15) == .success && !context.failed && context.completedFrames == 3
+        #endif
     }
 }
 

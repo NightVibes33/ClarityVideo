@@ -18,20 +18,32 @@ final class AppState {
     var isImporting = false
     var showDiagnostics = false
     var diagnosticStatus = "Not run"
+    var lastSuccessfulSelfTest: Date?
+    var thermalTransitions: [String] = []
+    var comparisonPreview: ComparisonPreview?
+    var previewProgress = 0.0
+    var outputBytesSoFar: Int64 = 0
+    var isGeneratingPreview = false
     var isPreparingModel = false
     private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
     let backgroundExecution = BackgroundExecutionManager()
+    let previewCoordinator = ComparisonPreviewCoordinator()
 
     init() {
         recentJobs = JobHistoryStore.load()
+        if let snapshot = CapabilitySnapshotStore.loadForCurrentOS() {
+            capabilities = snapshot.capabilities
+            lastSuccessfulSelfTest = snapshot.lastSuccessfulSelfTest
+        }
         Task { await refreshCapabilities() }
     }
 
     func refreshCapabilities() async {
         capabilities = await capabilityDetector.detect()
         if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
+        CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
     }
 
     func importVideo(from url: URL) async {
@@ -48,6 +60,30 @@ final class AppState {
         }
     }
 
+    func generateComparisonPreview() {
+        guard let importedURL, let assetInfo else { return }
+        isGeneratingPreview = true
+        previewProgress = 0
+        Task {
+            defer { isGeneratingPreview = false }
+            do {
+                try StorageEstimator.validate(info: assetInfo, configuration: configuration)
+                comparisonPreview = try await previewCoordinator.generate(
+                    sourceURL: importedURL, sourceInfo: assetInfo, configuration: configuration
+                ) { [weak self] progress in
+                    Task { @MainActor in self?.previewProgress = progress }
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func cancelComparisonPreview() {
+        previewCoordinator.cancel()
+        isGeneratingPreview = false
+    }
+
     func beginExport() {
         pauseRequested = false
         guard let importedURL, let assetInfo else { return }
@@ -58,6 +94,7 @@ final class AppState {
         if SegmentPlan.requiresSegmentation(duration: assetInfo.duration, configuration: configuration) {
             job.segmentCount = SegmentPlan.segments(duration: assetInfo.duration).count
         }
+        outputBytesSoFar = 0
         activeJob = job
         route = .processing
         backgroundExecution.begin { [weak self] in self?.pauseExport() }
@@ -71,7 +108,9 @@ final class AppState {
                 guard configuration.resolution != .uhd8K || capabilities.supports8KHEVCEncode else {
                     throw AppError.unsupported("8K is hidden until this device passes the hardware encoder probe.")
                 }
-                var completed = try await engine.process(job: job) { [weak self] progress in
+                var completed = try await engine.process(
+                    job: job,
+                    progress: { [weak self] progress in
                     Task { @MainActor in
                         self?.activeJob?.progress = progress
                         if let count = self?.activeJob?.segmentCount, count > 1 {
@@ -81,7 +120,11 @@ final class AppState {
                             self?.activeJob?.processedFrames = min(total, Int(progress * Double(total)))
                         }
                     }
-                }
+                },
+                    outputBytes: { [weak self] bytes in
+                        Task { @MainActor in self?.outputBytesSoFar = bytes }
+                    }
+                )
                 completed.processingDuration = Date().timeIntervalSince(job.createdAt)
                 activeJob = completed
                 recentJobs.insert(completed, at: 0)
@@ -129,6 +172,8 @@ final class AppState {
             if let uv = CVPixelBufferGetBaseAddressOfPlane(source, 1) { memset(uv, 128, CVPixelBufferGetBytesPerRowOfPlane(source, 1) * 360) }
             CVPixelBufferUnlockBaseAddress(source, [])
             let output = try await AppleFrameProcessorService().processFullQuality(source: source, presentationTime: .zero, scaleFactor: scale, sequential: false)
+            lastSuccessfulSelfTest = Date()
+            CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
             diagnosticStatus = "Passed: 1280x720 -> " + String(CVPixelBufferGetWidth(output)) + "x" + String(CVPixelBufferGetHeight(output)) + " with Apple SR"
             await refreshCapabilities()
         } catch {
@@ -138,6 +183,17 @@ final class AppState {
         }
     }
 
+
+    func recordThermalTransition() {
+        let state = String(describing: ProcessInfo.processInfo.thermalState)
+        thermalTransitions.append(Date().formatted(date: .omitted, time: .standard) + " " + state)
+    }
+
+    func handleMemoryPressure() {
+        guard route == .processing else { return }
+        errorMessage = "Processing was paused because iOS reported memory pressure. Completed checkpoints were preserved."
+        pauseExport()
+    }
 
     func pauseExport() {
         pauseRequested = true
@@ -153,9 +209,20 @@ final class AppState {
         beginExport()
     }
 
+    func deleteActiveOutput() {
+        guard let job = activeJob else { return }
+        if let url = job.outputURL { try? FileManager.default.removeItem(at: url) }
+        recentJobs.removeAll { $0.id == job.id }
+        JobHistoryStore.save(recentJobs)
+        activeJob = nil
+        route = .home
+    }
+
     func clearProcessingCache() {
         do {
             try ProcessingCache.clear()
+            let previews = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ComparisonPreviews", isDirectory: true)
+            try? FileManager.default.removeItem(at: previews)
             diagnosticStatus = "Processing cache cleared"
         } catch {
             errorMessage = error.localizedDescription

@@ -26,7 +26,7 @@ final class AIAssetReaderWriterPipeline {
         temporalDenoiser?.cancel()
     }
 
-    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
+    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void, outputBytes: @escaping @Sendable (Int64) -> Void = { _ in }) async throws -> ProcessingJob {
         #if targetEnvironment(simulator)
         throw AppleFrameProcessorError.unavailable
         #else
@@ -208,6 +208,10 @@ final class AIAssetReaderWriterPipeline {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
             frameIndex += 1
+            if frameIndex % 15 == 0 {
+                let bytes = (try? temporaryVideo.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+                outputBytes(bytes)
+            }
             result.processedFrames = frameIndex
             progress(min(0.92, Double(frameIndex) / Double(totalFrames) * 0.92))
         }
@@ -228,6 +232,7 @@ final class AIAssetReaderWriterPipeline {
             info: job.assetInfo, configuration: job.configuration
         )
         try? FileManager.default.removeItem(at: temporaryVideo)
+        outputBytes(Int64((try? finalURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
         progress(1)
         result.outputURL = finalURL
         result.progress = 1

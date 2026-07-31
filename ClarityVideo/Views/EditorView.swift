@@ -48,11 +48,25 @@ struct EditorView: View {
                     }.padding(.top, 8)
                 }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
 
+                Button { state.generateComparisonPreview() } label: {
+                    Label(state.isGeneratingPreview ? "Building preview \(Int(state.previewProgress * 100))%" : "Generate 3-second AI comparison", systemImage: "rectangle.split.2x1")
+                        .frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered).controlSize(.large)
+                    .disabled(state.isGeneratingPreview || (!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable))
                 Button { state.beginExport() } label: {
                     Label("Enhance on this device", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable)
             }.padding()
+        }
+        .sheet(item: $state.comparisonPreview) { preview in
+            NavigationStack {
+                VStack {
+                    ComparisonPlaybackView(beforeURL: preview.sourceURL, afterURL: preview.enhancedURL)
+                    LabeledContent("Preview processing", value: String(format: "%.1f s", preview.previewProcessingDuration))
+                    LabeledContent("Estimated full export", value: String(format: "%.1f min", preview.estimatedFullDuration / 60))
+                }.padding().navigationTitle("AI Comparison")
+            }
         }
         .navigationTitle("Video setup")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { state.route = .home } } }
@@ -90,6 +104,7 @@ struct ProcessingView: View {
                 VStack(spacing: 4) {
                     if job.segmentCount > 1 { Text("Segment \(max(1, job.currentSegment)) of \(job.segmentCount)") }
                     Text("\(job.processedFrames) of \(job.totalFrames) frames")
+                    Text("Output so far: \(ByteCountFormatter.string(fromByteCount: state.outputBytesSoFar, countStyle: .file))")
                     if job.processedFrames > 0 {
                         Text(String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, Date().timeIntervalSince(job.createdAt))))
                     }
@@ -144,6 +159,9 @@ struct ResultsView: View {
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(saving)
                     ShareLink(item: url) { Label("Save to Files or Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
                         .buttonStyle(.bordered).controlSize(.large)
+                    Button(role: .destructive) { state.deleteActiveOutput() } label: {
+                        Label("Delete output", systemImage: "trash").frame(maxWidth: .infinity)
+                    }.buttonStyle(.bordered).controlSize(.large)
                 }
                 Button("Enhance another video") { state.route = .home }
             }.padding()
@@ -155,6 +173,7 @@ struct ComparisonPlaybackView: View {
     @State private var beforePlayer: AVPlayer
     @State private var afterPlayer: AVPlayer
     @State private var reveal = 0.5
+    @State private var zoom = 1.0
 
     init(beforeURL: URL, afterURL: URL) {
         let before = AVPlayer(url: beforeURL)
@@ -174,18 +193,30 @@ struct ComparisonPlaybackView: View {
                     Rectangle().fill(.white.opacity(0.9)).frame(width: 2)
                         .offset(x: geometry.size.width * reveal)
                 }
+                .scaleEffect(zoom)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .allowsHitTesting(false)
             }
             .frame(height: 230)
             HStack { Text("Before"); Slider(value: $reveal, in: 0...1); Text("After") }
                 .font(.caption.bold())
+            Picker("Zoom", selection: $zoom) {
+                Text("100%").tag(1.0)
+                Text("200%").tag(2.0)
+                Text("400%").tag(4.0)
+            }.pickerStyle(.segmented)
         }
         .onAppear {
             beforePlayer.seek(to: .zero)
             afterPlayer.seek(to: .zero)
             beforePlayer.play()
             afterPlayer.play()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: beforePlayer.currentItem)) { _ in
+            beforePlayer.seek(to: .zero); beforePlayer.play()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: afterPlayer.currentItem)) { _ in
+            afterPlayer.seek(to: .zero); afterPlayer.play()
         }
         .onDisappear {
             beforePlayer.pause()

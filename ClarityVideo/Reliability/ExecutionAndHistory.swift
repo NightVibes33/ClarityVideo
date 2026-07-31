@@ -77,3 +77,36 @@ enum ProcessingCache {
         }
     }
 }
+
+struct CapabilitySnapshot: Codable, Sendable {
+    var generatedAt: Date
+    var osVersion: String
+    var capabilities: DeviceEnhancementCapabilities
+    var lastSuccessfulSelfTest: Date?
+}
+
+enum CapabilitySnapshotStore {
+    private static var url: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("capability-snapshot.json")
+    }
+
+    static func loadForCurrentOS() -> CapabilitySnapshot? {
+        guard let data = try? Data(contentsOf: url),
+              let snapshot = try? JSONDecoder().decode(CapabilitySnapshot.self, from: data),
+              snapshot.osVersion == ProcessInfo.processInfo.operatingSystemVersionString else { return nil }
+        return snapshot
+    }
+
+    static func save(capabilities: DeviceEnhancementCapabilities, lastSuccessfulSelfTest: Date?) {
+        let snapshot = CapabilitySnapshot(
+            generatedAt: Date(),
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            capabilities: capabilities,
+            lastSuccessfulSelfTest: lastSuccessfulSelfTest
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: .atomic)
+    }
+}

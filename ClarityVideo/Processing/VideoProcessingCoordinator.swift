@@ -9,15 +9,15 @@ final class VideoProcessingCoordinator {
     private let aiPipeline = AIAssetReaderWriterPipeline()
     private lazy var segmentedPipeline = SegmentedProcessingCoordinator(aiPipeline: aiPipeline)
 
-    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
+    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void, outputBytes: @escaping @Sendable (Int64) -> Void = { _ in }) async throws -> ProcessingJob {
         var result = job
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
         if AppleFrameProcessorService.probe().fullSupported || AppleFrameProcessorService.probe().lowLatencySupported {
             if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {
-                return try await segmentedPipeline.process(job: job, progress: progress)
+                return try await segmentedPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
             }
-            return try await aiPipeline.process(job: job, progress: progress)
+            return try await aiPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
         }
 
         let asset = AVURLAsset(url: job.sourceURL)
@@ -35,6 +35,7 @@ final class VideoProcessingCoordinator {
         progressTask = Task {
             while !Task.isCancelled {
                 progress(Double(session.progress))
+                outputBytes(Int64((try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
                 try? await Task.sleep(for: .milliseconds(250))
             }
         }

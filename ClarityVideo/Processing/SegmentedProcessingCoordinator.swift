@@ -54,7 +54,7 @@ final class SegmentedProcessingCoordinator {
         inProgressURLs.removeAll()
     }
 
-    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
+    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void, outputBytes: @escaping @Sendable (Int64) -> Void = { _ in }) async throws -> ProcessingJob {
         cancelled = false
         guard let finalURL = job.outputURL else { throw AppError.exportFailed("Missing segmented output destination.") }
         let segments = SegmentPlan.segments(duration: job.assetInfo.duration)
@@ -72,6 +72,7 @@ final class SegmentedProcessingCoordinator {
         )
         let folder = try segmentFolder(checkpointID: checkpoint.jobID)
         var completedFiles: [URL] = []
+        var completedBytes: Int64 = 0
 
         for segment in segments {
             if cancelled { throw CancellationError() }
@@ -81,6 +82,8 @@ final class SegmentedProcessingCoordinator {
                FileManager.default.fileExists(atPath: existing.path) {
                 if await validateEnhancedSegment(existing, segment: segment, job: job) {
                     completedFiles.append(existing)
+                    completedBytes += Int64((try? existing.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                    outputBytes(completedBytes)
                     progress(Double(segment.index + 1) / Double(segments.count) * 0.94)
                     continue
                 }
@@ -118,10 +121,15 @@ final class SegmentedProcessingCoordinator {
                 errorMessage: nil,
                 createdAt: job.createdAt
             )
-            segmentJob = try await aiPipeline.process(job: segmentJob) { local in
-                let overall = (Double(segment.index) + local) / Double(segments.count)
-                progress(min(0.94, overall * 0.94))
-            }
+            let segmentBaseBytes = completedBytes
+            segmentJob = try await aiPipeline.process(
+                job: segmentJob,
+                progress: { local in
+                    let overall = (Double(segment.index) + local) / Double(segments.count)
+                    progress(min(0.94, overall * 0.94))
+                },
+                outputBytes: { localBytes in outputBytes(segmentBaseBytes + localBytes) }
+            )
             guard segmentJob.status == .completed, FileManager.default.fileExists(atPath: enhanced.path) else {
                 throw AppError.exportFailed("Enhanced segment " + String(segment.index + 1) + " did not complete.")
             }
@@ -135,6 +143,8 @@ final class SegmentedProcessingCoordinator {
             checkpoint.updatedAt = Date()
             try await checkpointStore.save(checkpoint)
             completedFiles.append(enhanced)
+            completedBytes += Int64((try? enhanced.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            outputBytes(completedBytes)
         }
 
         guard completedFiles.count == segments.count else {
@@ -146,6 +156,7 @@ final class SegmentedProcessingCoordinator {
             outputURL: finalURL, sourceURL: job.sourceURL,
             info: job.assetInfo, configuration: job.configuration
         )
+        outputBytes(Int64((try? finalURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
         progress(1)
 
         var result = job

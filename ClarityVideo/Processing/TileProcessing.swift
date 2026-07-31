@@ -181,6 +181,8 @@ final class TiledAppleSRProcessor {
     private let frameProcessor = AppleFrameProcessorService()
     private let assembler: MetalTileAssembler
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
+    private let sourceTilePool: CVPixelBufferPool
+    private let blendTilePool: CVPixelBufferPool
 
     init(sourceWidth: Int, sourceHeight: Int, tileWidth: Int, tileHeight: Int, overlap: Int, scale: Int) throws {
         self.sourceWidth = sourceWidth
@@ -193,6 +195,8 @@ final class TiledAppleSRProcessor {
             frameWidth: sourceWidth, frameHeight: sourceHeight,
             tileWidth: tileWidth, tileHeight: tileHeight, overlap: overlap
         )
+        self.sourceTilePool = try Self.makePool(width: self.tileWidth, height: self.tileHeight, pixelFormat: kCVPixelFormatType_32BGRA)
+        self.blendTilePool = try Self.makePool(width: self.tileWidth * scale, height: self.tileHeight * scale, pixelFormat: kCVPixelFormatType_32BGRA)
         self.assembler = try MetalTileAssembler()
     }
 
@@ -237,18 +241,30 @@ final class TiledAppleSRProcessor {
     func cancel() { frameProcessor.cancel() }
     func endSession() { frameProcessor.endSession() }
 
-    private func makeBlendableTile(from source: CVPixelBuffer, detailRecovery: Double, sharpening: Double) throws -> CVPixelBuffer {
-        let width = CVPixelBufferGetWidth(source)
-        let height = CVPixelBufferGetHeight(source)
+    private static func makePool(width: Int, height: Int, pixelFormat: OSType) throws -> CVPixelBufferPool {
         let attributes: [String: Any] = [
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
             kCVPixelBufferMetalCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
         ]
-        var output: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
-            attributes as CFDictionary, &output
+        var pool: CVPixelBufferPool?
+        let status = CVPixelBufferPoolCreate(
+            kCFAllocatorDefault, [kCVPixelBufferPoolMinimumBufferCountKey as String: 1] as CFDictionary,
+            attributes as CFDictionary, &pool
         )
+        guard status == kCVReturnSuccess, let pool else {
+            throw AppleFrameProcessorError.pixelBufferCreation(status)
+        }
+        return pool
+    }
+
+    private func makeBlendableTile(from source: CVPixelBuffer, detailRecovery: Double, sharpening: Double) throws -> CVPixelBuffer {
+        let width = CVPixelBufferGetWidth(source)
+        let height = CVPixelBufferGetHeight(source)
+        var output: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, blendTilePool, &output)
         guard status == kCVReturnSuccess, let output else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
@@ -275,15 +291,8 @@ final class TiledAppleSRProcessor {
     }
 
     private func makeSourceTile(from source: CVPixelBuffer, region: TileRegion) throws -> CVPixelBuffer {
-        let attributes: [String: Any] = [
-            kCVPixelBufferMetalCompatibilityKey as String: true,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
-        ]
         var tile: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault, tileWidth, tileHeight, kCVPixelFormatType_32BGRA,
-            attributes as CFDictionary, &tile
-        )
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, sourceTilePool, &tile)
         guard status == kCVReturnSuccess, let tile else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
