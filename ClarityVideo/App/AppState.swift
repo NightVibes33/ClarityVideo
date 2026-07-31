@@ -18,6 +18,9 @@ final class AppState {
     var recentJobs: [ProcessingJob] = []
     var errorMessage: String?
     var isImporting = false
+    var importStatus: String?
+    var lastImportError: String?
+    var lastImportedSummary: String?
     var showDiagnostics = false
     var diagnosticStatus = "Not run"
     var lastSuccessfulSelfTest: Date?
@@ -50,17 +53,30 @@ final class AppState {
         if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
         CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
     }
-
-    func importVideo(from url: URL) async {
+    func importVideo(from url: URL, sourceLabel: String = "video") async {
+        lastImportError = nil
         isImporting = true
-        defer { isImporting = false }
+        importStatus = "Copying " + sourceLabel + " into Clarity..."
+        var copiedURL: URL?
+        defer {
+            isImporting = false
+            importStatus = nil
+        }
         do {
             let localURL = try SecurityScopedFileManager.copyToWorkspace(url)
+            copiedURL = localURL
+            importStatus = "Reading video tracks and metadata..."
             let info = try await AssetInspector.inspect(localURL)
+            guard info.duration > 0, info.encodedWidth > 0, info.encodedHeight > 0 else {
+                throw AppError.importFailedReason("The selected video has invalid dimensions or duration.")
+            }
+            lastImportedSummary = info.fileName + " " + info.resolutionText + " " + info.durationText
             importedURL = localURL
             assetInfo = info
             route = .editor
         } catch {
+            if let copiedURL { try? FileManager.default.removeItem(at: copiedURL) }
+            lastImportError = error.localizedDescription
             errorMessage = error.localizedDescription
         }
     }

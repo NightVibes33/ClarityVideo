@@ -8,11 +8,10 @@ import UIKit
 struct PickedMovie: Transferable {
     let url: URL
     static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(contentType: .movie) { movie in
-            SentTransferredFile(movie.url)
-        } importing: { received in
+        FileRepresentation(importedContentType: .movie) { received in
+            let originalName = received.file.lastPathComponent.isEmpty ? "PhotosVideo.mov" : received.file.lastPathComponent
             let destination = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString + "-" + received.file.lastPathComponent)
+                .appendingPathComponent(UUID().uuidString + "-" + originalName)
             try FileManager.default.copyItem(at: received.file, to: destination)
             return Self(url: destination)
         }
@@ -75,11 +74,13 @@ struct HomeView: View {
                         Label("Choose from Photos", systemImage: "photo.on.rectangle")
                             .frame(maxWidth: .infinity)
                     }
+                    .disabled(state.isImporting)
                     .buttonStyle(.borderedProminent).controlSize(.large)
                     Button { showingFiles = true } label: {
                         Label("Choose from Files", systemImage: "folder")
                             .frame(maxWidth: .infinity)
                     }
+                    .disabled(state.isImporting)
                     .buttonStyle(.bordered).controlSize(.large)
                 }
 
@@ -110,20 +111,39 @@ struct HomeView: View {
             }.padding()
         }
         .navigationBarHidden(true)
-        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie]) { result in
-            if case let .success(url) = result { Task { await state.importVideo(from: url) } }
-            if case let .failure(error) = result { state.errorMessage = error.localizedDescription }
+        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
+            if case let .success(url) = result { Task { await state.importVideo(from: url, sourceLabel: "file") } }
+            if case let .failure(error) = result { state.lastImportError = error.localizedDescription; state.errorMessage = error.localizedDescription }
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
-            Task {
+            state.isImporting = true
+            state.importStatus = "Requesting the selected Photos video..."
+            Task { @MainActor in
+                defer {
+                    photoItem = nil
+                    if state.route != .editor {
+                        state.isImporting = false
+                        state.importStatus = nil
+                    }
+                }
                 do {
-                    guard let movie = try await item.loadTransferable(type: PickedMovie.self) else { throw AppError.importFailed }
-                    await state.importVideo(from: movie.url)
-                } catch { state.errorMessage = error.localizedDescription }
+                    guard let movie = try await item.loadTransferable(type: PickedMovie.self) else {
+                        throw AppError.importFailedReason("Photos did not provide a transferable movie file.")
+                    }
+                    await state.importVideo(from: movie.url, sourceLabel: "Photos video")
+                } catch {
+                    state.lastImportError = error.localizedDescription
+                    state.errorMessage = error.localizedDescription
+                }
             }
         }
-        .overlay { if state.isImporting { ProgressView("Analyzing video\u{2026}").padding(28).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)) } }
+        .overlay {
+            if state.isImporting {
+                ProgressView(state.importStatus ?? "Importing video...")
+                    .padding(28).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            }
+        }
     }
 }
 

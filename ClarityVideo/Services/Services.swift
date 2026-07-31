@@ -3,16 +3,19 @@ import AVFoundation
 import VideoToolbox
 import Photos
 import UIKit
+import Darwin
 
 enum AppError: LocalizedError {
     case noVideoTrack
     case importFailed
+    case importFailedReason(String)
     case insufficientStorage(required: Int64, available: Int64)
     case unsupported(String)
     case exportFailed(String)
     var errorDescription: String? {
         switch self {
         case .noVideoTrack: "The selected file has no readable video track."
+        case let .importFailedReason(message): "Video import failed: " + message
         case .importFailed: "The selected video could not be copied into the private workspace."
         case let .insufficientStorage(required, available): "Not enough free storage. Required \(ByteCountFormatter.string(fromByteCount: required, countStyle: .file)); available \(ByteCountFormatter.string(fromByteCount: available, countStyle: .file))."
         case let .unsupported(message): message
@@ -28,13 +31,30 @@ enum SecurityScopedFileManager {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Imports", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let destination = folder.appendingPathComponent(UUID().uuidString + "-" + source.lastPathComponent)
-        do {
-            try FileManager.default.copyItem(at: source, to: destination)
-            return destination
-        } catch {
-            throw AppError.importFailed
+        let originalName = source.lastPathComponent.isEmpty ? "Video.mov" : source.lastPathComponent
+        let destination = folder.appendingPathComponent(UUID().uuidString + "-" + originalName)
+        let coordinator = NSFileCoordinator()
+        var coordinationError: NSError?
+        var copyError: Error?
+        coordinator.coordinate(readingItemAt: source, options: [], error: &coordinationError) { readableURL in
+            do {
+                try FileManager.default.copyItem(at: readableURL, to: destination)
+            } catch {
+                copyError = error
+            }
         }
+        if let coordinationError {
+            throw AppError.importFailedReason("The file provider could not make the video available (" + coordinationError.localizedDescription + ").")
+        }
+        if let copyError {
+            throw AppError.importFailedReason("The selected file could not be copied (" + copyError.localizedDescription + ").")
+        }
+        guard FileManager.default.fileExists(atPath: destination.path),
+              let size = try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0 else {
+            try? FileManager.default.removeItem(at: destination)
+            throw AppError.importFailedReason("The copied video was empty or unavailable.")
+        }
+        return destination
     }
 }
 
@@ -112,6 +132,7 @@ private final class EncoderProbeContext: @unchecked Sendable {
             }
         }
     }
+
     func encodedAllFrames() -> Bool { lock.withLock { !failed && completedFrames == 3 } }
 
 
@@ -132,9 +153,18 @@ private final class EncoderProbeContext: @unchecked Sendable {
 
 @MainActor
 final class CapabilityDetector {
+    nonisolated private static func hardwareIdentifier() -> String {
+        var info = utsname()
+        guard uname(&info) == 0 else { return "Unknown iPhone" }
+        return withUnsafeBytes(of: &info.machine) { bytes in
+            guard let base = bytes.bindMemory(to: CChar.self).baseAddress else { return "Unknown iPhone" }
+            return String(cString: base)
+        }
+    }
+
     func detect() async -> DeviceEnhancementCapabilities {
         var result = DeviceEnhancementCapabilities()
-        result.deviceModel = UIDevice.current.model
+        result.deviceModel = Self.hardwareIdentifier()
         let appleProbe = AppleFrameProcessorService.probe()
         result.fullSuperResolutionAvailable = appleProbe.fullSupported
         result.lowLatencySuperResolutionAvailable = appleProbe.lowLatencySupported

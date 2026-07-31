@@ -22,6 +22,8 @@ struct DiagnosticsView: View {
                 DiagnosticRow("Full scales", state.capabilities.supportedFullScaleFactors.map(String.init).joined(separator: ", "))
                 DiagnosticRow("1080p low-latency scales", state.capabilities.supportedLowLatency1080pScaleFactors.map { String($0) }.joined(separator: ", "))
                 DiagnosticRow("Maximum tested tile", "960x540")
+                DiagnosticRow("Last imported video", state.lastImportedSummary ?? "None")
+                DiagnosticRow("Last import error", state.lastImportError ?? "None")
                 DiagnosticRow("720p low-latency scales", state.capabilities.supportedLowLatencyScaleFactors.map { String($0) }.joined(separator: ", "))
                 DiagnosticRow("Revisions", state.capabilities.supportedProcessorRevisions.map(String.init).joined(separator: ", "))
                 DiagnosticRow("Source pixel formats", state.capabilities.sourcePixelFormats.map { String(format: "0x%08X", $0) }.joined(separator: ", "))
@@ -77,7 +79,7 @@ struct DiagnosticsView: View {
         let report = DiagnosticReport(
             capabilities: state.capabilities,
             configurationAttempts: ["4K HEVC hardware session", "8K HEVC hardware session", "Main10 profile"],
-            exactErrors: state.capabilities.lastProbeError.map { [$0] } ?? [],
+            exactErrors: [state.capabilities.lastProbeError, state.lastImportError].compactMap { $0 },
             processorRevision: state.capabilities.defaultProcessorRevision.map(String.init),
             modelStatus: state.capabilities.modelReadiness.rawValue,
             encoderResults: ["4K": state.capabilities.supports4KHEVCEncode, "8K": state.capabilities.supports8KHEVCEncode, "Main10": state.capabilities.supportsMain10],
