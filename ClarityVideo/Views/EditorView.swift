@@ -34,6 +34,10 @@ struct EditorView: View {
                         ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
                     }
                     Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...240, step: 5)
+                    LabeledContent("Codec", value: "HEVC (hardware)")
+                    if let info = state.assetInfo {
+                        LabeledContent("Estimated output", value: ByteCountFormatter.string(fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration), countStyle: .file))
+                    }
                 }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
 
                 DisclosureGroup("How this export is produced") {
@@ -86,6 +90,9 @@ struct ProcessingView: View {
                 VStack(spacing: 4) {
                     if job.segmentCount > 1 { Text("Segment \(max(1, job.currentSegment)) of \(job.segmentCount)") }
                     Text("\(job.processedFrames) of \(job.totalFrames) frames")
+                    if job.processedFrames > 0 {
+                        Text(String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, Date().timeIntervalSince(job.createdAt))))
+                    }
                 }.font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
             }
             VStack(spacing: 6) {
@@ -119,6 +126,10 @@ struct ResultsView: View {
                         LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
                         LabeledContent("Codec", value: "HEVC")
                         LabeledContent("Frames", value: "\(job.processedFrames)")
+                        if let duration = job.processingDuration {
+                            LabeledContent("Processing time", value: String(format: "%.1f min", duration / 60))
+                            LabeledContent("Average speed", value: String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, duration)))
+                        }
                         if let bytes = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
                             LabeledContent("Output size", value: ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
                         }

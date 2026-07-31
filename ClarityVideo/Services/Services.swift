@@ -124,8 +124,11 @@ final class CapabilityDetector {
 }
 
 enum StorageEstimator {
+    static func estimatedOutputBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
+        Int64(Double(configuration.bitrateMbps) * 1_000_000 / 8 * info.duration)
+    }
     static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
-        let output = Int64(Double(configuration.bitrateMbps) * 1_000_000 / 8 * info.duration)
+        let output = estimatedOutputBytes(info: info, configuration: configuration)
         let temporary = configuration.resolution == .uhd8K ? output / 2 : output / 4
         return output + temporary + 1_000_000_000
     }

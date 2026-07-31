@@ -71,7 +71,7 @@ final class AppState {
                 guard configuration.resolution != .uhd8K || capabilities.supports8KHEVCEncode else {
                     throw AppError.unsupported("8K is hidden until this device passes the hardware encoder probe.")
                 }
-                let completed = try await engine.process(job: job) { [weak self] progress in
+                var completed = try await engine.process(job: job) { [weak self] progress in
                     Task { @MainActor in
                         self?.activeJob?.progress = progress
                         if let count = self?.activeJob?.segmentCount, count > 1 {
@@ -82,6 +82,7 @@ final class AppState {
                         }
                     }
                 }
+                completed.processingDuration = Date().timeIntervalSince(job.createdAt)
                 activeJob = completed
                 recentJobs.insert(completed, at: 0)
                 JobHistoryStore.save(recentJobs)

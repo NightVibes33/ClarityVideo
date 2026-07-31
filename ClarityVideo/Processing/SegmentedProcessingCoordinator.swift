@@ -107,6 +107,7 @@ final class SegmentedProcessingCoordinator {
                 totalFrames: max(1, Int(segment.durationSeconds * job.assetInfo.frameRate)),
                 currentSegment: segment.index + 1,
                 segmentCount: segments.count,
+                processingDuration: nil,
                 errorMessage: nil,
                 createdAt: job.createdAt
             )

@@ -145,4 +145,10 @@ extension ClarityVideoTests {
         configuration.applyPreset(.restore, temporalDenoiseAvailable: false)
         XCTAssertEqual(configuration.denoise, 0)
     }
+    func testOutputEstimateUsesSelectedBitrateAndDuration() {
+        let info = VideoAssetInfo(fileName: "x.mov", encodedWidth: 1280, encodedHeight: 720, displayWidth: 1280, displayHeight: 720, frameRate: 30, codec: "hvc1", isHDR: false, duration: 8, estimatedSourceBytes: 1)
+        var configuration = ExportConfiguration()
+        configuration.bitrateMbps = 50
+        XCTAssertEqual(StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration), 50_000_000)
+    }
 }

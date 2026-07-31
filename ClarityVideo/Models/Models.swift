@@ -118,6 +118,7 @@ struct ProcessingJob: Codable, Identifiable, Sendable {
     var totalFrames = 0
     var currentSegment = 0
     var segmentCount = 1
+    var processingDuration: Double?
     var errorMessage: String?
     var createdAt = Date()
 }
