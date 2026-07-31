@@ -110,6 +110,9 @@ final class AppState {
                 if assetInfo.isHDR && configuration.hdrBehavior == .preserve {
                     throw AppError.unsupported("Verified HDR preservation is not available yet for this AI path. Choose Convert to SDR; Clarity will not silently strip HDR metadata.")
                 }
+                if assetInfo.isHDR && configuration.hdrBehavior == .convertToSDR && configuration.resolution == .uhd8K {
+                    throw AppError.unsupported("8K HDR-to-SDR export is disabled until its memory-safe tone-map path passes physical-device validation. Use 4K SDR conversion.")
+                }
                 guard configuration.resolution != .uhd8K || capabilities.supports8KHEVCEncode else {
                     throw AppError.unsupported("8K is hidden until this device passes the hardware encoder probe.")
                 }

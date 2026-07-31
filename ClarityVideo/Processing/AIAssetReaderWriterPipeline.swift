@@ -171,7 +171,7 @@ final class AIAssetReaderWriterPipeline {
         var frameIndex = 0
         var sceneCutDetector = SceneCutDetector()
         let totalFrames = max(1, result.totalFrames)
-        let writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize
+        let writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize && !(job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR)
         while let sample = trackOutput.copyNextSampleBuffer() {
             if cancelled { throw CancellationError() }
             try Task.checkCancellation()
@@ -203,7 +203,7 @@ final class AIAssetReaderWriterPipeline {
             }
             let outputBuffer = writesTiledFramesDirectly
                 ? aiBuffer
-                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration)
+                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration, sourceIsHDR: job.assetInfo.isHDR)
             guard adaptor.append(outputBuffer, withPresentationTime: timestamp) else {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
@@ -258,7 +258,8 @@ final class AIAssetReaderWriterPipeline {
         from source: CVPixelBuffer,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
         size: CGSize,
-        configuration: ExportConfiguration
+        configuration: ExportConfiguration,
+        sourceIsHDR: Bool
     ) throws -> CVPixelBuffer {
         guard let pool = adaptor.pixelBufferPool else {
             throw AppError.exportFailed("The encoder pixel-buffer pool is unavailable.")
@@ -291,11 +292,26 @@ final class AIAssetReaderWriterPipeline {
             sharpening.sharpness = Float(configuration.sharpening * 0.8)
             if let output = sharpening.outputImage { processed = output }
         }
+        if sourceIsHDR && configuration.hdrBehavior == .convertToSDR {
+            guard let toneMap = CIFilter(name: "CIToneMapHeadroom") else {
+                throw AppError.unsupported("The system SDR tone-map filter is unavailable on this device.")
+            }
+            toneMap.setValue(processed, forKey: kCIInputImageKey)
+            toneMap.setValue(4.0, forKey: "inputSourceHeadroom")
+            toneMap.setValue(1.0, forKey: "inputTargetHeadroom")
+            guard let toneMapped = toneMap.outputImage else {
+                throw AppError.exportFailed("HDR-to-SDR tone mapping did not produce a frame.")
+            }
+            processed = toneMapped
+        }
+        let renderColorSpace = sourceIsHDR && configuration.hdrBehavior == .convertToSDR
+            ? CGColorSpace(name: CGColorSpace.sRGB)
+            : image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
         ciContext.render(
             processed,
             to: output,
             bounds: CGRect(origin: .zero, size: size),
-            colorSpace: image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
+            colorSpace: renderColorSpace
         )
         return output
     }
