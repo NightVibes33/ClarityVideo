@@ -13,7 +13,7 @@ final class VideoProcessingCoordinator {
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
         try? FileManager.default.removeItem(at: outputURL)
-n        if AppleFrameProcessorService.probe().fullSupported {
+        if AppleFrameProcessorService.probe().fullSupported {
             return try await aiPipeline.process(job: job, progress: progress)
         }
 
@@ -45,17 +45,11 @@ n        if AppleFrameProcessorService.probe().fullSupported {
             try await session.export(to: outputURL, as: .mov)
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
-n        if AppleFrameProcessorService.probe().fullSupported {
-            return try await aiPipeline.process(job: job, progress: progress)
-        }
             if session.status == .cancelled { throw CancellationError() }
             throw AppError.exportFailed(session.error?.localizedDescription ?? error.localizedDescription)
         }
         guard session.status == .completed else {
             try? FileManager.default.removeItem(at: outputURL)
-n        if AppleFrameProcessorService.probe().fullSupported {
-            return try await aiPipeline.process(job: job, progress: progress)
-        }
             throw AppError.exportFailed(session.error?.localizedDescription ?? "The export did not complete.")
         }
         progress(1)
