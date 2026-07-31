@@ -79,15 +79,55 @@ enum AssetInspector {
 private final class EncoderProbeContext: @unchecked Sendable {
     let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
+    private let outputURL: URL
+    private var writer: AVAssetWriter?
+    private var input: AVAssetWriterInput?
     private(set) var completedFrames = 0
     private(set) var failed = false
 
+    init(outputURL: URL) { self.outputURL = outputURL }
+
     func record(status: OSStatus, sampleBuffer: CMSampleBuffer?) {
         lock.withLock {
-            if status != noErr || sampleBuffer == nil { failed = true }
-            else { completedFrames += 1 }
+            guard status == noErr, let sampleBuffer, let format = CMSampleBufferGetFormatDescription(sampleBuffer) else {
+                failed = true
+                semaphore.signal()
+                return
+            }
+            do {
+                if writer == nil {
+                    let newWriter = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+                    let newInput = AVAssetWriterInput(mediaType: .video, outputSettings: nil, sourceFormatHint: format)
+                    guard newWriter.canAdd(newInput) else { throw AppError.exportFailed("Probe writer rejected compressed HEVC samples.") }
+                    newWriter.add(newInput)
+                    guard newWriter.startWriting() else { throw newWriter.error ?? AppError.exportFailed("Probe writer did not start.") }
+                    newWriter.startSession(atSourceTime: .zero)
+                    writer = newWriter
+                    input = newInput
+                }
+                guard let input, input.isReadyForMoreMediaData, input.append(sampleBuffer) else {
+                    throw writer?.error ?? AppError.exportFailed("Probe writer rejected an encoded frame.")
+                }
+                completedFrames += 1
+            } catch {
+                failed = true
+            }
             if failed || completedFrames >= 3 { semaphore.signal() }
         }
+    }
+
+    func finishAndValidate(width: Int, height: Int) async -> Bool {
+        let state = lock.withLock { (writer, input, failed, completedFrames) }
+        guard !state.2, state.3 == 3, let writer = state.0, let input = state.1 else { return false }
+        input.markAsFinished()
+        await writer.finishWriting()
+        guard writer.status == .completed else { return false }
+        let asset = AVURLAsset(url: outputURL)
+        guard (try? await asset.load(.isPlayable)) == true,
+              let tracks = try? await asset.loadTracks(withMediaType: .video),
+              let track = tracks.first,
+              let size = try? await track.load(.naturalSize) else { return false }
+        return Int(abs(size.width)) == width && Int(abs(size.height)) == height
     }
 }
 
@@ -121,15 +161,17 @@ final class CapabilityDetector {
 
     private func encoderProbe(width: Int32, height: Int32, main10: Bool) async -> Bool {
         await Task.detached(priority: .utility) {
-            Self.runEncoderProbe(width: width, height: height, main10: main10)
+            await Self.runEncoderProbe(width: width, height: height, main10: main10)
         }.value
     }
 
-    nonisolated private static func runEncoderProbe(width: Int32, height: Int32, main10: Bool) -> Bool {
+    nonisolated private static func runEncoderProbe(width: Int32, height: Int32, main10: Bool) async -> Bool {
         #if targetEnvironment(simulator)
         return false
         #else
-        let context = EncoderProbeContext()
+        let probeURL = FileManager.default.temporaryDirectory.appendingPathComponent("Clarity-encoder-probe-" + UUID().uuidString + ".mov")
+        defer { try? FileManager.default.removeItem(at: probeURL) }
+        let context = EncoderProbeContext(outputURL: probeURL)
         var session: VTCompressionSession?
         let specification = [kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder as String: true] as CFDictionary
         let status = VTCompressionSessionCreate(
@@ -159,7 +201,8 @@ final class CapabilityDetector {
             guard VTCompressionSessionEncodeFrame(session, imageBuffer: frame, presentationTimeStamp: timestamp, duration: CMTime(value: 1, timescale: 30), frameProperties: nil, sourceFrameRefcon: nil, infoFlagsOut: nil) == noErr else { return false }
         }
         guard VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid) == noErr else { return false }
-        return context.semaphore.wait(timeout: .now() + 15) == .success && !context.failed && context.completedFrames == 3
+        guard context.semaphore.wait(timeout: .now() + 15) == .success else { return false }
+        return await context.finishAndValidate(width: Int(width), height: Int(height))
         #endif
     }
 }
