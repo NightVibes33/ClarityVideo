@@ -98,10 +98,10 @@ jobs:
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
           BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
           XCODE="$(xcodebuild -version | tr '\n' ' ' | sed 's/ *$//')"
-          jq -n 
-            --arg bundle "$BUNDLE_ID" --arg version "$VERSION" --arg build "$BUILD" 
-            --arg commit "$GITHUB_SHA" --arg xcode "$XCODE" 
-            '{bundleIdentifier:$bundle,version:$version,build:$build,minimumOS:"26.0",platform:"iphoneos",architecture:"arm64",signed:false,commit:$commit,xcode:$xcode}' 
+          jq -n \
+            --arg bundle "$BUNDLE_ID" --arg version "$VERSION" --arg build "$BUILD" \
+            --arg commit "$GITHUB_SHA" --arg xcode "$XCODE" \
+            '{bundleIdentifier:$bundle,version:$version,build:$build,minimumOS:"26.0",platform:"iphoneos",architecture:"arm64",signed:false,commit:$commit,xcode:$xcode}' \
             > artifacts/build-metadata.json
           cd artifacts
           shasum -a 256 ClarityVideo-unsigned.ipa > ClarityVideo-unsigned.ipa.sha256
