@@ -63,6 +63,10 @@ struct DeviceEnhancementCapabilities: Codable, Equatable, Sendable {
     var lowLatencySuperResolutionAvailable = false
     var supportedFullScaleFactors: [Int] = []
     var supportedLowLatencyScaleFactors: [Double] = []
+    var supportedProcessorRevisions: [Int] = []
+    var defaultProcessorRevision: Int?
+    var modelReadiness: AppleModelReadiness = .unavailable
+    var modelDownloadProgress = 0.0
     var temporalNoiseFilteringAvailable = false
     var supports4KHEVCEncode = false
     var supports8KHEVCEncode = false

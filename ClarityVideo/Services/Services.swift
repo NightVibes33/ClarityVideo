@@ -81,18 +81,20 @@ final class CapabilityDetector {
     func detect() async -> DeviceEnhancementCapabilities {
         var result = DeviceEnhancementCapabilities()
         result.deviceModel = UIDevice.current.model
-        // Public iOS 26 VideoToolbox processors are weak-linked and probed at runtime.
-        result.fullSuperResolutionAvailable = NSClassFromString("VTFrameProcessor") != nil &&
-            NSClassFromString("VTFrameProcessorSuperResolutionScalerConfiguration") != nil
-        result.lowLatencySuperResolutionAvailable =
-            NSClassFromString("VTFrameProcessorLowLatencySuperResolutionScalerConfiguration") != nil
-        result.temporalNoiseFilteringAvailable =
-            NSClassFromString("VTFrameProcessorTemporalNoiseFilterConfiguration") != nil
+        let appleProbe = AppleFrameProcessorService.probe()
+        result.fullSuperResolutionAvailable = appleProbe.fullSupported
+        result.lowLatencySuperResolutionAvailable = appleProbe.lowLatencySupported
+        result.temporalNoiseFilteringAvailable = appleProbe.temporalNoiseSupported
+        result.supportedFullScaleFactors = appleProbe.fullScaleFactors
+        result.supportedLowLatencyScaleFactors = appleProbe.lowLatency720pScaleFactors
+        result.supportedProcessorRevisions = appleProbe.supportedRevisions
+        result.defaultProcessorRevision = appleProbe.defaultRevision
+        result.modelReadiness = appleProbe.modelReadiness
+        result.modelDownloadProgress = appleProbe.modelProgress
+        result.lastProbeError = appleProbe.error
         result.supports4KHEVCEncode = encoderProbe(width: 3840, height: 2160, main10: false)
         result.supports8KHEVCEncode = encoderProbe(width: 7680, height: 4320, main10: false)
         result.supportsMain10 = encoderProbe(width: 3840, height: 2160, main10: true)
-        if result.fullSuperResolutionAvailable { result.supportedFullScaleFactors = [2, 4] }
-        if result.lowLatencySuperResolutionAvailable { result.supportedLowLatencyScaleFactors = [2] }
         return result
     }
 
