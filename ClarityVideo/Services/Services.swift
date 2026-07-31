@@ -77,7 +77,6 @@ enum AssetInspector {
 }
 
 private final class EncoderProbeContext: @unchecked Sendable {
-    let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private let outputURL: URL
     private var writer: AVAssetWriter?
@@ -91,7 +90,6 @@ private final class EncoderProbeContext: @unchecked Sendable {
         lock.withLock {
             guard status == noErr, let sampleBuffer, let format = CMSampleBufferGetFormatDescription(sampleBuffer) else {
                 failed = true
-                semaphore.signal()
                 return
             }
             do {
@@ -112,9 +110,10 @@ private final class EncoderProbeContext: @unchecked Sendable {
             } catch {
                 failed = true
             }
-            if failed || completedFrames >= 3 { semaphore.signal() }
         }
     }
+    func encodedAllFrames() -> Bool { lock.withLock { !failed && completedFrames == 3 } }
+
 
     func finishAndValidate(width: Int, height: Int) async -> Bool {
         let state = lock.withLock { (writer, input, failed, completedFrames) }
@@ -201,7 +200,7 @@ final class CapabilityDetector {
             guard VTCompressionSessionEncodeFrame(session, imageBuffer: frame, presentationTimeStamp: timestamp, duration: CMTime(value: 1, timescale: 30), frameProperties: nil, sourceFrameRefcon: nil, infoFlagsOut: nil) == noErr else { return false }
         }
         guard VTCompressionSessionCompleteFrames(session, untilPresentationTimeStamp: .invalid) == noErr else { return false }
-        guard context.semaphore.wait(timeout: .now() + 15) == .success else { return false }
+        guard context.encodedAllFrames() else { return false }
         return await context.finishAndValidate(width: Int(width), height: Int(height))
         #endif
     }
