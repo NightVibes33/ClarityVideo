@@ -195,7 +195,7 @@ final class AIAssetReaderWriterPipeline {
             } else if useLowLatency {
                 aiBuffer = try await processor.processInActiveLowLatencySession(source: enhancementSource, presentationTime: timestamp)
             } else {
-                aiBuffer = try await processor.processInActiveSession(source: enhancementSource, presentationTime: timestamp, sequential: frameIndex > 0)
+                aiBuffer = try await processor.processInActiveSession(source: enhancementSource, presentationTime: timestamp, sequential: frameIndex > 0 && !isSceneCut)
             }
             while !writerInput.isReadyForMoreMediaData {
                 if cancelled { throw CancellationError() }
@@ -293,7 +293,8 @@ final class AIAssetReaderWriterPipeline {
 
     private func colorProperties(for track: AVAssetTrack) async throws -> [String: Any] {
         guard let description = try await track.load(.formatDescriptions).first else { return [:] }
-        let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary as? [String: Any] ?? [:]
+        guard let rawExtensions = CMFormatDescriptionGetExtensions(description) else { return [:] }
+        let extensions = rawExtensions as NSDictionary as? [String: Any] ?? [:]
         let mappings: [(CFString, String)] = [
             (kCMFormatDescriptionExtension_ColorPrimaries, AVVideoColorPrimariesKey),
             (kCMFormatDescriptionExtension_TransferFunction, AVVideoTransferFunctionKey),

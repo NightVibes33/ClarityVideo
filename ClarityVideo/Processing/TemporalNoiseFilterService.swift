@@ -36,6 +36,14 @@ final class TemporalNoiseFilterService {
         guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime) else {
             throw AppleFrameProcessorError.frameCreation
         }
+        if hasDiscontinuity {
+            processor.endSession()
+            let restarted = VTFrameProcessor()
+            _ = try restarted.startSession(configuration: configuration)
+            self.processor = restarted
+            previousFrames = [sourceFrame]
+            return source
+        }
 
         // Apple requires at least one past or future reference. Keep the first frame
         // unchanged and use it as the reference for the next frame.
@@ -65,7 +73,7 @@ final class TemporalNoiseFilterService {
                 previousFrames: Array(previousFrames.suffix(previousFrameLimit)),
                 destinationFrame: destinationFrame,
                 filterStrength: strength,
-                hasDiscontinuity: hasDiscontinuity
+                hasDiscontinuity: false
               ) else {
             throw AppleFrameProcessorError.parameterCreation
         }
@@ -77,9 +85,6 @@ final class TemporalNoiseFilterService {
                     continuation.resume()
                 }
             }
-        }
-        if hasDiscontinuity {
-            previousFrames.removeAll(keepingCapacity: true)
         }
         previousFrames.append(sourceFrame)
         if previousFrames.count > previousFrameLimit {
