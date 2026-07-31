@@ -55,14 +55,14 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         let fullSupported = VTSuperResolutionScalerConfiguration.isSupported
         let lowSupported = VTLowLatencySuperResolutionScalerConfiguration.isSupported
         let noiseSupported = VTTemporalNoiseFilterConfiguration.isSupported
-        let fullScales = VTSuperResolutionScalerConfiguration.supportedScaleFactors.map(\.intValue)
+        let fullScales = VTSuperResolutionScalerConfiguration.supportedScaleFactors
         let lowScales = VTLowLatencySuperResolutionScalerConfiguration
-            .supportedScaleFactorsForFrameWidth(1280, frameHeight: 720)
-            .map(\.doubleValue)
+            .supportedScaleFactors(frameWidth: 1280, frameHeight: 720)
+
         let revisions = VTSuperResolutionScalerConfiguration.supportedRevisions.map { $0 }
         let defaultRevision = VTSuperResolutionScalerConfiguration.defaultRevision.rawValue
 
-        var readiness: AppleModelReadiness = .unavailable
+        var modelReadiness: AppleModelReadiness = .unavailable
         var progress = 0.0
         var error: String?
         if fullSupported, let scale = fullScales.first,
@@ -75,7 +75,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
             qualityPrioritization: .normal,
             revision: VTSuperResolutionScalerConfiguration.defaultRevision
            ) {
-            readiness = readiness(for: configuration.configurationModelStatus)
+            modelReadiness = Self.readiness(for: configuration.configurationModelStatus)
             progress = Double(configuration.configurationModelPercentageAvailable)
         } else if fullSupported {
             error = "No supported full-quality configuration for the 720p diagnostic probe."
@@ -89,7 +89,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
             lowLatency720pScaleFactors: lowScales,
             supportedRevisions: revisions,
             defaultRevision: defaultRevision,
-            modelReadiness: readiness,
+            modelReadiness: modelReadiness,
             modelProgress: progress,
             error: error
         )
@@ -186,7 +186,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
     }
 
     private static func makeConfiguration(width: Int, height: Int, scaleFactor: Int) -> VTSuperResolutionScalerConfiguration? {
-        guard VTSuperResolutionScalerConfiguration.supportedScaleFactors.map(\.intValue).contains(scaleFactor) else {
+        guard VTSuperResolutionScalerConfiguration.supportedScaleFactors.contains(scaleFactor) else {
             return nil
         }
         return VTSuperResolutionScalerConfiguration(
@@ -208,7 +208,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         var attributes = configuration.destinationPixelBufferAttributes
         attributes[kCVPixelBufferWidthKey as String] = width
         attributes[kCVPixelBufferHeightKey as String] = height
-        attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [:]
+        attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
         var buffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
