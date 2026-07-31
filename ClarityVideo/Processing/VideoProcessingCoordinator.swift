@@ -19,7 +19,6 @@ final class VideoProcessingCoordinator {
             }
             return try await aiPipeline.process(job: job, progress: progress)
         }
-        }
 
         let asset = AVURLAsset(url: job.sourceURL)
         guard let sourceTrack = try await asset.loadTracks(withMediaType: .video).first else { throw AppError.noVideoTrack }
