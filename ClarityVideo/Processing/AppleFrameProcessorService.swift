@@ -237,6 +237,13 @@ enum AppleFrameProcessorError: LocalizedError {
         return destination
     }
 
+    func resetTemporalHistory() {
+        lock.withLock {
+            previousSourceFrame = nil
+            previousOutputFrame = nil
+        }
+    }
+
     func endSession() {
         lock.withLock {
             activeProcessor?.endSession()
@@ -378,6 +385,8 @@ enum AppleFrameProcessorError: LocalizedError {
 
     func startFullQualitySession(width: Int, height: Int, scaleFactor: Int) throws { throw AppleFrameProcessorError.unavailable }
     func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer { throw AppleFrameProcessorError.unavailable }
+
+    func resetTemporalHistory() {}
     func endSession() {}
 
 

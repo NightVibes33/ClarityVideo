@@ -46,6 +46,19 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
+    func testPlannerLabelsLowerMemory8KFallbackAsTiledResize() throws {
+        var caps = DeviceEnhancementCapabilities()
+        caps.fullSuperResolutionAvailable = true
+        caps.supportedFullScaleFactors = [2, 4]
+        let plan = try PipelinePlanner.plan(
+            sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
+            capabilities: caps, lowLatencyFactorsForSource: []
+        )
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertTrue(plan.requiresFinalResize)
+        XCTAssertTrue(plan.disclosure.contains("final resize"))
+    }
+
     func testPlannerTiles4KTo8KWithoutLowLatencyRoute() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
@@ -119,5 +132,9 @@ extension ClarityVideoTests {
         XCTAssertFalse(checkpoint.isCompatible(
             sourceFingerprint: "source", configuration: configuration, segmentCount: 2
         ))
+    }
+    func testSceneCutDetectorSeparatesCutsFromSmallChanges() {
+        XCTAssertFalse(SceneCutDetector.isCut(previous: [0.20, 0.22, 0.21], current: [0.23, 0.24, 0.22]))
+        XCTAssertTrue(SceneCutDetector.isCut(previous: [0.05, 0.08, 0.06], current: [0.90, 0.86, 0.92]))
     }
 }

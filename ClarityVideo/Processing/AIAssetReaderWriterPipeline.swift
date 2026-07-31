@@ -156,6 +156,7 @@ final class AIAssetReaderWriterPipeline {
 
         result.status = .processing
         var frameIndex = 0
+        var sceneCutDetector = SceneCutDetector()
         let totalFrames = max(1, result.totalFrames)
         while let sample = trackOutput.copyNextSampleBuffer() {
             if cancelled { throw CancellationError() }
@@ -166,7 +167,9 @@ final class AIAssetReaderWriterPipeline {
             }
             guard let sourceBuffer = CMSampleBufferGetImageBuffer(sample) else { continue }
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
-            let enhancementSource = try await denoiser?.process(source: sourceBuffer, presentationTime: timestamp) ?? sourceBuffer
+            let isSceneCut = sceneCutDetector.isSceneCut(sourceBuffer)
+            if isSceneCut { processor.resetTemporalHistory() }
+            let enhancementSource = try await denoiser?.process(source: sourceBuffer, presentationTime: timestamp, hasDiscontinuity: isSceneCut) ?? sourceBuffer
             let aiBuffer: CVPixelBuffer
             if let tiled {
                 aiBuffer = try await tiled.process(frame: enhancementSource, presentationTime: timestamp)

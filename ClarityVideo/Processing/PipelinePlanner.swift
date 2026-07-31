@@ -88,10 +88,9 @@ enum PipelinePlanner {
             throw PipelinePlanningError.noSuperResolutionRoute
         }
 
-        let needsCascade = requiredScale > Double(tileFactor)
         let tileWidth = sourceWidth >= 1920 ? 960 : min(sourceWidth, 1280)
         let tileHeight = sourceHeight >= 1080 ? 540 : min(sourceHeight, 720)
-        let route: ProcessingRoute = needsCascade ? .cascadedTiledSuperResolution : .tiledSuperResolution
+        let route: ProcessingRoute = .tiledSuperResolution
         var plan = makePlan(
             route: route,
             factor: Double(tileFactor),
