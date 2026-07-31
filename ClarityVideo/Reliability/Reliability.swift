@@ -25,6 +25,19 @@ actor CheckpointStore {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return try JSONDecoder().decode(ProcessingCheckpoint.self, from: Data(contentsOf: url))
     }
+    func loadCompatible(sourceFingerprint: String, configuration: ExportConfiguration, segmentCount: Int) throws -> ProcessingCheckpoint? {
+        guard FileManager.default.fileExists(atPath: folder.path) else { return nil }
+        let urls = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+        for url in urls {
+            guard let checkpoint = try? JSONDecoder().decode(ProcessingCheckpoint.self, from: Data(contentsOf: url)) else { continue }
+            if checkpoint.isCompatible(sourceFingerprint: sourceFingerprint, configuration: configuration, segmentCount: segmentCount) {
+                return checkpoint
+            }
+        }
+        return nil
+    }
+
     func remove(_ id: UUID) throws {
         try? FileManager.default.removeItem(at: folder.appendingPathComponent(id.uuidString + ".json"))
     }

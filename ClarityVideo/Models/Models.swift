@@ -103,8 +103,44 @@ struct ProcessingCheckpoint: Codable, Sendable {
     var sourceFingerprint: String
     var configuration: ExportConfiguration
     var completedSegments: [Int]
+    var completedSegmentFiles: [String: URL]
+    var expectedSegmentCount: Int
     var lastPresentationSeconds: Double
-    var updatedAt = Date()
+    var osBuild: String
+    var appBuild: String
+    var updatedAt: Date
+
+    init(
+        jobID: UUID, sourceFingerprint: String, configuration: ExportConfiguration,
+        completedSegments: [Int] = [], completedSegmentFiles: [String: URL] = [:],
+        expectedSegmentCount: Int, lastPresentationSeconds: Double = 0,
+        osBuild: String = ProcessInfo.processInfo.operatingSystemVersionString,
+        appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+        updatedAt: Date = Date()
+    ) {
+        self.jobID = jobID
+        self.sourceFingerprint = sourceFingerprint
+        self.configuration = configuration
+        self.completedSegments = completedSegments
+        self.completedSegmentFiles = completedSegmentFiles
+        self.expectedSegmentCount = expectedSegmentCount
+        self.lastPresentationSeconds = lastPresentationSeconds
+        self.osBuild = osBuild
+        self.appBuild = appBuild
+        self.updatedAt = updatedAt
+    }
+
+    func isCompatible(sourceFingerprint: String, configuration: ExportConfiguration, segmentCount: Int) -> Bool {
+        self.sourceFingerprint == sourceFingerprint
+            && self.configuration == configuration
+            && expectedSegmentCount == segmentCount
+            && osBuild == ProcessInfo.processInfo.operatingSystemVersionString
+            && appBuild == (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")
+            && completedSegments.allSatisfy { index in
+                guard let url = completedSegmentFiles[String(index)] else { return false }
+                return FileManager.default.fileExists(atPath: url.path)
+            }
+    }
 }
 
 struct DiagnosticReport: Codable, Sendable {

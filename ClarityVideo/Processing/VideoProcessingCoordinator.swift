@@ -7,14 +7,18 @@ final class VideoProcessingCoordinator {
     private var exportSession: AVAssetExportSession?
     private var progressTask: Task<Void, Never>?
     private let aiPipeline = AIAssetReaderWriterPipeline()
+    private lazy var segmentedPipeline = SegmentedProcessingCoordinator(aiPipeline: aiPipeline)
 
     func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
         var result = job
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
-        try? FileManager.default.removeItem(at: outputURL)
         if AppleFrameProcessorService.probe().fullSupported || AppleFrameProcessorService.probe().lowLatencySupported {
+            if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {
+                return try await segmentedPipeline.process(job: job, progress: progress)
+            }
             return try await aiPipeline.process(job: job, progress: progress)
+        }
         }
 
         let asset = AVURLAsset(url: job.sourceURL)
@@ -61,6 +65,7 @@ final class VideoProcessingCoordinator {
 
     func cancel() {
         aiPipeline.cancel()
+        segmentedPipeline.cancel()
         exportSession?.cancelExport()
         progressTask?.cancel()
     }

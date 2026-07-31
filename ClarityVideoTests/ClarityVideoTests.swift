@@ -88,3 +88,36 @@ extension ClarityVideoTests {
         }
     }
 }
+
+extension ClarityVideoTests {
+    func testAll8KJobsAreSegmented() {
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd8K
+        XCTAssertTrue(SegmentPlan.requiresSegmentation(duration: 5, configuration: configuration))
+    }
+
+    func testSegmentPlanHasNoTimelineGaps() {
+        let segments = SegmentPlan.segments(duration: 95, segmentDuration: 30)
+        XCTAssertEqual(segments.count, 4)
+        XCTAssertEqual(segments.first?.startSeconds, 0)
+        XCTAssertEqual(segments.last?.endSeconds, 95)
+        for pair in zip(segments, segments.dropFirst()) {
+            XCTAssertEqual(pair.0.endSeconds, pair.1.startSeconds, accuracy: 0.0001)
+        }
+    }
+
+    func testCheckpointRejectsMissingCompletedSegment() {
+        let configuration = ExportConfiguration()
+        let checkpoint = ProcessingCheckpoint(
+            jobID: UUID(),
+            sourceFingerprint: "source",
+            configuration: configuration,
+            completedSegments: [0],
+            completedSegmentFiles: ["0": URL(fileURLWithPath: "/missing/segment.mov")],
+            expectedSegmentCount: 2
+        )
+        XCTAssertFalse(checkpoint.isCompatible(
+            sourceFingerprint: "source", configuration: configuration, segmentCount: 2
+        ))
+    }
+}
