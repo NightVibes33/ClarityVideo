@@ -16,6 +16,7 @@ struct AppleSuperResolutionProbe: Sendable {
     var temporalNoiseSupported: Bool
     var fullScaleFactors: [Int]
     var lowLatency720pScaleFactors: [Double]
+    var lowLatency1080pScaleFactors: [Double]
     var supportedRevisions: [Int]
     var defaultRevision: Int?
     var sourcePixelFormats: [UInt32]
@@ -65,6 +66,8 @@ enum AppleFrameProcessorError: LocalizedError {
         let fullScales = VTSuperResolutionScalerConfiguration.supportedScaleFactors
         let lowScales = VTLowLatencySuperResolutionScalerConfiguration
             .supportedScaleFactors(frameWidth: 1280, frameHeight: 720).map(Double.init)
+        let low1080Scales = VTLowLatencySuperResolutionScalerConfiguration
+            .supportedScaleFactors(frameWidth: 1920, frameHeight: 1080).map(Double.init)
 
         let revisions = VTSuperResolutionScalerConfiguration.supportedRevisions.map { $0 }
         let defaultRevision = VTSuperResolutionScalerConfiguration.defaultRevision.rawValue
@@ -121,6 +124,7 @@ enum AppleFrameProcessorError: LocalizedError {
             lowLatencySupported: lowSupported,
             temporalNoiseSupported: noiseSupported,
             fullScaleFactors: fullScales,
+            lowLatency1080pScaleFactors: low1080Scales,
             lowLatency720pScaleFactors: lowScales,
             supportedRevisions: revisions,
             defaultRevision: defaultRevision,
@@ -409,6 +413,7 @@ enum AppleFrameProcessorError: LocalizedError {
             temporalNoiseSupported: false,
             fullScaleFactors: [],
             lowLatency720pScaleFactors: [],
+            lowLatency1080pScaleFactors: [],
             supportedRevisions: [],
             defaultRevision: nil,
             sourcePixelFormats: [],

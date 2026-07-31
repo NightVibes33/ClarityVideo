@@ -87,6 +87,7 @@ struct DeviceEnhancementCapabilities: Codable, Equatable, Sendable {
     var lowLatencySuperResolutionAvailable = false
     var supportedFullScaleFactors: [Int] = []
     var supportedLowLatencyScaleFactors: [Double] = []
+    var supportedLowLatency1080pScaleFactors: [Double] = []
     var supportedProcessorRevisions: [Int] = []
     var defaultProcessorRevision: Int?
     var sourcePixelFormats: [UInt32] = []

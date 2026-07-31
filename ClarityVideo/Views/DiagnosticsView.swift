@@ -20,6 +20,8 @@ struct DiagnosticsView: View {
                 DiagnosticRow("Model progress", String(Int(state.capabilities.modelDownloadProgress * 100)) + "%")
                 DiagnosticRow("Last self-test", state.lastSuccessfulSelfTest?.formatted(date: .abbreviated, time: .standard) ?? "Never")
                 DiagnosticRow("Full scales", state.capabilities.supportedFullScaleFactors.map(String.init).joined(separator: ", "))
+                DiagnosticRow("1080p low-latency scales", state.capabilities.supportedLowLatency1080pScaleFactors.map { String($0) }.joined(separator: ", "))
+                DiagnosticRow("Maximum tested tile", "960x540")
                 DiagnosticRow("720p low-latency scales", state.capabilities.supportedLowLatencyScaleFactors.map { String($0) }.joined(separator: ", "))
                 DiagnosticRow("Revisions", state.capabilities.supportedProcessorRevisions.map(String.init).joined(separator: ", "))
                 DiagnosticRow("Source pixel formats", state.capabilities.sourcePixelFormats.map { String(format: "0x%08X", $0) }.joined(separator: ", "))

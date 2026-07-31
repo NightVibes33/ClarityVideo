@@ -102,6 +102,7 @@ final class CapabilityDetector {
         result.temporalNoiseFilteringAvailable = appleProbe.temporalNoiseSupported
         result.supportedFullScaleFactors = appleProbe.fullScaleFactors
         result.supportedLowLatencyScaleFactors = appleProbe.lowLatency720pScaleFactors
+        result.supportedLowLatency1080pScaleFactors = appleProbe.lowLatency1080pScaleFactors
         result.supportedProcessorRevisions = appleProbe.supportedRevisions
         result.defaultProcessorRevision = appleProbe.defaultRevision
         result.sourcePixelFormats = appleProbe.sourcePixelFormats
