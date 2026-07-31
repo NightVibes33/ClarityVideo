@@ -58,6 +58,7 @@ final class VideoProcessingCoordinator {
         }
         progress(1)
         result.progress = 1
+        result.outputCodec = "HEVC"
         result.processedFrames = result.totalFrames
         result.status = .completed
         return result

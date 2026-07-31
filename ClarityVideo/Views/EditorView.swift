@@ -34,7 +34,7 @@ struct EditorView: View {
                         ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
                     }
                     Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...240, step: 5)
-                    LabeledContent("Codec", value: "HEVC (hardware)")
+                    LabeledContent("Codec", value: "HEVC preferred; H.264 4K SDR fallback")
                     if let info = state.assetInfo {
                         LabeledContent("Estimated output", value: ByteCountFormatter.string(fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration), countStyle: .file))
                     }
@@ -139,7 +139,7 @@ struct ResultsView: View {
                     ComparisonPlaybackView(beforeURL: job.sourceURL, afterURL: url)
                     VStack {
                         LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
-                        LabeledContent("Codec", value: "HEVC")
+                        LabeledContent("Codec", value: job.outputCodec ?? "HEVC")
                         LabeledContent("Frames", value: "\(job.processedFrames)")
                         if let duration = job.processingDuration {
                             LabeledContent("Processing time", value: String(format: "%.1f min", duration / 60))

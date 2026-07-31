@@ -100,6 +100,7 @@ final class AIAssetReaderWriterPipeline {
         let temporaryVideo = finalURL.deletingLastPathComponent()
             .appendingPathComponent("AI-video-" + UUID().uuidString + ".mov")
         try? FileManager.default.removeItem(at: temporaryVideo)
+        defer { try? FileManager.default.removeItem(at: temporaryVideo) }
         let assetWriter = try AVAssetWriter(outputURL: temporaryVideo, fileType: .mov)
         assetWriter.metadata = try await asset.load(.metadata)
         var videoSettings: [String: Any] = [
@@ -123,9 +124,22 @@ final class AIAssetReaderWriterPipeline {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
             ]
         }
-        guard assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) else {
-            throw AppError.unsupported("The hardware encoder rejected the selected output dimensions and HEVC settings.")
+        var selectedCodec = "HEVC"
+        if !assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) {
+            guard job.configuration.resolution == .uhd4K, !job.assetInfo.isHDR else {
+                throw AppError.unsupported("The hardware encoder rejected the selected output dimensions and HEVC settings.")
+            }
+            videoSettings[AVVideoCodecKey] = AVVideoCodecType.h264
+            if var compression = videoSettings[AVVideoCompressionPropertiesKey] as? [String: Any] {
+                compression[AVVideoAverageBitRateKey] = min(job.configuration.bitrateMbps, 50) * 1_000_000
+                videoSettings[AVVideoCompressionPropertiesKey] = compression
+            }
+            guard assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) else {
+                throw AppError.unsupported("Both HEVC and the 4K SDR H.264 fallback were rejected by the encoder.")
+            }
+            selectedCodec = "H.264"
         }
+        result.outputCodec = selectedCodec
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
         writerInput.transform = try await track.load(.preferredTransform)
@@ -139,7 +153,7 @@ final class AIAssetReaderWriterPipeline {
                 kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
             ]
         )
-        guard assetWriter.canAdd(writerInput) else { throw AppError.exportFailed("The HEVC writer input could not be attached.") }
+        guard assetWriter.canAdd(writerInput) else { throw AppError.exportFailed("The selected video encoder input could not be attached.") }
         assetWriter.add(writerInput)
         writer = assetWriter
         guard assetReader.startReading(), assetWriter.startWriting() else {

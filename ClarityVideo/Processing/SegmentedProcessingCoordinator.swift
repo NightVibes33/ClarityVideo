@@ -160,6 +160,8 @@ final class SegmentedProcessingCoordinator {
         progress(1)
 
         var result = job
+        let encodedInfo = try await AssetInspector.inspect(finalURL)
+        result.outputCodec = encodedInfo.codec.lowercased().contains("avc") ? "H.264" : "HEVC"
         result.status = .completed
         result.progress = 1
         result.processedFrames = result.totalFrames

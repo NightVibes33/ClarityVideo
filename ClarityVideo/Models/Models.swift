@@ -122,6 +122,7 @@ struct ProcessingJob: Codable, Identifiable, Sendable {
     var segmentCount = 1
     var processingDuration: Double?
     var errorMessage: String?
+    var outputCodec: String?
     var createdAt = Date()
 }
 
