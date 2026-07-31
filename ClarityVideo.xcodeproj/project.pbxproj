@@ -7,8 +7,9 @@
   A1 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = { A2 = { CreatedOnToolsVersion = 26.0; }; A3 = { CreatedOnToolsVersion = 26.0; TestTargetID = A2; }; }; }; buildConfigurationList = C0; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = G0; minimizedProjectReferenceProxies = 1; preferredProjectObjectVersion = 77; productRefGroup = GP; projectDirPath = ""; projectRoot = ""; targets = (A2, A3); };
   A2 = { isa = PBXNativeTarget; buildConfigurationList = C1; buildPhases = (S1, F1, R1); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (G1); name = ClarityVideo; packageProductDependencies = (); productName = ClarityVideo; productReference = P1; productType = "com.apple.product-type.application"; };
   A3 = { isa = PBXNativeTarget; buildConfigurationList = C2; buildPhases = (S2, F2, R2); buildRules = (); dependencies = (D1); fileSystemSynchronizedGroups = (G2); name = ClarityVideoTests; packageProductDependencies = (); productName = ClarityVideoTests; productReference = P2; productType = "com.apple.product-type.bundle.unit-test"; };
+  E1 = { isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Resources/Info.plist); target = A2; };
   G0 = { isa = PBXGroup; children = (G1, G2, GP); sourceTree = "<group>"; };
-  G1 = { isa = PBXFileSystemSynchronizedRootGroup; path = ClarityVideo; sourceTree = "<group>"; };
+  G1 = { isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E1); path = ClarityVideo; sourceTree = "<group>"; };
   G2 = { isa = PBXFileSystemSynchronizedRootGroup; path = ClarityVideoTests; sourceTree = "<group>"; };
   GP = { isa = PBXGroup; children = (P1, P2); name = Products; sourceTree = "<group>"; };
   P1 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClarityVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
