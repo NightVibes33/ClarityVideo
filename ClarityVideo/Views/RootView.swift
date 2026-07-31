@@ -6,8 +6,9 @@ import UIKit
 
 struct VideoPhotosPicker: UIViewControllerRepresentable {
     let onResult: @MainActor @Sendable (Result<URL, AppError>) -> Void
+    let onCancel: @MainActor @Sendable () -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onResult: onResult) }
+    func makeCoordinator() -> Coordinator { Coordinator(onResult: onResult, onCancel: onCancel) }
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
@@ -23,14 +24,16 @@ struct VideoPhotosPicker: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
         private let onResult: @MainActor @Sendable (Result<URL, AppError>) -> Void
+        private let onCancel: @MainActor @Sendable () -> Void
 
-        init(onResult: @escaping @MainActor @Sendable (Result<URL, AppError>) -> Void) {
+        init(onResult: @escaping @MainActor @Sendable (Result<URL, AppError>) -> Void, onCancel: @escaping @MainActor @Sendable () -> Void) {
             self.onResult = onResult
+            self.onCancel = onCancel
         }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             picker.dismiss(animated: true)
-            guard let provider = results.first?.itemProvider else { return }
+            guard let provider = results.first?.itemProvider else { onCancel(); return }
             guard provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
                 onResult(.failure(AppError.importFailedReason("Photos did not provide a movie file.")))
                 return
@@ -151,6 +154,7 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingPhotos) {
             VideoPhotosPicker { result in
+                showingPhotos = false
                 switch result {
                 case .success(let url):
                     state.isImporting = true
@@ -160,6 +164,8 @@ struct HomeView: View {
                     state.lastImportError = error.localizedDescription
                     state.errorMessage = error.localizedDescription
                 }
+            } onCancel: {
+                showingPhotos = false
             }
             .ignoresSafeArea()
         }

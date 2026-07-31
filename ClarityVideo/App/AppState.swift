@@ -65,6 +65,9 @@ final class AppState {
         do {
             let localURL = try SecurityScopedFileManager.copyToWorkspace(url)
             copiedURL = localURL
+            if url.standardizedFileURL.path.hasPrefix(FileManager.default.temporaryDirectory.standardizedFileURL.path) {
+                try? FileManager.default.removeItem(at: url)
+            }
             importStatus = "Reading video tracks and metadata..."
             let info = try await AssetInspector.inspect(localURL)
             guard info.duration > 0, info.encodedWidth > 0, info.encodedHeight > 0 else {
