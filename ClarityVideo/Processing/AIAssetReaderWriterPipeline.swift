@@ -36,27 +36,26 @@ final class AIAssetReaderWriterPipeline {
         let sourceWidth = Int(abs(naturalSize.width))
         let sourceHeight = Int(abs(naturalSize.height))
         let probe = AppleFrameProcessorService.probe()
-        guard probe.fullSupported || probe.lowLatencySupported else {
-            throw AppError.unsupported("Apple super resolution is unavailable on this device.")
-        }
-
-        let targetLandscape = job.configuration.resolution.landscapeSize
-        let encodedPortrait = sourceHeight > sourceWidth
-        let targetSize = encodedPortrait
-            ? CGSize(width: targetLandscape.height, height: targetLandscape.width)
-            : targetLandscape
-        let neededScale = max(targetSize.width / CGFloat(sourceWidth), targetSize.height / CGFloat(sourceHeight))
-        let fullScale = probe.fullScaleFactors.sorted().first { CGFloat($0) >= neededScale } ?? probe.fullScaleFactors.max()
-        let fullFrameEligible = probe.fullSupported && sourceWidth <= 1440 && sourceHeight <= 1080 && fullScale != nil
-        let lowScales = AppleFrameProcessorService.lowLatencyScaleFactors(width: sourceWidth, height: sourceHeight)
-        let lowScale = lowScales.sorted().first { CGFloat($0) >= neededScale } ?? lowScales.max()
-        let useLowLatency = lowScale != nil && (job.configuration.mode == .fast || !fullFrameEligible)
-        guard useLowLatency || fullFrameEligible else {
-            throw AppError.unsupported("This source requires tiled Apple SR because neither full-frame nor low-latency processing accepted its dimensions.")
+        var planningCapabilities = DeviceEnhancementCapabilities()
+        planningCapabilities.fullSuperResolutionAvailable = probe.fullSupported
+        planningCapabilities.lowLatencySuperResolutionAvailable = probe.lowLatencySupported
+        planningCapabilities.supportedFullScaleFactors = probe.fullScaleFactors
+        let sourceLowLatencyFactors = AppleFrameProcessorService.lowLatencyScaleFactors(width: sourceWidth, height: sourceHeight)
+        let plan = try PipelinePlanner.plan(
+            sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+            target: job.configuration.resolution, mode: job.configuration.mode,
+            capabilities: planningCapabilities, lowLatencyFactorsForSource: sourceLowLatencyFactors
+        )
+        let targetSize = CGSize(width: plan.targetWidth, height: plan.targetHeight)
+        let useLowLatency = plan.route == .lowLatencySuperResolution
+        let lowScale: Double? = useLowLatency ? plan.aiScaleFactor : nil
+        let fullScale: Int? = useLowLatency ? nil : Int(plan.aiScaleFactor)
+        guard !plan.requiresTiling else {
+            throw AppError.unsupported("The planner selected tiled Apple SR; this route is not yet available in the active frame writer.")
         }
 
         progress(0.01)
-        if !useLowLatency, let fullScale {
+        if let fullScale {
             _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
         }
         try Task.checkCancellation()
