@@ -74,7 +74,7 @@ struct DiagnosticsView: View {
             processorRevision: state.capabilities.defaultProcessorRevision.map(String.init),
             modelStatus: state.capabilities.modelReadiness.rawValue,
             encoderResults: ["4K": state.capabilities.supports4KHEVCEncode, "8K": state.capabilities.supports8KHEVCEncode, "Main10": state.capabilities.supportsMain10],
-            peakMemoryBytes: nil,
+            peakMemoryBytes: ProcessMemory.peakResidentBytes(),
             thermalTransitions: state.thermalTransitions,
             processingFPS: state.activeJob.flatMap { job in job.processingDuration.map { Double(job.processedFrames) / max(0.1, $0) } }
         )

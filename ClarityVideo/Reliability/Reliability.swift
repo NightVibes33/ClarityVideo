@@ -1,5 +1,14 @@
 import Foundation
 import UIKit
+import Darwin
+enum ProcessMemory {
+    static func peakResidentBytes() -> UInt64? {
+        var usage = rusage()
+        guard getrusage(RUSAGE_SELF, &usage) == 0 else { return nil }
+        return UInt64(max(0, usage.ru_maxrss))
+    }
+}
+
 
 @MainActor
 final class ThermalMonitor {
