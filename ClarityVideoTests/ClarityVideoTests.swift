@@ -111,7 +111,7 @@ extension ClarityVideoTests {
 
     func testSegmentPlanHasNoTimelineGaps() {
         let segments = SegmentPlan.segments(duration: 95, segmentDuration: 30)
-        XCTAssertEqual(segments.count, 19)
+        XCTAssertEqual(segments.count, 4)
         XCTAssertEqual(segments.first?.startSeconds, 0)
         XCTAssertEqual(segments.last?.endSeconds, 95)
         for pair in zip(segments, segments.dropFirst()) {
