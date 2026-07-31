@@ -36,6 +36,18 @@ struct DiagnosticsView: View {
                 Button { Task { await state.prepareModelAndRunSelfTest() } } label: {
                     Label(state.isPreparingModel ? "Preparing and testing..." : "Prepare model and run one-frame AI test", systemImage: "sparkles.tv")
                 }.disabled(state.isPreparingModel || !state.capabilities.fullSuperResolutionAvailable)
+                if let still = state.diagnosticStillURL {
+                    ShareLink(item: still) { Label("Export enhanced test still", systemImage: "photo") }
+                }
+                Button { state.runFiveSecondDiagnostic() } label: {
+                    Label(state.isRunningFiveSecondTest ? "Running five-second test..." : "Run five-second 4K test", systemImage: "5.circle")
+                }.disabled(state.isRunningFiveSecondTest || state.importedURL == nil || !state.capabilities.fullSuperResolutionAvailable)
+                if state.importedURL == nil {
+                    Text("Import a video first to enable the five-second test.").font(.caption).foregroundStyle(.secondary)
+                }
+                if let output = state.diagnosticTestOutputURL {
+                    ShareLink(item: output) { Label("Export five-second test video", systemImage: "square.and.arrow.up") }
+                }
                 Text(state.diagnosticStatus).font(.footnote).foregroundStyle(.secondary)
                 Button(role: .destructive) { state.clearProcessingCache() } label: { Label("Clear processing cache", systemImage: "trash") }
                 Button { exportReport() } label: { Label("Prepare diagnostic JSON", systemImage: "doc.badge.gearshape") }
@@ -44,7 +56,7 @@ struct DiagnosticsView: View {
                 }
             }
             Section("What this proves") {
-                Text("Encoder probes create and prepare hardware-required VideoToolbox sessions at the requested dimensions. Frame-processor and model tests must run on a physical iOS 26 device; simulator and CI results are never presented as device proof.")
+                Text("Encoder probes require hardware VideoToolbox sessions and successfully encode three frames at the requested dimensions. Frame-processor and model tests must run on a physical iOS 26 device; simulator and CI results are never presented as device proof.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

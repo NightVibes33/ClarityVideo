@@ -23,9 +23,10 @@ final class ComparisonPreviewCoordinator {
         sourceURL: URL,
         sourceInfo: VideoAssetInfo,
         configuration: ExportConfiguration,
+        requestedDuration: Double = 3,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> ComparisonPreview {
-        let previewDuration = min(3, sourceInfo.duration)
+        let previewDuration = min(requestedDuration, sourceInfo.duration)
         guard previewDuration > 0 else { throw AppError.exportFailed("The video has no previewable duration.") }
         let start = max(0, min(sourceInfo.duration - previewDuration, sourceInfo.duration * 0.25))
         let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]

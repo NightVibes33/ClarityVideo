@@ -2,6 +2,8 @@ import SwiftUI
 import Observation
 import AVFoundation
 import CoreVideo
+import CoreImage
+import UIKit
 import CoreMedia
 
 @MainActor @Observable
@@ -19,6 +21,9 @@ final class AppState {
     var showDiagnostics = false
     var diagnosticStatus = "Not run"
     var lastSuccessfulSelfTest: Date?
+    var diagnosticStillURL: URL?
+    var diagnosticTestOutputURL: URL?
+    var isRunningFiveSecondTest = false
     var thermalTransitions: [String] = []
     var comparisonPreview: ComparisonPreview?
     var previewProgress = 0.0
@@ -172,6 +177,16 @@ final class AppState {
             if let uv = CVPixelBufferGetBaseAddressOfPlane(source, 1) { memset(uv, 128, CVPixelBufferGetBytesPerRowOfPlane(source, 1) * 360) }
             CVPixelBufferUnlockBaseAddress(source, [])
             let output = try await AppleFrameProcessorService().processFullQuality(source: source, presentationTime: .zero, scaleFactor: scale, sequential: false)
+            let stillFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Diagnostics", isDirectory: true)
+            try FileManager.default.createDirectory(at: stillFolder, withIntermediateDirectories: true)
+            let stillURL = stillFolder.appendingPathComponent("Clarity-AI-Self-Test.png")
+            let image = CIImage(cvPixelBuffer: output)
+            guard let cgImage = CIContext().createCGImage(image, from: image.extent),
+                  let png = UIImage(cgImage: cgImage).pngData() else {
+                throw AppError.exportFailed("The enhanced diagnostic still could not be encoded.")
+            }
+            try png.write(to: stillURL, options: .atomic)
+            diagnosticStillURL = stillURL
             lastSuccessfulSelfTest = Date()
             CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
             diagnosticStatus = "Passed: 1280x720 -> " + String(CVPixelBufferGetWidth(output)) + "x" + String(CVPixelBufferGetHeight(output)) + " with Apple SR"
@@ -183,6 +198,34 @@ final class AppState {
         }
     }
 
+
+    func runFiveSecondDiagnostic() {
+        guard let importedURL, let assetInfo else {
+            errorMessage = "Import a test video first, then return to Diagnostics."
+            return
+        }
+        isRunningFiveSecondTest = true
+        diagnosticStatus = "Running five-second 4K AI export..."
+        var testConfiguration = configuration
+        testConfiguration.resolution = .uhd4K
+        if assetInfo.isHDR { testConfiguration.hdrBehavior = .convertToSDR }
+        Task {
+            defer { isRunningFiveSecondTest = false }
+            do {
+                try StorageEstimator.validate(info: assetInfo, configuration: testConfiguration)
+                let result = try await previewCoordinator.generate(
+                    sourceURL: importedURL, sourceInfo: assetInfo,
+                    configuration: testConfiguration, requestedDuration: 5
+                ) { [weak self] progress in
+                    Task { @MainActor in self?.previewProgress = progress }
+                }
+                diagnosticTestOutputURL = result.enhancedURL
+                diagnosticStatus = String(format: "Passed five-second 4K export in %.1f seconds", result.previewProcessingDuration)
+            } catch {
+                diagnosticStatus = "Five-second test failed: " + error.localizedDescription
+            }
+        }
+    }
 
     func recordThermalTransition() {
         let state = String(describing: ProcessInfo.processInfo.thermalState)
