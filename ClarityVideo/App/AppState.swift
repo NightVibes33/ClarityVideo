@@ -202,19 +202,22 @@ final class AppState {
     }
 
 
-    func runFiveSecondDiagnostic() {
+    func runFiveSecondDiagnostic(resolution: OutputResolution = .uhd4K) {
         guard let importedURL, let assetInfo else {
             errorMessage = "Import a test video first, then return to Diagnostics."
             return
         }
         isRunningFiveSecondTest = true
-        diagnosticStatus = "Running five-second 4K AI export..."
+        diagnosticStatus = "Running five-second " + resolution.rawValue + " AI export..."
         var testConfiguration = configuration
-        testConfiguration.resolution = .uhd4K
+        testConfiguration.resolution = resolution
         if assetInfo.isHDR { testConfiguration.hdrBehavior = .convertToSDR }
         Task {
             defer { isRunningFiveSecondTest = false }
             do {
+                if assetInfo.isHDR && resolution == .uhd8K {
+                    throw AppError.unsupported("Use an SDR source for the 8K diagnostic until the memory-safe HDR tone-map path is device-validated.")
+                }
                 try StorageEstimator.validate(info: assetInfo, configuration: testConfiguration)
                 let result = try await previewCoordinator.generate(
                     sourceURL: importedURL, sourceInfo: assetInfo,
@@ -223,7 +226,7 @@ final class AppState {
                     Task { @MainActor in self?.previewProgress = progress }
                 }
                 diagnosticTestOutputURL = result.enhancedURL
-                diagnosticStatus = String(format: "Passed five-second 4K export in %.1f seconds", result.previewProcessingDuration)
+                diagnosticStatus = String(format: "Passed five-second %@ export in %.1f seconds", resolution.rawValue, result.previewProcessingDuration)
             } catch {
                 diagnosticStatus = "Five-second test failed: " + error.localizedDescription
             }

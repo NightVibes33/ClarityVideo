@@ -44,6 +44,11 @@ struct DiagnosticsView: View {
                 Button { state.runFiveSecondDiagnostic() } label: {
                     Label(state.isRunningFiveSecondTest ? "Running five-second test..." : "Run five-second 4K test", systemImage: "5.circle")
                 }.disabled(state.isRunningFiveSecondTest || state.importedURL == nil || !state.capabilities.fullSuperResolutionAvailable)
+                if state.capabilities.supports8KHEVCEncode {
+                    Button { state.runFiveSecondDiagnostic(resolution: .uhd8K) } label: {
+                        Label("Run five-second 8K test", systemImage: "8.circle")
+                    }.disabled(state.isRunningFiveSecondTest || state.importedURL == nil)
+                }
                 if state.importedURL == nil {
                     Text("Import a video first to enable the five-second test.").font(.caption).foregroundStyle(.secondary)
                 }
