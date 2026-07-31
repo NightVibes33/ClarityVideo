@@ -21,6 +21,7 @@ jobs:
           set -euo pipefail
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
           mkdir -p sdk-inspection
+          ditto "$SDK/System/Library/Frameworks/VideoToolbox.framework/Headers" sdk-inspection/Headers
           {
             echo "SDK=$SDK"
             find "$SDK/System/Library/Frameworks/VideoToolbox.framework" -type f -maxdepth 6 -print
