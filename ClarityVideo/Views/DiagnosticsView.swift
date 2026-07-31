@@ -77,6 +77,9 @@ struct DiagnosticsView: View {
     private func passFail(_ value: Bool) -> String { value ? "Passed" : "Failed" }
     private func exportReport() {
         let report = DiagnosticReport(
+            appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown",
+            appBuild: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+            sourceRevision: Bundle.main.object(forInfoDictionaryKey: "ClaritySourceRevision") as? String ?? "development",
             capabilities: state.capabilities,
             configurationAttempts: ["4K HEVC hardware session", "8K HEVC hardware session", "Main10 profile"],
             exactErrors: [state.capabilities.lastProbeError, state.lastImportError].compactMap { $0 },

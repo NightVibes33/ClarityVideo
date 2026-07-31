@@ -62,6 +62,7 @@ jobs:
             DEVELOPMENT_TEAM='' \
             ONLY_ACTIVE_ARCH=NO \
             ARCHS=arm64 \
+            CLARITY_SOURCE_REVISION="$GITHUB_SHA" \
             clean build | tee artifacts/xcodebuild.log
       - name: Locate and validate app
         id: app
@@ -75,6 +76,7 @@ jobs:
           EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
           EXECUTABLE="$APP/$EXECUTABLE_NAME"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" = "$BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :ClaritySourceRevision' "$PLIST")" = "$GITHUB_SHA"
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")" == 26.* ]]
           file "$EXECUTABLE" | grep -q 'Mach-O'
           lipo -info "$EXECUTABLE" | grep -q 'arm64'

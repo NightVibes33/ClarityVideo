@@ -178,6 +178,9 @@ struct ProcessingCheckpoint: Codable, Sendable {
 
 struct DiagnosticReport: Codable, Sendable {
     var generatedAt = Date()
+    var appVersion: String
+    var appBuild: String
+    var sourceRevision: String
     var capabilities: DeviceEnhancementCapabilities
     var configurationAttempts: [String]
     var exactErrors: [String]

@@ -6,4 +6,5 @@
 <key>UIBackgroundModes</key><array><string>processing</string></array>
 <key>BGTaskSchedulerPermittedIdentifiers</key><array><string>com.nightvibes33.clarityvideo.cleanup</string></array>
 <key>UILaunchScreen</key><dict/>
+<key>ClaritySourceRevision</key><string>$(CLARITY_SOURCE_REVISION)</string>
 </dict></plist>
