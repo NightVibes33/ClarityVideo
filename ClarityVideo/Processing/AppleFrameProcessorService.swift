@@ -87,7 +87,12 @@ enum AppleFrameProcessorError: LocalizedError {
            ) {
             modelReadiness = Self.readiness(for: configuration.configurationModelStatus)
             progress = Double(configuration.configurationModelPercentageAvailable)
-            sourcePixelFormats = configuration.frameSupportedPixelFormats?.map { $0.uint32Value } ?? []
+            let sourceValue = configuration.sourcePixelBufferAttributes[kCVPixelBufferPixelFormatTypeKey as String]
+            if let values = sourceValue as? [NSNumber] {
+                sourcePixelFormats = values.map { $0.uint32Value }
+            } else if let value = sourceValue as? NSNumber {
+                sourcePixelFormats = [value.uint32Value]
+            }
             let destinationValue = configuration.destinationPixelBufferAttributes[kCVPixelBufferPixelFormatTypeKey as String]
             if let values = destinationValue as? [NSNumber] {
                 destinationPixelFormats = values.map { $0.uint32Value }
