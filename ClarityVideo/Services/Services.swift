@@ -5,7 +5,7 @@ import Photos
 import UIKit
 import Darwin
 
-enum AppError: LocalizedError {
+enum AppError: LocalizedError, Sendable {
     case noVideoTrack
     case importFailed
     case importFailedReason(String)

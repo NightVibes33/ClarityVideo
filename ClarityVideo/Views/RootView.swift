@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct VideoPhotosPicker: UIViewControllerRepresentable {
-    let onResult: (Result<URL, Error>) -> Void
+    let onResult: @MainActor @Sendable (Result<URL, AppError>) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onResult: onResult) }
 
@@ -22,9 +22,9 @@ struct VideoPhotosPicker: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
-        private let onResult: (Result<URL, Error>) -> Void
+        private let onResult: @MainActor @Sendable (Result<URL, AppError>) -> Void
 
-        init(onResult: @escaping (Result<URL, Error>) -> Void) {
+        init(onResult: @escaping @MainActor @Sendable (Result<URL, AppError>) -> Void) {
             self.onResult = onResult
         }
 
@@ -36,7 +36,7 @@ struct VideoPhotosPicker: UIViewControllerRepresentable {
                 return
             }
             provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [onResult] url, error in
-                let result: Result<URL, Error>
+                let result: Result<URL, AppError>
                 do {
                     if let error { throw error }
                     guard let url else {
@@ -48,9 +48,9 @@ struct VideoPhotosPicker: UIViewControllerRepresentable {
                     try FileManager.default.copyItem(at: url, to: destination)
                     result = .success(destination)
                 } catch {
-                    result = .failure(error)
+                    result = .failure(error as? AppError ?? .importFailedReason(error.localizedDescription))
                 }
-                DispatchQueue.main.async { onResult(result) }
+                Task { @MainActor in onResult(result) }
             }
         }
     }
