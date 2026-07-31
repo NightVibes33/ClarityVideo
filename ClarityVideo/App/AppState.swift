@@ -19,6 +19,7 @@ final class AppState {
     var showDiagnostics = false
     var diagnosticStatus = "Not run"
     var isPreparingModel = false
+    private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
     let backgroundExecution = BackgroundExecutionManager()
@@ -30,6 +31,7 @@ final class AppState {
 
     func refreshCapabilities() async {
         capabilities = await capabilityDetector.detect()
+        if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
     }
 
     func importVideo(from url: URL) async {
@@ -47,6 +49,7 @@ final class AppState {
     }
 
     func beginExport() {
+        pauseRequested = false
         guard let importedURL, let assetInfo else { return }
         let output = TemporaryFileManager.outputURL(for: configuration.resolution)
         var job = ProcessingJob(sourceURL: importedURL, assetInfo: assetInfo, configuration: configuration)
@@ -57,11 +60,14 @@ final class AppState {
         }
         activeJob = job
         route = .processing
-        backgroundExecution.begin { [weak self] in self?.engine.cancel() }
+        backgroundExecution.begin { [weak self] in self?.pauseExport() }
         Task {
             defer { backgroundExecution.end() }
             do {
                 try StorageEstimator.validate(info: assetInfo, configuration: configuration)
+                if assetInfo.isHDR && configuration.hdrBehavior == .preserve {
+                    throw AppError.unsupported("Verified HDR preservation is not available yet for this AI path. Choose Convert to SDR; Clarity will not silently strip HDR metadata.")
+                }
                 guard configuration.resolution != .uhd8K || capabilities.supports8KHEVCEncode else {
                     throw AppError.unsupported("8K is hidden until this device passes the hardware encoder probe.")
                 }
@@ -81,9 +87,18 @@ final class AppState {
                 JobHistoryStore.save(recentJobs)
                 route = .results
             } catch is CancellationError {
-                activeJob?.status = .cancelled
-                if let output = activeJob?.outputURL { try? FileManager.default.removeItem(at: output) }
-                route = .editor
+                if pauseRequested, var paused = activeJob {
+                    paused.status = .paused
+                    activeJob = paused
+                    recentJobs.removeAll { $0.id == paused.id }
+                    recentJobs.insert(paused, at: 0)
+                    JobHistoryStore.save(recentJobs)
+                    route = .home
+                } else {
+                    activeJob?.status = .cancelled
+                    if let output = activeJob?.outputURL { try? FileManager.default.removeItem(at: output) }
+                    route = .editor
+                }
             } catch {
                 activeJob?.status = .failed
                 activeJob?.errorMessage = error.localizedDescription
@@ -122,6 +137,20 @@ final class AppState {
         }
     }
 
+
+    func pauseExport() {
+        pauseRequested = true
+        engine.cancel()
+    }
+
+    func resume(_ job: ProcessingJob) {
+        importedURL = job.sourceURL
+        assetInfo = job.assetInfo
+        configuration = job.configuration
+        recentJobs.removeAll { $0.id == job.id }
+        JobHistoryStore.save(recentJobs)
+        beginExport()
+    }
 
     func cancelExport() {
         engine.cancel()

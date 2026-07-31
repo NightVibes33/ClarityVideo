@@ -92,9 +92,10 @@ struct HomeView: View {
                                 .foregroundStyle(job.status == .completed ? .green : .orange)
                             VStack(alignment: .leading) {
                                 Text(job.assetInfo.fileName).lineLimit(1)
-                                Text("\(job.configuration.resolution.rawValue) Â· \(job.status.rawValue.capitalized)")
+                                Text("\(job.configuration.resolution.rawValue) \u{00B7} \(job.status.rawValue.capitalized)")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
+                            if job.status == .paused { Button("Resume") { state.resume(job) }.buttonStyle(.borderedProminent) }
                             Spacer()
                         }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     }
@@ -115,7 +116,7 @@ struct HomeView: View {
                 } catch { state.errorMessage = error.localizedDescription }
             }
         }
-        .overlay { if state.isImporting { ProgressView("Analyzing videoâ¦").padding(28).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)) } }
+        .overlay { if state.isImporting { ProgressView("Analyzing video\u{2026}").padding(28).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18)) } }
     }
 }
 

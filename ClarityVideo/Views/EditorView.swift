@@ -17,13 +17,14 @@ struct EditorView: View {
                     Picker("Output", selection: $state.configuration.resolution) {
                         Text("4K UHD").tag(OutputResolution.uhd4K)
                         if state.capabilities.supports8KHEVCEncode {
-                            Text("8K UHD Â· Experimental").tag(OutputResolution.uhd8K)
+                            Text("8K UHD \u{00B7} Experimental").tag(OutputResolution.uhd8K)
                         }
                     }.pickerStyle(.segmented)
                     Picker("Mode", selection: $state.configuration.mode) {
                         ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
                     }
-                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180) }
+                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180).disabled(!state.capabilities.temporalNoiseFilteringAvailable) }
+                    if !state.capabilities.temporalNoiseFilteringAvailable { Text("Apple temporal denoise is unavailable on this device.").font(.caption).foregroundStyle(.secondary) }
                     LabeledContent("Detail recovery") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
                     LabeledContent("Sharpening") { Slider(value: $state.configuration.sharpening, in: 0...1).frame(width: 180) }
                     Picker("HDR", selection: $state.configuration.hdrBehavior) {
@@ -43,7 +44,7 @@ struct EditorView: View {
                 Button { state.beginExport() } label: {
                     Label("Enhance on this device", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
-                }.buttonStyle(.borderedProminent).controlSize(.large)
+                }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable)
             }.padding()
         }
         .navigationTitle("Video setup")
@@ -89,9 +90,14 @@ struct ProcessingView: View {
                 Text(ProcessInfo.processInfo.thermalState == .critical ? "Paused to protect your device" : "Temperature monitored automatically")
             }.font(.subheadline).foregroundStyle(.secondary)
             Spacer()
-            Button(role: .destructive) { state.cancelExport() } label: {
-                Label("Cancel export", systemImage: "xmark.circle").frame(maxWidth: .infinity)
-            }.buttonStyle(.bordered).controlSize(.large).padding()
+            HStack {
+                Button { state.pauseExport() } label: {
+                    Label("Pause", systemImage: "pause.circle").frame(maxWidth: .infinity)
+                }.buttonStyle(.borderedProminent)
+                Button(role: .destructive) { state.cancelExport() } label: {
+                    Label("Cancel", systemImage: "xmark.circle").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered)
+            }.controlSize(.large).padding()
         }.navigationBarBackButtonHidden()
     }
 }
@@ -120,7 +126,7 @@ struct ResultsView: View {
                             defer { saving = false }
                             do { try await PhotosExportService.save(url) } catch { state.errorMessage = error.localizedDescription }
                         }
-                    } label: { Label(saving ? "Savingâ¦" : "Save to Photos", systemImage: "photo.badge.arrow.down").frame(maxWidth: .infinity) }
+                    } label: { Label(saving ? "Saving\u{2026}" : "Save to Photos", systemImage: "photo.badge.arrow.down").frame(maxWidth: .infinity) }
                         .buttonStyle(.borderedProminent).controlSize(.large).disabled(saving)
                     ShareLink(item: url) { Label("Save to Files or Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
                         .buttonStyle(.bordered).controlSize(.large)

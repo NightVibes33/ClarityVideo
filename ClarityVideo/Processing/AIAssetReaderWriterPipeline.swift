@@ -101,7 +101,7 @@ final class AIAssetReaderWriterPipeline {
         try? FileManager.default.removeItem(at: temporaryVideo)
         let assetWriter = try AVAssetWriter(outputURL: temporaryVideo, fileType: .mov)
         assetWriter.metadata = try await asset.load(.metadata)
-        let videoSettings: [String: Any] = [
+        var videoSettings: [String: Any] = [
             AVVideoCodecKey: AVVideoCodecType.hevc,
             AVVideoWidthKey: Int(targetSize.width),
             AVVideoHeightKey: Int(targetSize.height),
@@ -111,6 +111,13 @@ final class AIAssetReaderWriterPipeline {
                 AVVideoMaxKeyFrameIntervalKey: max(1, Int(job.assetInfo.frameRate.rounded() * 2))
             ]
         ]
+        if job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR {
+            videoSettings[AVVideoColorPropertiesKey] = [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+            ]
+        }
         guard assetWriter.canApply(outputSettings: videoSettings, forMediaType: .video) else {
             throw AppError.unsupported("The hardware encoder rejected the selected output dimensions and HEVC settings.")
         }
@@ -182,7 +189,7 @@ final class AIAssetReaderWriterPipeline {
                 if cancelled { throw CancellationError() }
                 try await Task.sleep(for: .milliseconds(4))
             }
-            let outputBuffer = try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize)
+            let outputBuffer = try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration)
             guard adaptor.append(outputBuffer, withPresentationTime: timestamp) else {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
@@ -215,7 +222,8 @@ final class AIAssetReaderWriterPipeline {
     private func makeExactSizeBuffer(
         from source: CVPixelBuffer,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
-        size: CGSize
+        size: CGSize,
+        configuration: ExportConfiguration
     ) throws -> CVPixelBuffer {
         guard let pool = adaptor.pixelBufferPool else {
             throw AppError.exportFailed("The encoder pixel-buffer pool is unavailable.")
@@ -232,11 +240,24 @@ final class AIAssetReaderWriterPipeline {
         filter.inputImage = image
         filter.scale = Float(sy)
         filter.aspectRatio = Float(sx / sy)
-        guard let scaled = filter.outputImage else {
+        guard var processed = filter.outputImage else {
             throw AppError.exportFailed("The exact-size Metal resize failed.")
         }
+        if configuration.detailRecovery > 0 {
+            let recovery = CIFilter.unsharpMask()
+            recovery.inputImage = processed
+            recovery.radius = 1.5
+            recovery.intensity = Float(configuration.detailRecovery * 0.55)
+            if let output = recovery.outputImage { processed = output }
+        }
+        if configuration.sharpening > 0 {
+            let sharpening = CIFilter.sharpenLuminance()
+            sharpening.inputImage = processed
+            sharpening.sharpness = Float(configuration.sharpening * 0.8)
+            if let output = sharpening.outputImage { processed = output }
+        }
         ciContext.render(
-            scaled,
+            processed,
             to: output,
             bounds: CGRect(origin: .zero, size: size),
             colorSpace: image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
