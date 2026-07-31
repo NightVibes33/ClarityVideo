@@ -47,7 +47,7 @@ enum AppleFrameProcessorError: LocalizedError {
 
 #if !targetEnvironment(simulator)
 @available(iOS 26.0, *)
-final class AppleFrameProcessorService: @unchecked Sendable {
+@MainActor final class AppleFrameProcessorService: @unchecked Sendable {
     private let lock = NSLock()
     private var activeProcessor: VTFrameProcessor?
     private var activeConfiguration: VTSuperResolutionScalerConfiguration?
@@ -300,7 +300,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
 }
 #else
 @available(iOS 26.0, *)
-final class AppleFrameProcessorService: @unchecked Sendable {
+@MainActor final class AppleFrameProcessorService: @unchecked Sendable {
     static func probe() -> AppleSuperResolutionProbe {
         AppleSuperResolutionProbe(
             fullSupported: false,
