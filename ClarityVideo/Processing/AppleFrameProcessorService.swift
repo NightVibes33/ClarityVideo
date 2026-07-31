@@ -57,7 +57,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         let noiseSupported = VTTemporalNoiseFilterConfiguration.isSupported
         let fullScales = VTSuperResolutionScalerConfiguration.supportedScaleFactors
         let lowScales = VTLowLatencySuperResolutionScalerConfiguration
-            .supportedScaleFactors(frameWidth: 1280, frameHeight: 720)
+            .supportedScaleFactors(frameWidth: 1280, frameHeight: 720).map(Double.init)
 
         let revisions = VTSuperResolutionScalerConfiguration.supportedRevisions.map { $0 }
         let defaultRevision = VTSuperResolutionScalerConfiguration.defaultRevision.rawValue
