@@ -1,6 +1,8 @@
 import SwiftUI
 import Observation
 import AVFoundation
+import CoreVideo
+import CoreMedia
 
 @MainActor @Observable
 final class AppState {
@@ -15,6 +17,8 @@ final class AppState {
     var errorMessage: String?
     var isImporting = false
     var showDiagnostics = false
+    var diagnosticStatus = "Not run"
+    var isPreparingModel = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
 
@@ -72,6 +76,36 @@ final class AppState {
             }
         }
     }
+
+    func prepareModelAndRunSelfTest() async {
+        guard let scale = capabilities.supportedFullScaleFactors.first else {
+            diagnosticStatus = "No supported full-quality AI scale"
+            return
+        }
+        isPreparingModel = true
+        diagnosticStatus = "Preparing Apple enhancement model..."
+        defer { isPreparingModel = false }
+        do {
+            _ = try await AppleFrameProcessorService.prepareModel(width: 1280, height: 720, scaleFactor: scale)
+            diagnosticStatus = "Running one-frame AI test..."
+            let attributes = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()] as CFDictionary
+            var source: CVPixelBuffer?
+            let status = CVPixelBufferCreate(kCFAllocatorDefault, 1280, 720, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes, &source)
+            guard status == kCVReturnSuccess, let source else { throw AppleFrameProcessorError.pixelBufferCreation(status) }
+            CVPixelBufferLockBaseAddress(source, [])
+            if let y = CVPixelBufferGetBaseAddressOfPlane(source, 0) { memset(y, 96, CVPixelBufferGetBytesPerRowOfPlane(source, 0) * 720) }
+            if let uv = CVPixelBufferGetBaseAddressOfPlane(source, 1) { memset(uv, 128, CVPixelBufferGetBytesPerRowOfPlane(source, 1) * 360) }
+            CVPixelBufferUnlockBaseAddress(source, [])
+            let output = try await AppleFrameProcessorService().processFullQuality(source: source, presentationTime: .zero, scaleFactor: scale, sequential: false)
+            diagnosticStatus = "Passed: 1280x720 -> " + String(CVPixelBufferGetWidth(output)) + "x" + String(CVPixelBufferGetHeight(output)) + " with Apple SR"
+            await refreshCapabilities()
+        } catch {
+            diagnosticStatus = "Failed: " + error.localizedDescription
+            errorMessage = error.localizedDescription
+            await refreshCapabilities()
+        }
+    }
+
 
     func cancelExport() {
         engine.cancel()

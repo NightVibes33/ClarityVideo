@@ -234,7 +234,8 @@ final class AppleFrameProcessorService: @unchecked Sendable {
     }
 }
 #else
-enum AppleFrameProcessorService {
+@available(iOS 26.0, *)
+final class AppleFrameProcessorService: @unchecked Sendable {
     static func probe() -> AppleSuperResolutionProbe {
         AppleSuperResolutionProbe(
             fullSupported: false,
@@ -249,5 +250,22 @@ enum AppleFrameProcessorService {
             error: "Apple frame processors are unavailable in the simulator."
         )
     }
+
+    static func prepareModel(width: Int, height: Int, scaleFactor: Int) async throws -> Double {
+        throw AppleFrameProcessorError.unavailable
+    }
+
+    func processFullQuality(
+        source: CVPixelBuffer,
+        presentationTime: CMTime,
+        scaleFactor: Int,
+        previousSource: CVPixelBuffer? = nil,
+        previousOutput: CVPixelBuffer? = nil,
+        sequential: Bool
+    ) async throws -> CVPixelBuffer {
+        throw AppleFrameProcessorError.unavailable
+    }
+
+    func cancel() {}
 }
 #endif

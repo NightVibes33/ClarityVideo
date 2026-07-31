@@ -16,14 +16,22 @@ struct DiagnosticsView: View {
                 DiagnosticRow("4K encoder", passFail(state.capabilities.supports4KHEVCEncode))
                 DiagnosticRow("8K encoder", passFail(state.capabilities.supports8KHEVCEncode))
                 DiagnosticRow("Main10", passFail(state.capabilities.supportsMain10))
-                DiagnosticRow("Model state", state.capabilities.fullSuperResolutionAvailable ? "Requires on-device preparation" : "Unavailable")
+                DiagnosticRow("Model state", state.capabilities.modelReadiness.rawValue)
+                DiagnosticRow("Model progress", String(Int(state.capabilities.modelDownloadProgress * 100)) + "%")
+                DiagnosticRow("Full scales", state.capabilities.supportedFullScaleFactors.map(String.init).joined(separator: ", "))
+                DiagnosticRow("720p low-latency scales", state.capabilities.supportedLowLatencyScaleFactors.map { String($0) }.joined(separator: ", "))
+                DiagnosticRow("Revisions", state.capabilities.supportedProcessorRevisions.map(String.init).joined(separator: ", "))
             }
             Section("Actions") {
                 Button {
                     isRunning = true
                     Task { await state.refreshCapabilities(); isRunning = false }
-                } label: { Label(isRunning ? "Running probesâ¦" : "Run capability probes", systemImage: "gauge.with.dots.needle.50percent") }
+                } label: { Label(isRunning ? "Running probes..." : "Run capability probes", systemImage: "gauge.with.dots.needle.50percent") }
                     .disabled(isRunning)
+                Button { Task { await state.prepareModelAndRunSelfTest() } } label: {
+                    Label(state.isPreparingModel ? "Preparing and testing..." : "Prepare model and run one-frame AI test", systemImage: "sparkles.tv")
+                }.disabled(state.isPreparingModel || !state.capabilities.fullSuperResolutionAvailable)
+                Text(state.diagnosticStatus).font(.footnote).foregroundStyle(.secondary)
                 Button { exportReport() } label: { Label("Prepare diagnostic JSON", systemImage: "doc.badge.gearshape") }
                 if let exportURL {
                     ShareLink(item: exportURL) { Label("Export diagnostic JSON", systemImage: "square.and.arrow.up") }
@@ -45,8 +53,8 @@ struct DiagnosticsView: View {
             capabilities: state.capabilities,
             configurationAttempts: ["4K HEVC hardware session", "8K HEVC hardware session", "Main10 profile"],
             exactErrors: state.capabilities.lastProbeError.map { [$0] } ?? [],
-            processorRevision: nil,
-            modelStatus: state.capabilities.fullSuperResolutionAvailable ? "device preparation required" : "unavailable",
+            processorRevision: state.capabilities.defaultProcessorRevision.map(String.init),
+            modelStatus: state.capabilities.modelReadiness.rawValue,
             encoderResults: ["4K": state.capabilities.supports4KHEVCEncode, "8K": state.capabilities.supports8KHEVCEncode, "Main10": state.capabilities.supportsMain10],
             peakMemoryBytes: 0,
             thermalTransitions: [],
