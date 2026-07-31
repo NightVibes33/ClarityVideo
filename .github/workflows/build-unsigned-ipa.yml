@@ -34,12 +34,12 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild -list -project "$PROJECT"
-          xcodebuild build-for-testing 
-            -project "$PROJECT" 
-            -scheme "$SCHEME" 
-            -configuration Debug 
-            -sdk iphonesimulator 
-            -destination 'generic/platform=iOS Simulator' 
+          xcodebuild build-for-testing \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
       - name: Build unsigned device app
         shell: bash
@@ -47,19 +47,19 @@ jobs:
           set -euo pipefail
           rm -rf build Payload artifacts
           mkdir -p build artifacts
-          xcodebuild 
-            -project "$PROJECT" 
-            -scheme "$SCHEME" 
-            -configuration Release 
-            -sdk iphoneos 
-            -destination 'generic/platform=iOS' 
-            -derivedDataPath "$DERIVED_DATA" 
-            CODE_SIGNING_ALLOWED=NO 
-            CODE_SIGNING_REQUIRED=NO 
-            CODE_SIGN_IDENTITY='' 
-            DEVELOPMENT_TEAM='' 
-            ONLY_ACTIVE_ARCH=NO 
-            ARCHS=arm64 
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            DEVELOPMENT_TEAM='' \
+            ONLY_ACTIVE_ARCH=NO \
+            ARCHS=arm64 \
             clean build | tee artifacts/xcodebuild.log
       - name: Locate and validate app
         id: app
