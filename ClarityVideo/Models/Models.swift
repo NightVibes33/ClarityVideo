@@ -58,6 +58,30 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
     var preserveFrameRate = true
 }
 
+extension ExportConfiguration {
+    mutating func applyPreset(_ mode: EnhancementMode, temporalDenoiseAvailable: Bool) {
+        self.mode = mode
+        switch mode {
+        case .fast:
+            denoise = temporalDenoiseAvailable ? 0.08 : 0
+            detailRecovery = 0.25
+            sharpening = 0.10
+        case .quality:
+            denoise = temporalDenoiseAvailable ? 0.20 : 0
+            detailRecovery = 0.50
+            sharpening = 0.15
+        case .restore:
+            denoise = temporalDenoiseAvailable ? 0.65 : 0
+            detailRecovery = 0.55
+            sharpening = 0.10
+        case .anime:
+            denoise = temporalDenoiseAvailable ? 0.10 : 0
+            detailRecovery = 0.70
+            sharpening = 0.35
+        }
+    }
+}
+
 struct DeviceEnhancementCapabilities: Codable, Equatable, Sendable {
     var fullSuperResolutionAvailable = false
     var lowLatencySuperResolutionAvailable = false

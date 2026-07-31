@@ -23,6 +23,9 @@ struct EditorView: View {
                     Picker("Mode", selection: $state.configuration.mode) {
                         ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
                     }
+                    .onChange(of: state.configuration.mode) { _, mode in
+                        state.configuration.applyPreset(mode, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
+                    }
                     LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180).disabled(!state.capabilities.temporalNoiseFilteringAvailable) }
                     if !state.capabilities.temporalNoiseFilteringAvailable { Text("Apple temporal denoise is unavailable on this device.").font(.caption).foregroundStyle(.secondary) }
                     LabeledContent("Detail recovery") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
@@ -111,7 +114,7 @@ struct ResultsView: View {
                 Image(systemName: "checkmark.circle.fill").font(.system(size: 68)).foregroundStyle(.green)
                 Text("Enhancement complete").font(.largeTitle.bold())
                 if let job = state.activeJob, let url = job.outputURL {
-                    VideoPlayer(player: AVPlayer(url: url)).frame(height: 230).clipShape(RoundedRectangle(cornerRadius: 18))
+                    ComparisonPlaybackView(beforeURL: job.sourceURL, afterURL: url)
                     VStack {
                         LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
                         LabeledContent("Codec", value: "HEVC")
@@ -134,5 +137,48 @@ struct ResultsView: View {
                 Button("Enhance another video") { state.route = .home }
             }.padding()
         }.navigationBarBackButtonHidden()
+    }
+}
+
+struct ComparisonPlaybackView: View {
+    @State private var beforePlayer: AVPlayer
+    @State private var afterPlayer: AVPlayer
+    @State private var reveal = 0.5
+
+    init(beforeURL: URL, afterURL: URL) {
+        let before = AVPlayer(url: beforeURL)
+        before.isMuted = true
+        _beforePlayer = State(initialValue: before)
+        _afterPlayer = State(initialValue: AVPlayer(url: afterURL))
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    VideoPlayer(player: beforePlayer)
+                    VideoPlayer(player: afterPlayer)
+                        .frame(width: max(1, geometry.size.width * reveal), alignment: .leading)
+                        .clipped()
+                    Rectangle().fill(.white.opacity(0.9)).frame(width: 2)
+                        .offset(x: geometry.size.width * reveal)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .allowsHitTesting(false)
+            }
+            .frame(height: 230)
+            HStack { Text("Before"); Slider(value: $reveal, in: 0...1); Text("After") }
+                .font(.caption.bold())
+        }
+        .onAppear {
+            beforePlayer.seek(to: .zero)
+            afterPlayer.seek(to: .zero)
+            beforePlayer.play()
+            afterPlayer.play()
+        }
+        .onDisappear {
+            beforePlayer.pause()
+            afterPlayer.pause()
+        }
     }
 }

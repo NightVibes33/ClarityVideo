@@ -137,4 +137,12 @@ extension ClarityVideoTests {
         XCTAssertFalse(SceneCutDetector.isCut(previous: [0.20, 0.22, 0.21], current: [0.23, 0.24, 0.22]))
         XCTAssertTrue(SceneCutDetector.isCut(previous: [0.05, 0.08, 0.06], current: [0.90, 0.86, 0.92]))
     }
+    func testRestorePresetUsesStrongTemporalDenoiseWhenAvailable() {
+        var configuration = ExportConfiguration()
+        configuration.applyPreset(.restore, temporalDenoiseAvailable: true)
+        XCTAssertEqual(configuration.mode, .restore)
+        XCTAssertGreaterThan(configuration.denoise, 0.5)
+        configuration.applyPreset(.restore, temporalDenoiseAvailable: false)
+        XCTAssertEqual(configuration.denoise, 0)
+    }
 }
