@@ -21,8 +21,10 @@ final class AppState {
     var isPreparingModel = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
+    let backgroundExecution = BackgroundExecutionManager()
 
     init() {
+        recentJobs = JobHistoryStore.load()
         Task { await refreshCapabilities() }
     }
 
@@ -50,19 +52,33 @@ final class AppState {
         var job = ProcessingJob(sourceURL: importedURL, assetInfo: assetInfo, configuration: configuration)
         job.outputURL = output
         job.totalFrames = max(1, Int(assetInfo.duration * assetInfo.frameRate))
+        if SegmentPlan.requiresSegmentation(duration: assetInfo.duration, configuration: configuration) {
+            job.segmentCount = SegmentPlan.segments(duration: assetInfo.duration).count
+        }
         activeJob = job
         route = .processing
+        backgroundExecution.begin { [weak self] in self?.engine.cancel() }
         Task {
+            defer { backgroundExecution.end() }
             do {
                 try StorageEstimator.validate(info: assetInfo, configuration: configuration)
                 guard configuration.resolution != .uhd8K || capabilities.supports8KHEVCEncode else {
                     throw AppError.unsupported("8K is hidden until this device passes the hardware encoder probe.")
                 }
                 let completed = try await engine.process(job: job) { [weak self] progress in
-                    Task { @MainActor in self?.activeJob?.progress = progress }
+                    Task { @MainActor in
+                        self?.activeJob?.progress = progress
+                        if let count = self?.activeJob?.segmentCount, count > 1 {
+                            self?.activeJob?.currentSegment = min(count, Int(progress * Double(count)) + 1)
+                        }
+                        if let total = self?.activeJob?.totalFrames {
+                            self?.activeJob?.processedFrames = min(total, Int(progress * Double(total)))
+                        }
+                    }
                 }
                 activeJob = completed
                 recentJobs.insert(completed, at: 0)
+                JobHistoryStore.save(recentJobs)
                 route = .results
             } catch is CancellationError {
                 activeJob?.status = .cancelled

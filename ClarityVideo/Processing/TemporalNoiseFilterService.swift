@@ -57,11 +57,12 @@ final class TemporalNoiseFilterService {
         guard status == kCVReturnSuccess, let destination else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
+        let previousFrameLimit = max(1, configuration.previousFrameCount ?? 1)
         guard let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime),
               let parameters = VTTemporalNoiseFilterParameters(
                 sourceFrame: sourceFrame,
                 nextFrames: [],
-                previousFrames: Array(previousFrames.suffix(configuration.previousFrameCount)),
+                previousFrames: Array(previousFrames.suffix(previousFrameLimit)),
                 destinationFrame: destinationFrame,
                 filterStrength: strength,
                 hasDiscontinuity: hasDiscontinuity
@@ -81,8 +82,8 @@ final class TemporalNoiseFilterService {
             previousFrames.removeAll(keepingCapacity: true)
         }
         previousFrames.append(sourceFrame)
-        if previousFrames.count > configuration.previousFrameCount {
-            previousFrames.removeFirst(previousFrames.count - configuration.previousFrameCount)
+        if previousFrames.count > previousFrameLimit {
+            previousFrames.removeFirst(previousFrames.count - previousFrameLimit)
         }
         return destination
     }

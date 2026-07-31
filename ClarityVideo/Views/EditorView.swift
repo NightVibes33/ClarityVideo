@@ -78,6 +78,12 @@ struct ProcessingView: View {
             let progress = state.activeJob?.progress ?? 0
             ProgressView(value: progress).progressViewStyle(.linear).padding(.horizontal, 32)
             Text("\(Int(progress * 100))%").font(.system(.largeTitle, design: .rounded).bold())
+            if let job = state.activeJob {
+                VStack(spacing: 4) {
+                    if job.segmentCount > 1 { Text("Segment \(max(1, job.currentSegment)) of \(job.segmentCount)") }
+                    Text("\(job.processedFrames) of \(job.totalFrames) frames")
+                }.font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
             VStack(spacing: 6) {
                 Text("Processing remains on this device")
                 Text(ProcessInfo.processInfo.thermalState == .critical ? "Paused to protect your device" : "Temperature monitored automatically")
