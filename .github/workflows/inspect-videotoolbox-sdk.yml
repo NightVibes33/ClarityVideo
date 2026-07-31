@@ -1,0 +1,42 @@
+name: Inspect VideoToolbox iOS 26 SDK
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        shell: bash
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+          xcodebuild -version
+      - name: Capture public frame processor declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          mkdir -p sdk-inspection
+          {
+            echo "SDK=$SDK"
+            find "$SDK/System/Library/Frameworks/VideoToolbox.framework" -type f -maxdepth 6 -print
+          } > sdk-inspection/files.txt
+          grep -R -n -B 8 -A 40 
+            -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' 
+            "$SDK/System/Library/Frameworks/VideoToolbox.framework/Headers" 
+            > sdk-inspection/frame-processor-headers.txt || true
+          find "$SDK/System/Library/Frameworks/VideoToolbox.framework/Modules" 
+            -type f -name '*.swiftinterface' -print0 |
+            xargs -0 grep -n -B 8 -A 45 
+              -E 'VTFrameProcessor|SuperResolution|TemporalNoise|model.*download|MLModel' 
+              > sdk-inspection/frame-processor-swift.txt || true
+          wc -l sdk-inspection/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: videotoolbox-ios26-sdk-surface
+          path: sdk-inspection
+          if-no-files-found: error
