@@ -89,6 +89,8 @@ struct DeviceEnhancementCapabilities: Codable, Equatable, Sendable {
     var supportedLowLatencyScaleFactors: [Double] = []
     var supportedProcessorRevisions: [Int] = []
     var defaultProcessorRevision: Int?
+    var sourcePixelFormats: [UInt32] = []
+    var destinationPixelFormats: [UInt32] = []
     var modelReadiness: AppleModelReadiness = .unavailable
     var modelDownloadProgress = 0.0
     var temporalNoiseFilteringAvailable = false
@@ -133,6 +135,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
     var lastPresentationSeconds: Double
     var osBuild: String
     var appBuild: String
+    var pipelineVersion: Int
     var updatedAt: Date
 
     init(
@@ -141,6 +144,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
         expectedSegmentCount: Int, lastPresentationSeconds: Double = 0,
         osBuild: String = ProcessInfo.processInfo.operatingSystemVersionString,
         appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
+        pipelineVersion: Int = 2,
         updatedAt: Date = Date()
     ) {
         self.jobID = jobID
@@ -152,6 +156,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
         self.lastPresentationSeconds = lastPresentationSeconds
         self.osBuild = osBuild
         self.appBuild = appBuild
+        self.pipelineVersion = pipelineVersion
         self.updatedAt = updatedAt
     }
 
@@ -161,6 +166,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
             && expectedSegmentCount == segmentCount
             && osBuild == ProcessInfo.processInfo.operatingSystemVersionString
             && appBuild == (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")
+            && pipelineVersion == 2
             && completedSegments.allSatisfy { index in
                 guard let url = completedSegmentFiles[String(index)] else { return false }
                 return FileManager.default.fileExists(atPath: url.path)

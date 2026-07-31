@@ -45,3 +45,35 @@ enum JobHistoryStore {
         try? data.write(to: url, options: .atomic)
     }
 }
+
+enum ProcessingCache {
+    static var rootURL: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ProcessingJobs", isDirectory: true)
+    }
+
+    static func jobFolder(_ id: UUID) throws -> URL {
+        let url = rootURL.appendingPathComponent(id.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static func clear() throws {
+        if FileManager.default.fileExists(atPath: rootURL.path) {
+            try FileManager.default.removeItem(at: rootURL)
+        }
+    }
+
+    static func cleanupExpired(olderThan age: TimeInterval = 7 * 24 * 60 * 60) {
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: rootURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        let cutoff = Date().addingTimeInterval(-age)
+        for url in urls {
+            let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            if let modified, modified < cutoff { try? FileManager.default.removeItem(at: url) }
+        }
+    }
+}

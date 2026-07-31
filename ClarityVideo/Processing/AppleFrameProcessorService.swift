@@ -18,6 +18,9 @@ struct AppleSuperResolutionProbe: Sendable {
     var lowLatency720pScaleFactors: [Double]
     var supportedRevisions: [Int]
     var defaultRevision: Int?
+    var sourcePixelFormats: [UInt32]
+    var destinationPixelFormats: [UInt32]
+    var maximumConfiguredInput: CGSize?
     var modelReadiness: AppleModelReadiness
     var modelProgress: Double
     var error: String?
@@ -69,6 +72,9 @@ enum AppleFrameProcessorError: LocalizedError {
         var modelReadiness: AppleModelReadiness = .unavailable
         var progress = 0.0
         var error: String?
+        var sourcePixelFormats: [UInt32] = []
+        var destinationPixelFormats: [UInt32] = []
+        var maximumConfiguredInput: CGSize?
         if fullSupported, let scale = fullScales.first,
            let configuration = VTSuperResolutionScalerConfiguration(
             frameWidth: 1280,
@@ -81,8 +87,28 @@ enum AppleFrameProcessorError: LocalizedError {
            ) {
             modelReadiness = Self.readiness(for: configuration.configurationModelStatus)
             progress = Double(configuration.configurationModelPercentageAvailable)
+            sourcePixelFormats = configuration.frameSupportedPixelFormats?.map { $0.uint32Value } ?? []
+            let destinationValue = configuration.destinationPixelBufferAttributes[kCVPixelBufferPixelFormatTypeKey as String]
+            if let values = destinationValue as? [NSNumber] {
+                destinationPixelFormats = values.map { $0.uint32Value }
+            } else if let value = destinationValue as? NSNumber {
+                destinationPixelFormats = [value.uint32Value]
+            }
         } else if fullSupported {
             error = "No supported full-quality configuration for the 720p diagnostic probe."
+        }
+
+        if fullSupported {
+            let candidates = [CGSize(width: 640, height: 480), CGSize(width: 1280, height: 720), CGSize(width: 1440, height: 1080)]
+            maximumConfiguredInput = candidates.last { size in
+                fullScales.contains { scale in
+                    VTSuperResolutionScalerConfiguration(
+                        frameWidth: Int(size.width), frameHeight: Int(size.height), scaleFactor: scale,
+                        inputType: .video, usePrecomputedFlow: false, qualityPrioritization: .normal,
+                        revision: VTSuperResolutionScalerConfiguration.defaultRevision
+                    ) != nil
+                }
+            }
         }
 
         return AppleSuperResolutionProbe(
@@ -93,6 +119,9 @@ enum AppleFrameProcessorError: LocalizedError {
             lowLatency720pScaleFactors: lowScales,
             supportedRevisions: revisions,
             defaultRevision: defaultRevision,
+            sourcePixelFormats: sourcePixelFormats,
+            destinationPixelFormats: destinationPixelFormats,
+            maximumConfiguredInput: maximumConfiguredInput,
             modelReadiness: modelReadiness,
             modelProgress: progress,
             error: error
@@ -377,6 +406,9 @@ enum AppleFrameProcessorError: LocalizedError {
             lowLatency720pScaleFactors: [],
             supportedRevisions: [],
             defaultRevision: nil,
+            sourcePixelFormats: [],
+            destinationPixelFormats: [],
+            maximumConfiguredInput: nil,
             modelReadiness: .unavailable,
             modelProgress: 0,
             error: "Apple frame processors are unavailable in the simulator."

@@ -223,6 +223,10 @@ final class AIAssetReaderWriterPipeline {
         progress(0.94)
 
         try await remuxAudioAndMetadata(videoURL: temporaryVideo, sourceAsset: asset, finalURL: finalURL)
+        try await OutputValidator.validate(
+            outputURL: finalURL, sourceURL: job.sourceURL,
+            info: job.assetInfo, configuration: job.configuration
+        )
         try? FileManager.default.removeItem(at: temporaryVideo)
         progress(1)
         result.outputURL = finalURL

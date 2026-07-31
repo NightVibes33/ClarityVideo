@@ -21,6 +21,10 @@ struct DiagnosticsView: View {
                 DiagnosticRow("Full scales", state.capabilities.supportedFullScaleFactors.map(String.init).joined(separator: ", "))
                 DiagnosticRow("720p low-latency scales", state.capabilities.supportedLowLatencyScaleFactors.map { String($0) }.joined(separator: ", "))
                 DiagnosticRow("Revisions", state.capabilities.supportedProcessorRevisions.map(String.init).joined(separator: ", "))
+                DiagnosticRow("Source pixel formats", state.capabilities.sourcePixelFormats.map { String(format: "0x%08X", $0) }.joined(separator: ", "))
+                DiagnosticRow("Destination formats", state.capabilities.destinationPixelFormats.map { String(format: "0x%08X", $0) }.joined(separator: ", "))
+                DiagnosticRow("Maximum tested input", state.capabilities.maximumSafeInputSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "Unknown")
+                DiagnosticRow("Maximum encoder output", state.capabilities.maximumSafeOutputSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "Unknown")
             }
             Section("Actions") {
                 Button {
@@ -32,6 +36,7 @@ struct DiagnosticsView: View {
                     Label(state.isPreparingModel ? "Preparing and testing..." : "Prepare model and run one-frame AI test", systemImage: "sparkles.tv")
                 }.disabled(state.isPreparingModel || !state.capabilities.fullSuperResolutionAvailable)
                 Text(state.diagnosticStatus).font(.footnote).foregroundStyle(.secondary)
+                Button(role: .destructive) { state.clearProcessingCache() } label: { Label("Clear processing cache", systemImage: "trash") }
                 Button { exportReport() } label: { Label("Prepare diagnostic JSON", systemImage: "doc.badge.gearshape") }
                 if let exportURL {
                     ShareLink(item: exportURL) { Label("Export diagnostic JSON", systemImage: "square.and.arrow.up") }

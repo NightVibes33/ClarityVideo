@@ -111,7 +111,7 @@ extension ClarityVideoTests {
 
     func testSegmentPlanHasNoTimelineGaps() {
         let segments = SegmentPlan.segments(duration: 95, segmentDuration: 30)
-        XCTAssertEqual(segments.count, 4)
+        XCTAssertEqual(segments.count, 19)
         XCTAssertEqual(segments.first?.startSeconds, 0)
         XCTAssertEqual(segments.last?.endSeconds, 95)
         for pair in zip(segments, segments.dropFirst()) {
@@ -157,5 +157,18 @@ extension ClarityVideoTests {
         configuration.resolution = .uhd8K
         let output = StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration)
         XCTAssertGreaterThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), output * 2)
+    }
+    func testDefaultSegmentsStayWithinFiveSeconds() {
+        let segments = SegmentPlan.segments(duration: 12)
+        XCTAssertEqual(segments.map(\.durationSeconds), [5, 5, 2])
+    }
+
+    func testCheckpointRejectsOldPipelineVersion() {
+        let configuration = ExportConfiguration()
+        let checkpoint = ProcessingCheckpoint(
+            jobID: UUID(), sourceFingerprint: "source", configuration: configuration,
+            expectedSegmentCount: 1, pipelineVersion: 1
+        )
+        XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
     }
 }

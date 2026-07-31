@@ -89,12 +89,17 @@ final class CapabilityDetector {
         result.supportedLowLatencyScaleFactors = appleProbe.lowLatency720pScaleFactors
         result.supportedProcessorRevisions = appleProbe.supportedRevisions
         result.defaultProcessorRevision = appleProbe.defaultRevision
+        result.sourcePixelFormats = appleProbe.sourcePixelFormats
+        result.destinationPixelFormats = appleProbe.destinationPixelFormats
+        result.maximumSafeInputSize = appleProbe.maximumConfiguredInput
         result.modelReadiness = appleProbe.modelReadiness
         result.modelDownloadProgress = appleProbe.modelProgress
         result.lastProbeError = appleProbe.error
         result.supports4KHEVCEncode = encoderProbe(width: 3840, height: 2160, main10: false)
         result.supports8KHEVCEncode = encoderProbe(width: 7680, height: 4320, main10: false)
         result.supportsMain10 = encoderProbe(width: 3840, height: 2160, main10: true)
+        if result.supports8KHEVCEncode { result.maximumSafeOutputSize = CGSize(width: 7680, height: 4320) }
+        else if result.supports4KHEVCEncode { result.maximumSafeOutputSize = CGSize(width: 3840, height: 2160) }
         return result
     }
 
@@ -156,6 +161,51 @@ enum PhotosExportService {
         guard status == .authorized || status == .limited else { throw AppError.unsupported("Photos access was not granted.") }
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
+        }
+    }
+}
+
+enum OutputValidator {
+    static func validate(
+        outputURL: URL,
+        sourceURL: URL,
+        info: VideoAssetInfo,
+        configuration: ExportConfiguration
+    ) async throws {
+        let output = AVURLAsset(url: outputURL)
+        guard try await output.load(.isPlayable),
+              let video = try await output.loadTracks(withMediaType: .video).first else {
+            throw AppError.exportFailed("The completed output could not be reopened as playable video.")
+        }
+        let natural = try await video.load(.naturalSize)
+        let transform = try await video.load(.preferredTransform)
+        let display = CGRect(origin: .zero, size: natural).applying(transform).standardized.size
+        let landscape = configuration.resolution.landscapeSize
+        let expectedWidth = info.isPortrait ? landscape.height : landscape.width
+        let expectedHeight = info.isPortrait ? landscape.width : landscape.height
+        guard abs(abs(display.width) - expectedWidth) < 1,
+              abs(abs(display.height) - expectedHeight) < 1 else {
+            throw AppError.exportFailed("Output validation found unexpected dimensions: \(Int(abs(display.width)))x\(Int(abs(display.height))).")
+        }
+
+        let source = AVURLAsset(url: sourceURL)
+        let sourceHasAudio = !(try await source.loadTracks(withMediaType: .audio)).isEmpty
+        let outputAudio = try await output.loadTracks(withMediaType: .audio).first
+        if sourceHasAudio && outputAudio == nil {
+            throw AppError.exportFailed("The completed output is missing the source audio track.")
+        }
+        if let outputAudio {
+            let videoRange = try await video.load(.timeRange)
+            let audioRange = try await outputAudio.load(.timeRange)
+            let durationDrift = abs(videoRange.duration.seconds - audioRange.duration.seconds)
+            let startDrift = abs(videoRange.start.seconds - audioRange.start.seconds)
+            let frameDuration = 1 / max(1, info.frameRate)
+            guard durationDrift <= frameDuration, startDrift <= frameDuration else {
+                throw AppError.exportFailed(String(
+                    format: "Audio validation failed (duration drift %.4fs, start drift %.4fs).",
+                    durationDrift, startDrift
+                ))
+            }
         }
     }
 }

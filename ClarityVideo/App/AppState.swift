@@ -153,6 +153,15 @@ final class AppState {
         beginExport()
     }
 
+    func clearProcessingCache() {
+        do {
+            try ProcessingCache.clear()
+            diagnosticStatus = "Processing cache cleared"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func cancelExport() {
         engine.cancel()
     }

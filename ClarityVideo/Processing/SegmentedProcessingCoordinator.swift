@@ -10,7 +10,7 @@ struct ProcessingSegment: Codable, Equatable, Sendable {
 }
 
 enum SegmentPlan {
-    static let defaultDuration = 30.0
+    static let defaultDuration = 5.0
 
     static func requiresSegmentation(duration: Double, configuration: ExportConfiguration) -> Bool {
         configuration.resolution == .uhd8K
@@ -43,6 +43,7 @@ final class SegmentedProcessingCoordinator {
 
     init(aiPipeline: AIAssetReaderWriterPipeline) {
         self.aiPipeline = aiPipeline
+        ProcessingCache.cleanupExpired()
     }
 
     func cancel() {
@@ -78,9 +79,15 @@ final class SegmentedProcessingCoordinator {
             if checkpoint.completedSegments.contains(segment.index),
                let existing = checkpoint.completedSegmentFiles[String(segment.index)],
                FileManager.default.fileExists(atPath: existing.path) {
-                completedFiles.append(existing)
-                progress(Double(segment.index + 1) / Double(segments.count) * 0.94)
-                continue
+                if await validateEnhancedSegment(existing, segment: segment, job: job) {
+                    completedFiles.append(existing)
+                    progress(Double(segment.index + 1) / Double(segments.count) * 0.94)
+                    continue
+                }
+                checkpoint.completedSegments.removeAll { $0 == segment.index }
+                checkpoint.completedSegmentFiles[String(segment.index)] = nil
+                try? FileManager.default.removeItem(at: existing)
+                try await checkpointStore.save(checkpoint)
             }
 
             let extracted = folder.appendingPathComponent("source-" + String(segment.index) + ".mov")
@@ -135,6 +142,10 @@ final class SegmentedProcessingCoordinator {
         }
         progress(0.95)
         try await assemble(segmentURLs: completedFiles, sourceURL: job.sourceURL, outputURL: finalURL)
+        try await OutputValidator.validate(
+            outputURL: finalURL, sourceURL: job.sourceURL,
+            info: job.assetInfo, configuration: job.configuration
+        )
         progress(1)
 
         var result = job
@@ -203,14 +214,29 @@ final class SegmentedProcessingCoordinator {
         try await session.export(to: outputURL, as: .mov)
     }
 
-    private func segmentFolder(checkpointID: UUID) throws -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Segments", isDirectory: true)
-            .appendingPathComponent(checkpointID.uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        return base
+    private func validateEnhancedSegment(_ url: URL, segment: ProcessingSegment, job: ProcessingJob) async -> Bool {
+        do {
+            let asset = AVURLAsset(url: url)
+            guard try await asset.load(.isPlayable),
+                  let track = try await asset.loadTracks(withMediaType: .video).first else { return false }
+            let duration = try await asset.load(.duration).seconds
+            let frameTolerance = 1 / max(1, job.assetInfo.frameRate)
+            guard duration.isFinite, duration > 0, abs(duration - segment.durationSeconds) <= frameTolerance else { return false }
+            let size = try await track.load(.naturalSize)
+            let transform = try await track.load(.preferredTransform)
+            let display = CGRect(origin: .zero, size: size).applying(transform).standardized.size
+            let landscape = job.configuration.resolution.landscapeSize
+            let expectedWidth = job.assetInfo.isPortrait ? landscape.height : landscape.width
+            let expectedHeight = job.assetInfo.isPortrait ? landscape.width : landscape.height
+            return abs(abs(display.width) - expectedWidth) < 1 && abs(abs(display.height) - expectedHeight) < 1
+        } catch {
+            return false
+        }
     }
 
+    private func segmentFolder(checkpointID: UUID) throws -> URL {
+        try ProcessingCache.jobFolder(checkpointID)
+    }
     private func sourceFingerprint(job: ProcessingJob) throws -> String {
         let values = try job.sourceURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
         let material = [
