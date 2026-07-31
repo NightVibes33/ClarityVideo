@@ -201,17 +201,50 @@ struct ComparisonPlaybackView: View {
     var body: some View {
         VStack(spacing: 10) {
             GeometryReader { geometry in
+                let splitX = max(0, min(geometry.size.width, geometry.size.width * reveal))
                 ZStack(alignment: .leading) {
-                    VideoPlayer(player: beforePlayer)
-                    VideoPlayer(player: afterPlayer)
-                        .frame(width: max(1, geometry.size.width * reveal), alignment: .leading)
-                        .clipped()
-                    Rectangle().fill(.white.opacity(0.9)).frame(width: 2)
-                        .offset(x: geometry.size.width * reveal)
+                    ZStack {
+                        VideoPlayer(player: afterPlayer)
+                        VideoPlayer(player: beforePlayer)
+                            .mask(alignment: .leading) {
+                                HStack(spacing: 0) {
+                                    Rectangle().frame(width: max(1, splitX))
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                    }
+                    .scaleEffect(zoom)
+                    HStack {
+                        Text("BEFORE")
+                        Spacer()
+                        Text("AFTER")
+                    }
+                    .font(.caption2.bold())
+                    .foregroundStyle(.white)
+                    .padding(10)
+                    .allowsHitTesting(false)
+                    Rectangle()
+                        .fill(.white)
+                        .frame(width: 3)
+                        .shadow(color: .black.opacity(0.65), radius: 2)
+                        .offset(x: max(0, min(geometry.size.width - 3, splitX - 1.5)))
+                        .allowsHitTesting(false)
+                    Image(systemName: "arrow.left.and.right.circle.fill")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(.white, .black.opacity(0.72))
+                        .offset(x: max(0, min(geometry.size.width - 30, splitX - 15)), y: geometry.size.height / 2 - 15)
+                        .allowsHitTesting(false)
                 }
-                .scaleEffect(zoom)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
-                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                    reveal = max(0, min(1, value.location.x / max(1, geometry.size.width)))
+                })
+                .accessibilityLabel("Before and after quality comparison")
+                .accessibilityValue("Before \(Int(reveal * 100)) percent")
+                .accessibilityAdjustableAction { direction in
+                    reveal = max(0, min(1, reveal + (direction == .increment ? 0.05 : -0.05)))
+                }
             }
             .frame(height: 230)
             HStack { Text("Before"); Slider(value: $reveal, in: 0...1); Text("After") }
