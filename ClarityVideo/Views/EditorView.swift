@@ -1,0 +1,126 @@
+import SwiftUI
+import AVKit
+
+struct EditorView: View {
+    @Environment(AppState.self) private var state
+    var body: some View {
+        @Bindable var state = state
+        ScrollView {
+            VStack(spacing: 18) {
+                if let url = state.importedURL {
+                    VideoPlayer(player: AVPlayer(url: url))
+                        .frame(height: 220).clipShape(RoundedRectangle(cornerRadius: 18))
+                }
+                if let info = state.assetInfo { AnalysisCard(info: info) }
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Enhancement").font(.title2.bold())
+                    Picker("Output", selection: $state.configuration.resolution) {
+                        Text("4K UHD").tag(OutputResolution.uhd4K)
+                        if state.capabilities.supports8KHEVCEncode {
+                            Text("8K UHD Â· Experimental").tag(OutputResolution.uhd8K)
+                        }
+                    }.pickerStyle(.segmented)
+                    Picker("Mode", selection: $state.configuration.mode) {
+                        ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180) }
+                    LabeledContent("Detail recovery") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
+                    LabeledContent("Sharpening") { Slider(value: $state.configuration.sharpening, in: 0...1).frame(width: 180) }
+                    Picker("HDR", selection: $state.configuration.hdrBehavior) {
+                        ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...240, step: 5)
+                }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+
+                DisclosureGroup("How this export is produced") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(state.capabilities.fullSuperResolutionAvailable ? "Apple frame processor detected" : "Apple AI processor unavailable", systemImage: "cpu")
+                        Text("Clarity queries the device before exposing AI modes. Exact 4K/8K sizing may supplement supported AI scaling with a high-quality final resize. 8K only appears after a hardware encoder probe passes.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }.padding(.top, 8)
+                }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+
+                Button { state.beginExport() } label: {
+                    Label("Enhance on this device", systemImage: "wand.and.stars")
+                        .frame(maxWidth: .infinity)
+                }.buttonStyle(.borderedProminent).controlSize(.large)
+            }.padding()
+        }
+        .navigationTitle("Video setup")
+        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { state.route = .home } } }
+    }
+}
+
+struct AnalysisCard: View {
+    let info: VideoAssetInfo
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Original").font(.title2.bold())
+            Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 10) {
+                GridRow { Label(info.resolutionText, systemImage: "rectangle.inset.filled"); Text(String(format: "%.2f FPS", info.frameRate)) }
+                GridRow { Label(info.codec.uppercased(), systemImage: "film"); Text(info.isHDR ? "HDR" : "SDR") }
+                GridRow { Label(info.durationText, systemImage: "clock"); Text(info.isPortrait ? "Portrait" : "Landscape") }
+            }.font(.subheadline)
+            Text(info.fileName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+            .padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+struct ProcessingView: View {
+    @Environment(AppState.self) private var state
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "wand.and.rays").font(.system(size: 58)).foregroundStyle(.cyan).symbolEffect(.pulse)
+            Text("\(state.activeJob?.configuration.mode.rawValue ?? "Enhancing") \(state.activeJob?.configuration.resolution.rawValue ?? "")")
+                .font(.title.bold())
+            let progress = state.activeJob?.progress ?? 0
+            ProgressView(value: progress).progressViewStyle(.linear).padding(.horizontal, 32)
+            Text("\(Int(progress * 100))%").font(.system(.largeTitle, design: .rounded).bold())
+            VStack(spacing: 6) {
+                Text("Processing remains on this device")
+                Text(ProcessInfo.processInfo.thermalState == .critical ? "Paused to protect your device" : "Temperature monitored automatically")
+            }.font(.subheadline).foregroundStyle(.secondary)
+            Spacer()
+            Button(role: .destructive) { state.cancelExport() } label: {
+                Label("Cancel export", systemImage: "xmark.circle").frame(maxWidth: .infinity)
+            }.buttonStyle(.bordered).controlSize(.large).padding()
+        }.navigationBarBackButtonHidden()
+    }
+}
+
+struct ResultsView: View {
+    @Environment(AppState.self) private var state
+    @State private var saving = false
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 68)).foregroundStyle(.green)
+                Text("Enhancement complete").font(.largeTitle.bold())
+                if let job = state.activeJob, let url = job.outputURL {
+                    VideoPlayer(player: AVPlayer(url: url)).frame(height: 230).clipShape(RoundedRectangle(cornerRadius: 18))
+                    VStack {
+                        LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
+                        LabeledContent("Codec", value: "HEVC")
+                        LabeledContent("Frames", value: "\(job.processedFrames)")
+                        if let bytes = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                            LabeledContent("Output size", value: ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
+                        }
+                    }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    Button {
+                        saving = true
+                        Task {
+                            defer { saving = false }
+                            do { try await PhotosExportService.save(url) } catch { state.errorMessage = error.localizedDescription }
+                        }
+                    } label: { Label(saving ? "Savingâ¦" : "Save to Photos", systemImage: "photo.badge.arrow.down").frame(maxWidth: .infinity) }
+                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(saving)
+                    ShareLink(item: url) { Label("Save to Files or Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered).controlSize(.large)
+                }
+                Button("Enhance another video") { state.route = .home }
+            }.padding()
+        }.navigationBarBackButtonHidden()
+    }
+}

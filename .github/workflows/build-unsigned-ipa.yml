@@ -1,0 +1,117 @@
+name: Build Unsigned iOS 26 IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: clarity-video-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test-and-build:
+    name: Test and build arm64 IPA
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      PROJECT: ClarityVideo.xcodeproj
+      SCHEME: ClarityVideo
+      DERIVED_DATA: ${{ github.workspace }}/build/DerivedData
+      BUNDLE_ID: com.nightvibes33.clarityvideo
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select installed Xcode 26
+        shell: bash
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -showsdks
+      - name: Verify project and compile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -list -project "$PROJECT"
+          xcodebuild build-for-testing 
+            -project "$PROJECT" 
+            -scheme "$SCHEME" 
+            -configuration Debug 
+            -sdk iphonesimulator 
+            -destination 'generic/platform=iOS Simulator' 
+            CODE_SIGNING_ALLOWED=NO
+      - name: Build unsigned device app
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build Payload artifacts
+          mkdir -p build artifacts
+          xcodebuild 
+            -project "$PROJECT" 
+            -scheme "$SCHEME" 
+            -configuration Release 
+            -sdk iphoneos 
+            -destination 'generic/platform=iOS' 
+            -derivedDataPath "$DERIVED_DATA" 
+            CODE_SIGNING_ALLOWED=NO 
+            CODE_SIGNING_REQUIRED=NO 
+            CODE_SIGN_IDENTITY='' 
+            DEVELOPMENT_TEAM='' 
+            ONLY_ACTIVE_ARCH=NO 
+            ARCHS=arm64 
+            clean build | tee artifacts/xcodebuild.log
+      - name: Locate and validate app
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find "$DERIVED_DATA/Build/Products" -type d -path '*Release-iphoneos/*.app' -print | head -1)"
+          test -n "$APP"
+          echo "path=$APP" >> "$GITHUB_OUTPUT"
+          PLIST="$APP/Info.plist"
+          EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
+          EXECUTABLE="$APP/$EXECUTABLE_NAME"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" = "$BUNDLE_ID"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")" == 26.* ]]
+          file "$EXECUTABLE" | grep -q 'Mach-O'
+          lipo -info "$EXECUTABLE" | grep -q 'arm64'
+          ! file "$EXECUTABLE" | grep -qi simulator
+          ! find "$APP" -name embedded.mobileprovision | grep -q .
+      - name: Package and validate IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${{ steps.app.outputs.path }}"
+          mkdir Payload
+          ditto "$APP" "Payload/$(basename "$APP")"
+          ditto -c -k --sequesterRsrc --keepParent Payload artifacts/ClarityVideo-unsigned.ipa
+          unzip -t artifacts/ClarityVideo-unsigned.ipa
+          test "$(unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -E '^Payload/[^/]+\.app/$' | wc -l | tr -d ' ')" = 1
+          ! unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -q embedded.mobileprovision
+      - name: Generate metadata and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${{ steps.app.outputs.path }}"
+          PLIST="$APP/Info.plist"
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
+          BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
+          XCODE="$(xcodebuild -version | tr '\n' ' ' | sed 's/ *$//')"
+          jq -n 
+            --arg bundle "$BUNDLE_ID" --arg version "$VERSION" --arg build "$BUILD" 
+            --arg commit "$GITHUB_SHA" --arg xcode "$XCODE" 
+            '{bundleIdentifier:$bundle,version:$version,build:$build,minimumOS:"26.0",platform:"iphoneos",architecture:"arm64",signed:false,commit:$commit,xcode:$xcode}' 
+            > artifacts/build-metadata.json
+          cd artifacts
+          shasum -a 256 ClarityVideo-unsigned.ipa > ClarityVideo-unsigned.ipa.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClarityVideo-unsigned-ipa
+          path: |
+            artifacts/ClarityVideo-unsigned.ipa
+            artifacts/ClarityVideo-unsigned.ipa.sha256
+            artifacts/build-metadata.json
+            artifacts/xcodebuild.log
+          if-no-files-found: error
+          retention-days: 30

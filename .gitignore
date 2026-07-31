@@ -1,0 +1,7 @@
+build/
+DerivedData/
+artifacts/
+Payload/
+*.xcuserstate
+xcuserdata/
+.DS_Store

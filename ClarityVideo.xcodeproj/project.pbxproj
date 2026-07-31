@@ -1,0 +1,35 @@
+// !$*UTF8*$!
+{
+ archiveVersion = 1;
+ classes = {};
+ objectVersion = 77;
+ objects = {
+  A1 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = { A2 = { CreatedOnToolsVersion = 26.0; }; A3 = { CreatedOnToolsVersion = 26.0; TestTargetID = A2; }; }; }; buildConfigurationList = C0; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = G0; minimizedProjectReferenceProxies = 1; preferredProjectObjectVersion = 77; productRefGroup = GP; projectDirPath = ""; projectRoot = ""; targets = (A2, A3); };
+  A2 = { isa = PBXNativeTarget; buildConfigurationList = C1; buildPhases = (S1, F1, R1); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (G1); name = ClarityVideo; packageProductDependencies = (); productName = ClarityVideo; productReference = P1; productType = "com.apple.product-type.application"; };
+  A3 = { isa = PBXNativeTarget; buildConfigurationList = C2; buildPhases = (S2, F2, R2); buildRules = (); dependencies = (D1); fileSystemSynchronizedGroups = (G2); name = ClarityVideoTests; packageProductDependencies = (); productName = ClarityVideoTests; productReference = P2; productType = "com.apple.product-type.bundle.unit-test"; };
+  G0 = { isa = PBXGroup; children = (G1, G2, GP); sourceTree = "<group>"; };
+  G1 = { isa = PBXFileSystemSynchronizedRootGroup; path = ClarityVideo; sourceTree = "<group>"; };
+  G2 = { isa = PBXFileSystemSynchronizedRootGroup; path = ClarityVideoTests; sourceTree = "<group>"; };
+  GP = { isa = PBXGroup; children = (P1, P2); name = Products; sourceTree = "<group>"; };
+  P1 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClarityVideo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+  P2 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClarityVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+  S1 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  F1 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  R1 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  S2 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  F2 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  R2 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  D1 = { isa = PBXTargetDependency; target = A2; targetProxy = X1; };
+  X1 = { isa = PBXContainerItemProxy; containerPortal = A1; proxyType = 1; remoteGlobalIDString = A2; remoteInfo = ClarityVideo; };
+  C0 = { isa = XCConfigurationList; buildConfigurations = (PD, PR); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  C1 = { isa = XCConfigurationList; buildConfigurations = (AD, AR); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  C2 = { isa = XCConfigurationList; buildConfigurations = (TD, TR); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  PD = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = dwarf; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; }; name = Debug; };
+  PR = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; COPY_PHASE_STRIP = NO; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ENABLE_NS_ASSERTIONS = NO; GCC_C_LANGUAGE_STANDARD = gnu17; IPHONEOS_DEPLOYMENT_TARGET = 26.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 6.0; VALIDATE_PRODUCT = YES; }; name = Release; };
+  AD = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = ClarityVideo/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.nightvibes33.clarityvideo; PRODUCT_NAME = ClarityVideo; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+  AR = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = ClarityVideo/Resources/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0.0; PRODUCT_BUNDLE_IDENTIFIER = com.nightvibes33.clarityvideo; PRODUCT_NAME = ClarityVideo; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; VALIDATE_PRODUCT = YES; }; name = Release; };
+  TD = { isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.nightvibes33.clarityvideo.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClarityVideo.app/ClarityVideo"; }; name = Debug; };
+  TR = { isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.nightvibes33.clarityvideo.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClarityVideo.app/ClarityVideo"; }; name = Release; };
+ };
+ rootObject = A1;
+}
