@@ -85,6 +85,13 @@ struct DiagnosticsView: View {
             encoderResults: ["4K": state.capabilities.supports4KHEVCEncode, "8K": state.capabilities.supports8KHEVCEncode, "Main10": state.capabilities.supportsMain10],
             peakMemoryBytes: ProcessMemory.peakResidentBytes(),
             thermalTransitions: state.thermalTransitions,
+            diagnosticStatus: state.diagnosticStatus,
+            lastSuccessfulSelfTest: state.lastSuccessfulSelfTest,
+            lastImportedSummary: state.lastImportedSummary,
+            enhancedStillCreated: state.diagnosticStillURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
+            diagnosticVideoCreated: state.diagnosticTestOutputURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
+            activeJobStatus: state.activeJob?.status.rawValue,
+            activeJobError: state.activeJob?.errorMessage,
             processingFPS: state.activeJob.flatMap { job in job.processingDuration.map { Double(job.processedFrames) / max(0.1, $0) } }
         )
         do {

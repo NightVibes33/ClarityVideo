@@ -186,5 +186,12 @@ struct DiagnosticReport: Codable, Sendable {
     var encoderResults: [String: Bool]
     var peakMemoryBytes: UInt64?
     var thermalTransitions: [String]
+    var diagnosticStatus: String
+    var lastSuccessfulSelfTest: Date?
+    var lastImportedSummary: String?
+    var enhancedStillCreated: Bool
+    var diagnosticVideoCreated: Bool
+    var activeJobStatus: String?
+    var activeJobError: String?
     var processingFPS: Double?
 }
