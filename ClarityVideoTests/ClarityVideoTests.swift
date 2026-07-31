@@ -46,7 +46,7 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
-    func testPlannerLabelsLowerMemory8KFallbackAsTiledResize() throws {
+    func testPlannerLabelsLowerMemory8KFallbackAsAIThenResize() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
@@ -54,7 +54,7 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertEqual(plan.route, .fullQualitySuperResolution)
         XCTAssertTrue(plan.requiresFinalResize)
         XCTAssertTrue(plan.disclosure.contains("final resize"))
     }
