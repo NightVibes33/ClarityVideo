@@ -11,6 +11,7 @@ final class AIAssetReaderWriterPipeline {
     private var writer: AVAssetWriter?
     private var remuxSession: AVAssetExportSession?
     private var frameProcessor: AppleFrameProcessorService?
+    private var tiledProcessor: TiledAppleSRProcessor?
     private var cancelled = false
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
 
@@ -20,6 +21,7 @@ final class AIAssetReaderWriterPipeline {
         writer?.cancelWriting()
         remuxSession?.cancelExport()
         frameProcessor?.cancel()
+        tiledProcessor?.cancel()
     }
 
     func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void) async throws -> ProcessingJob {
@@ -50,16 +52,25 @@ final class AIAssetReaderWriterPipeline {
         let useLowLatency = plan.route == .lowLatencySuperResolution
         let lowScale: Double? = useLowLatency ? plan.aiScaleFactor : nil
         let fullScale: Int? = useLowLatency ? nil : Int(plan.aiScaleFactor)
-        guard !plan.requiresTiling else {
-            throw AppError.unsupported("The planner selected tiled Apple SR; this route is not yet available in the active frame writer.")
-        }
-
         progress(0.01)
-        if let fullScale {
+        var tiled: TiledAppleSRProcessor?
+        if plan.requiresTiling {
+            guard let tileWidth = plan.tileWidth, let tileHeight = plan.tileHeight,
+                  let overlap = plan.overlap, let fullScale else {
+                throw PipelinePlanningError.noSuperResolutionRoute
+            }
+            let processor = try TiledAppleSRProcessor(
+                sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                tileWidth: tileWidth, tileHeight: tileHeight, overlap: overlap, scale: fullScale
+            )
+            try await processor.prepare()
+            tiled = processor
+            tiledProcessor = processor
+        } else if let fullScale {
             _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
         }
         try Task.checkCancellation()
-        let sourcePixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let sourcePixelFormat = plan.requiresTiling ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         let assetReader = try AVAssetReader(asset: asset)
         let trackOutput = AVAssetReaderTrackOutput(
             track: track,
@@ -112,15 +123,19 @@ final class AIAssetReaderWriterPipeline {
         assetWriter.startSession(atSourceTime: .zero)
 
         let processor = AppleFrameProcessorService()
-        frameProcessor = processor
-        if useLowLatency, let lowScale {
-            try processor.startLowLatencySession(width: sourceWidth, height: sourceHeight, scaleFactor: Float(lowScale))
-        } else if let fullScale {
-            try processor.startFullQualitySession(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
+        if tiled == nil {
+            frameProcessor = processor
+            if useLowLatency, let lowScale {
+                try processor.startLowLatencySession(width: sourceWidth, height: sourceHeight, scaleFactor: Float(lowScale))
+            } else if let fullScale {
+                try processor.startFullQualitySession(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
+            }
         }
         defer {
             processor.endSession()
+            tiled?.endSession()
             frameProcessor = nil
+            tiledProcessor = nil
             reader = nil
             writer = nil
         }
@@ -138,7 +153,9 @@ final class AIAssetReaderWriterPipeline {
             guard let sourceBuffer = CMSampleBufferGetImageBuffer(sample) else { continue }
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
             let aiBuffer: CVPixelBuffer
-            if useLowLatency {
+            if let tiled {
+                aiBuffer = try await tiled.process(frame: sourceBuffer, presentationTime: timestamp)
+            } else if useLowLatency {
                 aiBuffer = try await processor.processInActiveLowLatencySession(source: sourceBuffer, presentationTime: timestamp)
             } else {
                 aiBuffer = try await processor.processInActiveSession(source: sourceBuffer, presentationTime: timestamp, sequential: frameIndex > 0)

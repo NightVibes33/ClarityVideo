@@ -60,3 +60,31 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 }
+
+extension ClarityVideoTests {
+    func testTileLayoutCoversFrameAndKeepsConsistentTileSize() {
+        let regions = TileLayout.regions(
+            frameWidth: 3840, frameHeight: 2160,
+            tileWidth: 960, tileHeight: 540, overlap: 32
+        )
+        XCTAssertFalse(regions.isEmpty)
+        XCTAssertTrue(regions.allSatisfy { $0.width == 960 && $0.height == 540 })
+        XCTAssertTrue(regions.contains { $0.touchesLeft && $0.touchesTop })
+        XCTAssertTrue(regions.contains { $0.touchesRight && $0.touchesBottom })
+        XCTAssertEqual(regions.map(\.x).min(), 0)
+        XCTAssertEqual(regions.map { $0.x + $0.width }.max(), 3840)
+        XCTAssertEqual(regions.map { $0.y + $0.height }.max(), 2160)
+    }
+
+    func testTileLayoutHasRequiredOverlap() {
+        let regions = TileLayout.regions(
+            frameWidth: 1920, frameHeight: 1080,
+            tileWidth: 960, tileHeight: 540, overlap: 32
+        )
+        let firstRow = regions.filter { $0.y == 0 }.sorted { $0.x < $1.x }
+        XCTAssertGreaterThan(firstRow.count, 1)
+        for pair in zip(firstRow, firstRow.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(pair.0.x + pair.0.width - pair.1.x, 32)
+        }
+    }
+}
