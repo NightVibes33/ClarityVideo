@@ -3,6 +3,7 @@ import CoreGraphics
 import CoreVideo
 import CoreMedia
 import CoreImage
+import CoreImage.CIFilterBuiltins
 import Metal
 
 struct TileRegion: Codable, Equatable, Sendable {
@@ -204,21 +205,74 @@ final class TiledAppleSRProcessor {
         )
     }
 
-    func process(frame: CVPixelBuffer, presentationTime: CMTime) async throws -> CVPixelBuffer {
-        let canvas = try assembler.makeCanvas(width: sourceWidth * scale, height: sourceHeight * scale)
+    func process(frame: CVPixelBuffer, presentationTime: CMTime, canvas suppliedCanvas: CVPixelBuffer? = nil, detailRecovery: Double = 0, sharpening: Double = 0) async throws -> CVPixelBuffer {
+        let canvas: CVPixelBuffer
+        if let suppliedCanvas {
+            guard CVPixelBufferGetWidth(suppliedCanvas) == sourceWidth * scale,
+                  CVPixelBufferGetHeight(suppliedCanvas) == sourceHeight * scale,
+                  CVPixelBufferGetPixelFormatType(suppliedCanvas) == kCVPixelFormatType_32BGRA else {
+                throw TileProcessingError.unsupportedPixelFormat
+            }
+            canvas = suppliedCanvas
+            CVPixelBufferLockBaseAddress(canvas, [])
+            if let base = CVPixelBufferGetBaseAddress(canvas) {
+                memset(base, 0, CVPixelBufferGetBytesPerRow(canvas) * CVPixelBufferGetHeight(canvas))
+            }
+            CVPixelBufferUnlockBaseAddress(canvas, [])
+        } else {
+            canvas = try assembler.makeCanvas(width: sourceWidth * scale, height: sourceHeight * scale)
+        }
         for region in regions {
             try Task.checkCancellation()
             let tile = try makeSourceTile(from: frame, region: region)
             let enhanced = try await frameProcessor.processInActiveSession(
                 source: tile, presentationTime: presentationTime, sequential: false
             )
-            try assembler.blend(tile: enhanced, into: canvas, region: region, scale: scale, overlap: overlap)
+            let blendable = try makeBlendableTile(from: enhanced, detailRecovery: detailRecovery, sharpening: sharpening)
+            try assembler.blend(tile: blendable, into: canvas, region: region, scale: scale, overlap: overlap)
         }
         return canvas
     }
 
     func cancel() { frameProcessor.cancel() }
     func endSession() { frameProcessor.endSession() }
+
+    private func makeBlendableTile(from source: CVPixelBuffer, detailRecovery: Double, sharpening: Double) throws -> CVPixelBuffer {
+        let width = CVPixelBufferGetWidth(source)
+        let height = CVPixelBufferGetHeight(source)
+        let attributes: [String: Any] = [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
+        ]
+        var output: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
+            attributes as CFDictionary, &output
+        )
+        guard status == kCVReturnSuccess, let output else {
+            throw AppleFrameProcessorError.pixelBufferCreation(status)
+        }
+        var processed = CIImage(cvPixelBuffer: source)
+        if detailRecovery > 0 {
+            let filter = CIFilter.unsharpMask()
+            filter.inputImage = processed
+            filter.radius = 1.5
+            filter.intensity = Float(detailRecovery * 0.55)
+            if let filtered = filter.outputImage { processed = filtered }
+        }
+        if sharpening > 0 {
+            let filter = CIFilter.sharpenLuminance()
+            filter.inputImage = processed
+            filter.sharpness = Float(sharpening * 0.8)
+            if let filtered = filter.outputImage { processed = filtered }
+        }
+        ciContext.render(
+            processed, to: output,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        return output
+    }
 
     private func makeSourceTile(from source: CVPixelBuffer, region: TileRegion) throws -> CVPixelBuffer {
         let attributes: [String: Any] = [

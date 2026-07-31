@@ -88,6 +88,7 @@ final class AIAssetReaderWriterPipeline {
             track: track,
             outputSettings: [
                 kCVPixelBufferPixelFormatTypeKey as String: sourcePixelFormat,
+                kCVPixelBufferMetalCompatibilityKey as String: true,
                 kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
             ]
         )
@@ -111,6 +112,10 @@ final class AIAssetReaderWriterPipeline {
                 AVVideoMaxKeyFrameIntervalKey: max(1, Int(job.assetInfo.frameRate.rounded() * 2))
             ]
         ]
+        let sourceColorProperties = try await colorProperties(for: track)
+        if !sourceColorProperties.isEmpty {
+            videoSettings[AVVideoColorPropertiesKey] = sourceColorProperties
+        }
         if job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR {
             videoSettings[AVVideoColorPropertiesKey] = [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
@@ -130,6 +135,7 @@ final class AIAssetReaderWriterPipeline {
                 kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
                 kCVPixelBufferWidthKey as String: Int(targetSize.width),
                 kCVPixelBufferHeightKey as String: Int(targetSize.height),
+                kCVPixelBufferMetalCompatibilityKey as String: true,
                 kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
             ]
         )
@@ -165,6 +171,7 @@ final class AIAssetReaderWriterPipeline {
         var frameIndex = 0
         var sceneCutDetector = SceneCutDetector()
         let totalFrames = max(1, result.totalFrames)
+        let writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize
         while let sample = trackOutput.copyNextSampleBuffer() {
             if cancelled { throw CancellationError() }
             try Task.checkCancellation()
@@ -179,7 +186,12 @@ final class AIAssetReaderWriterPipeline {
             let enhancementSource = try await denoiser?.process(source: sourceBuffer, presentationTime: timestamp, hasDiscontinuity: isSceneCut) ?? sourceBuffer
             let aiBuffer: CVPixelBuffer
             if let tiled {
-                aiBuffer = try await tiled.process(frame: enhancementSource, presentationTime: timestamp)
+                let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil
+                aiBuffer = try await tiled.process(
+                    frame: enhancementSource, presentationTime: timestamp, canvas: canvas,
+                    detailRecovery: writesTiledFramesDirectly ? job.configuration.detailRecovery : 0,
+                    sharpening: writesTiledFramesDirectly ? job.configuration.sharpening : 0
+                )
             } else if useLowLatency {
                 aiBuffer = try await processor.processInActiveLowLatencySession(source: enhancementSource, presentationTime: timestamp)
             } else {
@@ -189,7 +201,9 @@ final class AIAssetReaderWriterPipeline {
                 if cancelled { throw CancellationError() }
                 try await Task.sleep(for: .milliseconds(4))
             }
-            let outputBuffer = try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration)
+            let outputBuffer = writesTiledFramesDirectly
+                ? aiBuffer
+                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration)
             guard adaptor.append(outputBuffer, withPresentationTime: timestamp) else {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
@@ -217,6 +231,18 @@ final class AIAssetReaderWriterPipeline {
         result.status = .completed
         return result
         #endif
+    }
+
+    private func makeWriterBuffer(adaptor: AVAssetWriterInputPixelBufferAdaptor) throws -> CVPixelBuffer {
+        guard let pool = adaptor.pixelBufferPool else {
+            throw AppError.exportFailed("The encoder pixel-buffer pool is unavailable.")
+        }
+        var output: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output)
+        guard status == kCVReturnSuccess, let output else {
+            throw AppleFrameProcessorError.pixelBufferCreation(status)
+        }
+        return output
     }
 
     private func makeExactSizeBuffer(
@@ -263,6 +289,21 @@ final class AIAssetReaderWriterPipeline {
             colorSpace: image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
         )
         return output
+    }
+
+    private func colorProperties(for track: AVAssetTrack) async throws -> [String: Any] {
+        guard let description = try await track.load(.formatDescriptions).first else { return [:] }
+        let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary as? [String: Any] ?? [:]
+        let mappings: [(CFString, String)] = [
+            (kCMFormatDescriptionExtension_ColorPrimaries, AVVideoColorPrimariesKey),
+            (kCMFormatDescriptionExtension_TransferFunction, AVVideoTransferFunctionKey),
+            (kCMFormatDescriptionExtension_YCbCrMatrix, AVVideoYCbCrMatrixKey)
+        ]
+        var result: [String: Any] = [:]
+        for (sourceKey, destinationKey) in mappings {
+            if let value = extensions[sourceKey as String] { result[destinationKey] = value }
+        }
+        return result
     }
 
     private func remuxAudioAndMetadata(videoURL: URL, sourceAsset: AVAsset, finalURL: URL) async throws {

@@ -129,7 +129,7 @@ enum StorageEstimator {
     }
     static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
         let output = estimatedOutputBytes(info: info, configuration: configuration)
-        let temporary = configuration.resolution == .uhd8K ? output / 2 : output / 4
+        let temporary = output + (configuration.resolution == .uhd8K ? output / 4 : output / 10)
         return output + temporary + 1_000_000_000
     }
     static func validate(info: VideoAssetInfo, configuration: ExportConfiguration) throws {
