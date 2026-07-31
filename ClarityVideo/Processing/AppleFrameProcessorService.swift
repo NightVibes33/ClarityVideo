@@ -50,6 +50,9 @@ enum AppleFrameProcessorError: LocalizedError {
 final class AppleFrameProcessorService: @unchecked Sendable {
     private let lock = NSLock()
     private var activeProcessor: VTFrameProcessor?
+    private var activeConfiguration: VTSuperResolutionScalerConfiguration?
+    private var previousSourceFrame: VTFrameProcessorFrame?
+    private var previousOutputFrame: VTFrameProcessorFrame?
 
     static func probe() -> AppleSuperResolutionProbe {
         let fullSupported = VTSuperResolutionScalerConfiguration.isSupported
@@ -95,6 +98,7 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         )
     }
 
+
     static func prepareModel(width: Int, height: Int, scaleFactor: Int) async throws -> Double {
         guard VTSuperResolutionScalerConfiguration.isSupported,
               let configuration = makeConfiguration(width: width, height: height, scaleFactor: scaleFactor)
@@ -123,6 +127,67 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         }
         return 1
     }
+
+    func startFullQualitySession(width: Int, height: Int, scaleFactor: Int) throws {
+        guard let configuration = Self.makeConfiguration(width: width, height: height, scaleFactor: scaleFactor) else {
+            throw AppleFrameProcessorError.unsupportedConfiguration
+        }
+        let modelState = Self.readiness(for: configuration.configurationModelStatus)
+        guard modelState == .ready else { throw AppleFrameProcessorError.modelNotReady(modelState) }
+        let processor = VTFrameProcessor()
+        _ = try processor.startSession(configuration: configuration)
+        lock.withLock {
+            activeProcessor?.endSession()
+            activeProcessor = processor
+            activeConfiguration = configuration
+            previousSourceFrame = nil
+            previousOutputFrame = nil
+        }
+    }
+
+    func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer {
+        let state = lock.withLock { (activeProcessor, activeConfiguration, previousSourceFrame, previousOutputFrame) }
+        guard let processor = state.0, let configuration = state.1 else {
+            throw AppleFrameProcessorError.processing("The Apple SR session is not active.")
+        }
+        let destination = try Self.makeDestinationBuffer(
+            configuration: configuration,
+            width: configuration.frameWidth * configuration.scaleFactor,
+            height: configuration.frameHeight * configuration.scaleFactor
+        )
+        guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime),
+              let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime),
+              let parameters = VTSuperResolutionScalerParameters(
+                sourceFrame: sourceFrame,
+                previousFrame: state.2,
+                previousOutputFrame: state.3,
+                opticalFlow: nil,
+                submissionMode: sequential ? .sequential : .random,
+                destinationFrame: destinationFrame
+              ) else { throw AppleFrameProcessorError.parameterCreation }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            processor.process(parameters: parameters) { _, error in
+                if let error { continuation.resume(throwing: AppleFrameProcessorError.processing(error.localizedDescription)) }
+                else { continuation.resume() }
+            }
+        }
+        lock.withLock {
+            previousSourceFrame = sourceFrame
+            previousOutputFrame = destinationFrame
+        }
+        return destination
+    }
+
+    func endSession() {
+        lock.withLock {
+            activeProcessor?.endSession()
+            activeProcessor = nil
+            activeConfiguration = nil
+            previousSourceFrame = nil
+            previousOutputFrame = nil
+        }
+    }
+
 
     func processFullQuality(
         source: CVPixelBuffer,
@@ -251,9 +316,14 @@ final class AppleFrameProcessorService: @unchecked Sendable {
         )
     }
 
+    func startFullQualitySession(width: Int, height: Int, scaleFactor: Int) throws { throw AppleFrameProcessorError.unavailable }
+    func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer { throw AppleFrameProcessorError.unavailable }
+    func endSession() {}
+
     static func prepareModel(width: Int, height: Int, scaleFactor: Int) async throws -> Double {
         throw AppleFrameProcessorError.unavailable
     }
+
 
     func processFullQuality(
         source: CVPixelBuffer,
