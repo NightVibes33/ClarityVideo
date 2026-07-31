@@ -2,18 +2,56 @@ import SwiftUI
 import PhotosUI
 import AVKit
 import UniformTypeIdentifiers
-import CoreTransferable
 import UIKit
 
-struct PickedMovie: Transferable {
-    let url: URL
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(importedContentType: .movie) { received in
-            let originalName = received.file.lastPathComponent.isEmpty ? "PhotosVideo.mov" : received.file.lastPathComponent
-            let destination = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString + "-" + originalName)
-            try FileManager.default.copyItem(at: received.file, to: destination)
-            return Self(url: destination)
+struct VideoPhotosPicker: UIViewControllerRepresentable {
+    let onResult: (Result<URL, Error>) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onResult: onResult) }
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .videos
+        configuration.selectionLimit = 1
+        configuration.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        private let onResult: (Result<URL, Error>) -> Void
+
+        init(onResult: @escaping (Result<URL, Error>) -> Void) {
+            self.onResult = onResult
+        }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            guard let provider = results.first?.itemProvider else { return }
+            guard provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
+                onResult(.failure(AppError.importFailedReason("Photos did not provide a movie file.")))
+                return
+            }
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [onResult] url, error in
+                let result: Result<URL, Error>
+                do {
+                    if let error { throw error }
+                    guard let url else {
+                        throw AppError.importFailedReason("Photos returned an empty video file.")
+                    }
+                    let name = url.lastPathComponent.isEmpty ? "PhotosVideo.mov" : url.lastPathComponent
+                    let destination = FileManager.default.temporaryDirectory
+                        .appendingPathComponent(UUID().uuidString + "-" + name)
+                    try FileManager.default.copyItem(at: url, to: destination)
+                    result = .success(destination)
+                } catch {
+                    result = .failure(error)
+                }
+                DispatchQueue.main.async { onResult(result) }
+            }
         }
     }
 }
@@ -54,7 +92,7 @@ struct RootView: View {
 
 struct HomeView: View {
     @Environment(AppState.self) private var state
-    @State private var photoItem: PhotosPickerItem?
+    @State private var showingPhotos = false
     @State private var showingFiles = false
 
     var body: some View {
@@ -70,7 +108,7 @@ struct HomeView: View {
                 }.padding(.top, 42)
 
                 VStack(spacing: 12) {
-                    PhotosPicker(selection: $photoItem, matching: .videos) {
+                    Button { showingPhotos = true } label: {
                         Label("Choose from Photos", systemImage: "photo.on.rectangle")
                             .frame(maxWidth: .infinity)
                     }
@@ -111,32 +149,27 @@ struct HomeView: View {
             }.padding()
         }
         .navigationBarHidden(true)
-        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
-            if case let .success(url) = result { Task { await state.importVideo(from: url, sourceLabel: "file") } }
-            if case let .failure(error) = result { state.lastImportError = error.localizedDescription; state.errorMessage = error.localizedDescription }
-        }
-        .onChange(of: photoItem) { _, item in
-            guard let item else { return }
-            state.isImporting = true
-            state.importStatus = "Requesting the selected Photos video..."
-            Task { @MainActor in
-                defer {
-                    photoItem = nil
-                    if state.route != .editor {
-                        state.isImporting = false
-                        state.importStatus = nil
-                    }
-                }
-                do {
-                    guard let movie = try await item.loadTransferable(type: PickedMovie.self) else {
-                        throw AppError.importFailedReason("Photos did not provide a transferable movie file.")
-                    }
-                    await state.importVideo(from: movie.url, sourceLabel: "Photos video")
-                } catch {
+        .sheet(isPresented: $showingPhotos) {
+            VideoPhotosPicker { result in
+                switch result {
+                case .success(let url):
+                    state.isImporting = true
+                    state.importStatus = "Copying the selected Photos video..."
+                    Task { await state.importVideo(from: url, sourceLabel: "Photos video") }
+                case .failure(let error):
                     state.lastImportError = error.localizedDescription
                     state.errorMessage = error.localizedDescription
                 }
             }
+            .ignoresSafeArea()
+        }
+        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
+            if case let .success(url) = result {
+                state.isImporting = true
+                state.importStatus = "Opening the selected Files video..."
+                Task { await state.importVideo(from: url, sourceLabel: "Files video") }
+            }
+            if case let .failure(error) = result { state.lastImportError = error.localizedDescription; state.errorMessage = error.localizedDescription }
         }
         .overlay {
             if state.isImporting {
