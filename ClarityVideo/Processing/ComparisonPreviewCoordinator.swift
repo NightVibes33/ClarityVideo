@@ -7,6 +7,23 @@ struct ComparisonPreview: Identifiable, Sendable {
     var enhancedURL: URL
     var previewProcessingDuration: Double
     var estimatedFullDuration: Double
+    var estimatedOutputBytes: Int64
+    var selectedStartSeconds: Double
+    var selectedDurationSeconds: Double
+}
+
+struct PreviewSelection: Equatable, Sendable {
+    var startSeconds: Double
+    var durationSeconds: Double
+
+    static func resolve(sourceDuration: Double, requestedStart: Double, requestedDuration: Double) -> PreviewSelection {
+        let duration = min(max(0, sourceDuration), min(5, max(2, requestedDuration)))
+        let latestStart = max(0, sourceDuration - duration)
+        return PreviewSelection(
+            startSeconds: min(max(0, requestedStart), latestStart),
+            durationSeconds: duration
+        )
+    }
 }
 
 @MainActor
@@ -24,11 +41,17 @@ final class ComparisonPreviewCoordinator {
         sourceInfo: VideoAssetInfo,
         configuration: ExportConfiguration,
         requestedDuration: Double = 3,
+        requestedStart: Double? = nil,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> ComparisonPreview {
-        let previewDuration = min(requestedDuration, sourceInfo.duration)
+        let selection = PreviewSelection.resolve(
+            sourceDuration: sourceInfo.duration,
+            requestedStart: requestedStart ?? sourceInfo.duration * 0.25,
+            requestedDuration: requestedDuration
+        )
+        let previewDuration = selection.durationSeconds
         guard previewDuration > 0 else { throw AppError.exportFailed("The video has no previewable duration.") }
-        let start = max(0, min(sourceInfo.duration - previewDuration, sourceInfo.duration * 0.25))
+        let start = selection.startSeconds
         let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ComparisonPreviews", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -51,7 +74,10 @@ final class ComparisonPreviewCoordinator {
             sourceURL: sourceClip,
             enhancedURL: enhancedClip,
             previewProcessingDuration: elapsed,
-            estimatedFullDuration: elapsed / max(0.1, previewDuration) * sourceInfo.duration
+            estimatedFullDuration: elapsed / max(0.1, previewDuration) * sourceInfo.duration,
+            estimatedOutputBytes: StorageEstimator.estimatedOutputBytes(info: sourceInfo, configuration: configuration),
+            selectedStartSeconds: start,
+            selectedDurationSeconds: previewDuration
         )
     }
 

@@ -30,6 +30,8 @@ final class AppState {
     var thermalTransitions: [String] = []
     var comparisonPreview: ComparisonPreview?
     var previewProgress = 0.0
+    var previewStartSeconds = 0.0
+    var previewDurationSeconds = 3.0
     var outputBytesSoFar: Int64 = 0
     var isGeneratingPreview = false
     var isPreparingModel = false
@@ -76,6 +78,8 @@ final class AppState {
             lastImportedSummary = info.fileName + " " + info.resolutionText + " " + info.durationText
             importedURL = localURL
             assetInfo = info
+            previewDurationSeconds = min(3, info.duration)
+            previewStartSeconds = max(0, min(info.duration - previewDurationSeconds, info.duration * 0.25))
             route = .editor
         } catch {
             if let copiedURL { try? FileManager.default.removeItem(at: copiedURL) }
@@ -93,7 +97,9 @@ final class AppState {
             do {
                 try StorageEstimator.validate(info: assetInfo, configuration: configuration)
                 comparisonPreview = try await previewCoordinator.generate(
-                    sourceURL: importedURL, sourceInfo: assetInfo, configuration: configuration
+                    sourceURL: importedURL, sourceInfo: assetInfo, configuration: configuration,
+                    requestedDuration: previewDurationSeconds,
+                    requestedStart: previewStartSeconds
                 ) { [weak self] progress in
                     Task { @MainActor in self?.previewProgress = progress }
                 }

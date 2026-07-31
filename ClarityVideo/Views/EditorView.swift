@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import Combine
 
 struct EditorView: View {
     @Environment(AppState.self) private var state
@@ -59,13 +60,49 @@ struct EditorView: View {
                 DisclosureGroup("How this export is produced") {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(state.capabilities.fullSuperResolutionAvailable ? "Apple frame processor detected" : "Apple AI processor unavailable", systemImage: "cpu")
-                        Text("Clarity queries the device before exposing AI modes. Exact 4K/8K sizing may supplement supported AI scaling with a high-quality final resize. 8K only appears after a hardware encoder probe passes.")
+                        if let plan = currentPipelinePlan {
+                            LabeledContent("Apple AI scale", value: String(format: "%.1fx", plan.aiScaleFactor))
+                            LabeledContent("Output", value: "\(plan.targetWidth) x \(plan.targetHeight)")
+                            if plan.requiresTiling {
+                                LabeledContent("Processing", value: "Overlapping tiles")
+                            }
+                            Text(plan.disclosure)
+                                .font(.footnote).foregroundStyle(.secondary)
+                        } else {
+                            Text("No compatible Apple super-resolution route is available for this source and output on this device.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                        Text("8K only appears after a real hardware encoder probe passes.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }.padding(.top, 8)
                 }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
 
+                if let info = state.assetInfo {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Comparison range").font(.headline)
+                        LabeledContent("Start", value: durationLabel(state.previewStartSeconds))
+                        Slider(
+                            value: $state.previewStartSeconds,
+                            in: 0...max(0.01, info.duration - state.previewDurationSeconds)
+                        )
+                        Stepper(
+                            "Duration: \(Int(state.previewDurationSeconds.rounded())) seconds",
+                            value: $state.previewDurationSeconds,
+                            in: min(2, info.duration)...min(5, max(2, info.duration)),
+                            step: 1
+                        )
+                        .disabled(info.duration < 2)
+                        Text("Only this short range is enhanced for the preview. The full source remains untouched.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .onChange(of: state.previewDurationSeconds) { _, duration in
+                        state.previewStartSeconds = min(state.previewStartSeconds, max(0, info.duration - duration))
+                    }
+                    .padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                }
+
                 Button { state.generateComparisonPreview() } label: {
-                    Label(state.isGeneratingPreview ? "Building preview \(Int(state.previewProgress * 100))%" : "Generate 3-second AI comparison", systemImage: "rectangle.split.2x1")
+                    Label(state.isGeneratingPreview ? "Building preview \(Int(state.previewProgress * 100))%" : "Generate AI comparison", systemImage: "rectangle.split.2x1")
                         .frame(maxWidth: .infinity)
                 }.buttonStyle(.bordered).controlSize(.large)
                     .disabled(state.isGeneratingPreview || (!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable))
@@ -79,13 +116,31 @@ struct EditorView: View {
             NavigationStack {
                 VStack {
                     ComparisonPlaybackView(beforeURL: preview.sourceURL, afterURL: preview.enhancedURL)
+                    LabeledContent("Selected range", value: "\(durationLabel(preview.selectedStartSeconds)) for \(Int(preview.selectedDurationSeconds.rounded())) s")
                     LabeledContent("Preview processing", value: String(format: "%.1f s", preview.previewProcessingDuration))
                     LabeledContent("Estimated full export", value: String(format: "%.1f min", preview.estimatedFullDuration / 60))
+                    LabeledContent("Estimated output", value: ByteCountFormatter.string(fromByteCount: preview.estimatedOutputBytes, countStyle: .file))
                 }.padding().navigationTitle("AI Comparison")
             }
         }
         .navigationTitle("Video setup")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { state.route = .home } } }
+    }
+
+    private var currentPipelinePlan: PipelinePlan? {
+        guard let info = state.assetInfo else { return nil }
+        let factors = info.encodedWidth <= 1280 && info.encodedHeight <= 720
+            ? state.capabilities.supportedLowLatencyScaleFactors
+            : state.capabilities.supportedLowLatency1080pScaleFactors
+        return try? PipelinePlanner.plan(
+            sourceWidth: info.encodedWidth, sourceHeight: info.encodedHeight,
+            target: state.configuration.resolution, mode: state.configuration.mode,
+            capabilities: state.capabilities, lowLatencyFactorsForSource: factors
+        )
+    }
+
+    private func durationLabel(_ seconds: Double) -> String {
+        String(format: "%02d:%02d", Int(seconds) / 60, Int(seconds) % 60)
     }
 }
 
@@ -128,7 +183,10 @@ struct ProcessingView: View {
             }
             VStack(spacing: 6) {
                 Text("Processing remains on this device")
+                Text("Temperature: \(thermalLabel)")
                 Text(ProcessInfo.processInfo.thermalState == .critical ? "Paused to protect your device" : "Temperature monitored automatically")
+                Text("If you leave the app, iOS may pause heavy processing. Completed segments are checkpointed for resume.")
+                    .multilineTextAlignment(.center)
             }.font(.subheadline).foregroundStyle(.secondary)
             Spacer()
             HStack {
@@ -140,6 +198,16 @@ struct ProcessingView: View {
                 }.buttonStyle(.bordered)
             }.controlSize(.large).padding()
         }.navigationBarBackButtonHidden()
+    }
+
+    private var thermalLabel: String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: "Normal"
+        case .fair: "Warm"
+        case .serious: "Hot - slowing down"
+        case .critical: "Critical - pausing"
+         default: "Unknown"
+        }
     }
 }
 
@@ -190,6 +258,8 @@ struct ComparisonPlaybackView: View {
     @State private var afterPlayer: AVPlayer
     @State private var reveal = 0.5
     @State private var zoom = 1.0
+    @State private var cropAnchor = UnitPoint.center
+    private let syncTimer = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
 
     init(beforeURL: URL, afterURL: URL) {
         let before = AVPlayer(url: beforeURL)
@@ -205,7 +275,9 @@ struct ComparisonPlaybackView: View {
                 ZStack(alignment: .leading) {
                     ZStack {
                         VideoPlayer(player: afterPlayer)
+                            .scaleEffect(zoom, anchor: cropAnchor)
                         VideoPlayer(player: beforePlayer)
+                            .scaleEffect(zoom, anchor: cropAnchor)
                             .mask(alignment: .leading) {
                                 HStack(spacing: 0) {
                                     Rectangle().frame(width: max(1, splitX))
@@ -213,7 +285,6 @@ struct ComparisonPlaybackView: View {
                                 }
                             }
                     }
-                    .scaleEffect(zoom)
                     HStack {
                         Text("BEFORE")
                         Spacer()
@@ -254,6 +325,11 @@ struct ComparisonPlaybackView: View {
                 Text("200%").tag(2.0)
                 Text("400%").tag(4.0)
             }.pickerStyle(.segmented)
+            Picker("Detail crop", selection: $cropAnchor) {
+                Text("Top").tag(UnitPoint.top)
+                Text("Center").tag(UnitPoint.center)
+                Text("Bottom").tag(UnitPoint.bottom)
+            }.pickerStyle(.segmented)
         }
         .onAppear {
             beforePlayer.seek(to: .zero)
@@ -261,11 +337,18 @@ struct ComparisonPlaybackView: View {
             beforePlayer.play()
             afterPlayer.play()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: beforePlayer.currentItem)) { _ in
-            beforePlayer.seek(to: .zero); beforePlayer.play()
+        .onReceive(syncTimer) { _ in
+            let reference = afterPlayer.currentTime()
+            let drift = abs(beforePlayer.currentTime().seconds - reference.seconds)
+            if drift.isFinite, drift > 0.06 {
+                beforePlayer.seek(to: reference, toleranceBefore: .zero, toleranceAfter: .zero)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime, object: afterPlayer.currentItem)) { _ in
-            afterPlayer.seek(to: .zero); afterPlayer.play()
+            beforePlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            afterPlayer.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+            beforePlayer.play()
+            afterPlayer.play()
         }
         .onDisappear {
             beforePlayer.pause()

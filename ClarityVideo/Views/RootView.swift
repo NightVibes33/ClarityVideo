@@ -144,8 +144,15 @@ struct HomeView: View {
                                 Text("\(job.configuration.resolution.rawValue) \u{00B7} \(job.status.rawValue.capitalized)")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                            if job.status == .paused { Button("Resume") { state.resume(job) }.buttonStyle(.borderedProminent) }
                             Spacer()
+                            if job.status == .paused {
+                                Button("Resume") { state.resume(job) }.buttonStyle(.borderedProminent)
+                            } else if job.status == .completed {
+                                Button("View") {
+                                    state.activeJob = job
+                                    state.route = .results
+                                }.buttonStyle(.bordered)
+                            }
                         }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                     }
                 }

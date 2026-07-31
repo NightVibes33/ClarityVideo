@@ -2,6 +2,24 @@ import XCTest
 @testable import ClarityVideo
 
 final class ClarityVideoTests: XCTestCase {
+    func testPreviewSelectionClampsToTwoToFiveSecondsAndSourceEnd() {
+        XCTAssertEqual(
+            PreviewSelection.resolve(sourceDuration: 20, requestedStart: 19, requestedDuration: 9),
+            PreviewSelection(startSeconds: 15, durationSeconds: 5)
+        )
+        XCTAssertEqual(
+            PreviewSelection.resolve(sourceDuration: 20, requestedStart: -4, requestedDuration: 1),
+            PreviewSelection(startSeconds: 0, durationSeconds: 2)
+        )
+    }
+
+    func testPreviewSelectionSupportsShortSources() {
+        XCTAssertEqual(
+            PreviewSelection.resolve(sourceDuration: 1.25, requestedStart: 1, requestedDuration: 3),
+            PreviewSelection(startSeconds: 0, durationSeconds: 1.25)
+        )
+    }
+
     func testStorageEstimateIncludesSafetyAndTemporarySpace() {
         let info = VideoAssetInfo(fileName: "test.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 60, estimatedSourceBytes: 10)
         let required = StorageEstimator.requiredBytes(info: info, configuration: ExportConfiguration())
