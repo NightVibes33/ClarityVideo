@@ -51,6 +51,7 @@ enum AppleFrameProcessorError: LocalizedError {
     private let lock = NSLock()
     private var activeProcessor: VTFrameProcessor?
     private var activeConfiguration: VTSuperResolutionScalerConfiguration?
+    private var activeLowLatencyConfiguration: VTLowLatencySuperResolutionScalerConfiguration?
     private var previousSourceFrame: VTFrameProcessorFrame?
     private var previousOutputFrame: VTFrameProcessorFrame?
 
@@ -99,6 +100,14 @@ enum AppleFrameProcessorError: LocalizedError {
     }
 
 
+    static func lowLatencyScaleFactors(width: Int, height: Int) -> [Double] {
+        VTLowLatencySuperResolutionScalerConfiguration
+            .supportedScaleFactors(frameWidth: width, frameHeight: height)
+            .map(Double.init)
+    }
+
+
+
     static func prepareModel(width: Int, height: Int, scaleFactor: Int) async throws -> Double {
         guard VTSuperResolutionScalerConfiguration.isSupported,
               let configuration = makeConfiguration(width: width, height: height, scaleFactor: scaleFactor)
@@ -128,6 +137,55 @@ enum AppleFrameProcessorError: LocalizedError {
         return 1
     }
 
+    func startLowLatencySession(width: Int, height: Int, scaleFactor: Float) throws {
+        guard VTLowLatencySuperResolutionScalerConfiguration.isSupported,
+              Self.lowLatencyScaleFactors(width: width, height: height).contains(Double(scaleFactor)) else {
+            throw AppleFrameProcessorError.unsupportedConfiguration
+        }
+        let configuration = VTLowLatencySuperResolutionScalerConfiguration(
+            frameWidth: width, frameHeight: height, scaleFactor: scaleFactor
+        )
+        let processor = VTFrameProcessor()
+        _ = try processor.startSession(configuration: configuration)
+        lock.withLock {
+            activeProcessor?.endSession()
+            activeProcessor = processor
+            activeConfiguration = nil
+            activeLowLatencyConfiguration = configuration
+            previousSourceFrame = nil
+            previousOutputFrame = nil
+        }
+    }
+
+    func processInActiveLowLatencySession(source: CVPixelBuffer, presentationTime: CMTime) async throws -> CVPixelBuffer {
+        let state = lock.withLock { (activeProcessor, activeLowLatencyConfiguration) }
+        guard let processor = state.0, let configuration = state.1 else {
+            throw AppleFrameProcessorError.processing("The Apple low-latency SR session is not active.")
+        }
+        let width = Int(Float(configuration.frameWidth) * configuration.scaleFactor)
+        let height = Int(Float(configuration.frameHeight) * configuration.scaleFactor)
+        var attributes = configuration.destinationPixelBufferAttributes
+        attributes[kCVPixelBufferWidthKey as String] = width
+        attributes[kCVPixelBufferHeightKey as String] = height
+        attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
+        var destination: CVPixelBuffer?
+        let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes as CFDictionary, &destination)
+        guard status == kCVReturnSuccess, let destination else { throw AppleFrameProcessorError.pixelBufferCreation(status) }
+        guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime),
+              let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime) else {
+            throw AppleFrameProcessorError.frameCreation
+        }
+        let parameters = VTLowLatencySuperResolutionScalerParameters(sourceFrame: sourceFrame, destinationFrame: destinationFrame)
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            processor.process(parameters: parameters) { _, error in
+                if let error { continuation.resume(throwing: AppleFrameProcessorError.processing(error.localizedDescription)) }
+                else { continuation.resume() }
+            }
+        }
+        return destination
+    }
+
+
     func startFullQualitySession(width: Int, height: Int, scaleFactor: Int) throws {
         guard let configuration = Self.makeConfiguration(width: width, height: height, scaleFactor: scaleFactor) else {
             throw AppleFrameProcessorError.unsupportedConfiguration
@@ -140,6 +198,7 @@ enum AppleFrameProcessorError: LocalizedError {
             activeProcessor?.endSession()
             activeProcessor = processor
             activeConfiguration = configuration
+            activeLowLatencyConfiguration = nil
             previousSourceFrame = nil
             previousOutputFrame = nil
         }
@@ -183,6 +242,7 @@ enum AppleFrameProcessorError: LocalizedError {
             activeProcessor?.endSession()
             activeProcessor = nil
             activeConfiguration = nil
+            activeLowLatencyConfiguration = nil
             previousSourceFrame = nil
             previousOutputFrame = nil
         }
@@ -319,6 +379,12 @@ enum AppleFrameProcessorError: LocalizedError {
     func startFullQualitySession(width: Int, height: Int, scaleFactor: Int) throws { throw AppleFrameProcessorError.unavailable }
     func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer { throw AppleFrameProcessorError.unavailable }
     func endSession() {}
+
+
+
+    static func lowLatencyScaleFactors(width: Int, height: Int) -> [Double] { [] }
+    func startLowLatencySession(width: Int, height: Int, scaleFactor: Float) throws { throw AppleFrameProcessorError.unavailable }
+    func processInActiveLowLatencySession(source: CVPixelBuffer, presentationTime: CMTime) async throws -> CVPixelBuffer { throw AppleFrameProcessorError.unavailable }
 
     static func prepareModel(width: Int, height: Int, scaleFactor: Int) async throws -> Double {
         throw AppleFrameProcessorError.unavailable

@@ -36,8 +36,8 @@ final class AIAssetReaderWriterPipeline {
         let sourceWidth = Int(abs(naturalSize.width))
         let sourceHeight = Int(abs(naturalSize.height))
         let probe = AppleFrameProcessorService.probe()
-        guard probe.fullSupported, !probe.fullScaleFactors.isEmpty else {
-            throw AppError.unsupported("Apple full-quality super resolution is unavailable on this device.")
+        guard probe.fullSupported || probe.lowLatencySupported else {
+            throw AppError.unsupported("Apple super resolution is unavailable on this device.")
         }
 
         let targetLandscape = job.configuration.resolution.landscapeSize
@@ -46,14 +46,19 @@ final class AIAssetReaderWriterPipeline {
             ? CGSize(width: targetLandscape.height, height: targetLandscape.width)
             : targetLandscape
         let neededScale = max(targetSize.width / CGFloat(sourceWidth), targetSize.height / CGFloat(sourceHeight))
-        let scale = probe.fullScaleFactors.sorted().first { CGFloat($0) >= neededScale }
-            ?? probe.fullScaleFactors.max()!
-        guard sourceWidth <= 1440, sourceHeight <= 1080 else {
-            throw AppError.unsupported("This source requires tiled Apple SR. Full-frame AI supports up to 1440x1080 on iPhone; tiled processing is required for this clip.")
+        let fullScale = probe.fullScaleFactors.sorted().first { CGFloat($0) >= neededScale } ?? probe.fullScaleFactors.max()
+        let fullFrameEligible = probe.fullSupported && sourceWidth <= 1440 && sourceHeight <= 1080 && fullScale != nil
+        let lowScales = AppleFrameProcessorService.lowLatencyScaleFactors(width: sourceWidth, height: sourceHeight)
+        let lowScale = lowScales.sorted().first { CGFloat($0) >= neededScale } ?? lowScales.max()
+        let useLowLatency = lowScale != nil && (job.configuration.mode == .fast || !fullFrameEligible)
+        guard useLowLatency || fullFrameEligible else {
+            throw AppError.unsupported("This source requires tiled Apple SR because neither full-frame nor low-latency processing accepted its dimensions.")
         }
 
         progress(0.01)
-        _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: scale)
+        if !useLowLatency, let fullScale {
+            _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
+        }
         try Task.checkCancellation()
         let sourcePixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         let assetReader = try AVAssetReader(asset: asset)
@@ -109,7 +114,11 @@ final class AIAssetReaderWriterPipeline {
 
         let processor = AppleFrameProcessorService()
         frameProcessor = processor
-        try processor.startFullQualitySession(width: sourceWidth, height: sourceHeight, scaleFactor: scale)
+        if useLowLatency, let lowScale {
+            try processor.startLowLatencySession(width: sourceWidth, height: sourceHeight, scaleFactor: Float(lowScale))
+        } else if let fullScale {
+            try processor.startFullQualitySession(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
+        }
         defer {
             processor.endSession()
             frameProcessor = nil
@@ -129,11 +138,12 @@ final class AIAssetReaderWriterPipeline {
             }
             guard let sourceBuffer = CMSampleBufferGetImageBuffer(sample) else { continue }
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
-            let aiBuffer = try await processor.processInActiveSession(
-                source: sourceBuffer,
-                presentationTime: timestamp,
-                sequential: frameIndex > 0
-            )
+            let aiBuffer: CVPixelBuffer
+            if useLowLatency {
+                aiBuffer = try await processor.processInActiveLowLatencySession(source: sourceBuffer, presentationTime: timestamp)
+            } else {
+                aiBuffer = try await processor.processInActiveSession(source: sourceBuffer, presentationTime: timestamp, sequential: frameIndex > 0)
+            }
             while !writerInput.isReadyForMoreMediaData {
                 if cancelled { throw CancellationError() }
                 try await Task.sleep(for: .milliseconds(4))

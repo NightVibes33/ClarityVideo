@@ -13,7 +13,7 @@ final class VideoProcessingCoordinator {
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
         try? FileManager.default.removeItem(at: outputURL)
-        if AppleFrameProcessorService.probe().fullSupported {
+        if AppleFrameProcessorService.probe().fullSupported || AppleFrameProcessorService.probe().lowLatencySupported {
             return try await aiPipeline.process(job: job, progress: progress)
         }
 
