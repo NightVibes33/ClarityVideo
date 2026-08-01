@@ -61,6 +61,18 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
+    func test1080pTo4KAvoidsEightKHalfFloatIntermediate() throws {
+        var caps = DeviceEnhancementCapabilities()
+        caps.fullSuperResolutionAvailable = true
+        caps.supportedFullScaleFactors = [4]
+        let plan = try PipelinePlanner.plan(
+            sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, mode: .quality,
+            capabilities: caps, lowLatencyFactorsForSource: []
+        )
+        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertTrue(plan.requiresFinalResize)
+    }
+
     func test4KTo8KUsesMemorySafeRouteWhenOnlyFourXIsAvailable() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
@@ -73,7 +85,7 @@ extension ClarityVideoTests {
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
-    func testPlannerUsesFullQualityFourXFor720pTo4K() throws {
+    func testPlannerAvoidsLargeHalfFloatCanvasFor720pTo4K() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
@@ -81,8 +93,8 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd4K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .fullQualitySuperResolution)
-        XCTAssertEqual(plan.aiScaleFactor, 4)
+        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.aiScaleFactor, 1)
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
@@ -99,7 +111,7 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
-    func testPlannerLabelsLowerMemory8KFallbackAsAIThenResize() throws {
+    func testPlannerLabelsMemorySafe8KFallback() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
@@ -107,9 +119,9 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .fullQualitySuperResolution)
+        XCTAssertEqual(plan.route, .nativeEnhancement)
         XCTAssertTrue(plan.requiresFinalResize)
-        XCTAssertTrue(plan.disclosure.contains("final resize"))
+        XCTAssertTrue(plan.disclosure.contains("memory-safe"))
     }
 
     func testPlannerTiles4KTo8KWithoutLowLatencyRoute() throws {
@@ -120,10 +132,9 @@ extension ClarityVideoTests {
             sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .tiledSuperResolution)
-        XCTAssertEqual(plan.tileWidth, 960)
-        XCTAssertEqual(plan.overlap, 32)
-        XCTAssertFalse(plan.requiresFinalResize)
+        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertTrue(plan.requiresFinalResize)
+        XCTAssertTrue(plan.disclosure.contains("memory-safe"))
     }
 }
 

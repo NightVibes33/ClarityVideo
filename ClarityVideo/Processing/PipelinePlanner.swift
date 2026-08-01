@@ -55,23 +55,19 @@ enum PipelinePlanner {
 
         let fullFactors = capabilities.supportedFullScaleFactors.sorted()
         let selectedFull = fullFactors.first { Double($0) >= requiredScale } ?? fullFactors.last
+        let fullCanvasSafe: Bool
         if let selectedFull {
             let neuralWidth = Int64(sourceWidth) * Int64(selectedFull)
             let neuralHeight = Int64(sourceHeight) * Int64(selectedFull)
-            let neuralCanvasBytes = neuralWidth * neuralHeight * 4
-            if neuralCanvasBytes > 256 * 1_024 * 1_024 {
-                var safePlan = makePlan(
-                    route: .nativeEnhancement, factor: 1,
-                    sourceWidth: sourceWidth, sourceHeight: sourceHeight,
-                    targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
-                )
-                safePlan.disclosure = "Clarity enhances the full-resolution frame, then uses a high-quality memory-safe resize because the available Apple AI scale would exceed safe frame memory."
-                return safePlan
-            }
+            let neuralCanvasBytes = neuralWidth * neuralHeight * 8
+            fullCanvasSafe = neuralCanvasBytes <= 64 * 1_024 * 1_024
+        } else {
+            fullCanvasSafe = false
         }
         let lowFactors = lowLatencyFactorsForSource.sorted()
         let selectedLow = lowFactors.first { $0 >= requiredScale } ?? lowFactors.last
         let fullFrameEligible = capabilities.fullSuperResolutionAvailable
+            && fullCanvasSafe
             && sourceWidth <= 1440 && sourceHeight <= 1080 && selectedFull != nil
         let preferLow = mode == .fast && capabilities.lowLatencySuperResolutionAvailable && selectedLow != nil
 
@@ -107,6 +103,15 @@ enum PipelinePlanner {
                 targetHeight: targetHeight,
                 tiled: false
             )
+        }
+        if !fullCanvasSafe, selectedFull != nil {
+            var safePlan = makePlan(
+                route: .nativeEnhancement, factor: 1,
+                sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
+            )
+            safePlan.disclosure = "Clarity enhances the full-resolution frame, then uses a high-quality memory-safe resize because the available Apple AI scale would exceed safe frame memory."
+            return safePlan
         }
         guard capabilities.fullSuperResolutionAvailable, let tileFactor = selectedFull else {
             throw PipelinePlanningError.noSuperResolutionRoute

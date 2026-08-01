@@ -73,7 +73,16 @@ final class AIAssetReaderWriterPipeline {
             _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
         }
         try Task.checkCancellation()
-        let sourcePixelFormat = (plan.requiresTiling || useNativeEnhancement) ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let sourcePixelFormat: OSType
+        if plan.requiresTiling {
+            sourcePixelFormat = kCVPixelFormatType_32BGRA
+        } else if let fullScale {
+            sourcePixelFormat = AppleFrameProcessorService.preferredFullQualitySourcePixelFormat(
+                width: sourceWidth, height: sourceHeight, scaleFactor: fullScale
+            )
+        } else {
+            sourcePixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        }
         var denoiser: TemporalNoiseFilterService?
         var spatialDenoiser: SpatialNoiseFilterService?
         result.denoiseMethod = job.configuration.denoise > 0 ? "Requested" : "Off"
@@ -89,11 +98,13 @@ final class AIAssetReaderWriterPipeline {
             denoiser = service
             temporalDenoiser = service
             result.denoiseMethod = "Apple temporal"
-        } else if job.configuration.denoise > 0, (plan.requiresTiling || useNativeEnhancement) {
+        } else if job.configuration.denoise > 0, plan.requiresTiling {
             spatialDenoiser = try? SpatialNoiseFilterService(
                 width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
             )
             result.denoiseMethod = spatialDenoiser == nil ? "Off (spatial fallback unavailable)" : "Core Image spatial fallback"
+        } else if job.configuration.denoise > 0, useNativeEnhancement {
+            result.denoiseMethod = "Core Image inline spatial fallback"
         } else if job.configuration.denoise > 0 {
             result.denoiseMethod = "Off (unsupported input)"
         }
@@ -224,7 +235,7 @@ final class AIAssetReaderWriterPipeline {
                     activeDenoiser.endSession()
                     denoiser = nil
                     temporalDenoiser = nil
-                    if plan.requiresTiling || useNativeEnhancement {
+                    if plan.requiresTiling {
                         if spatialDenoiser == nil {
                             spatialDenoiser = try? SpatialNoiseFilterService(
                                 width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
@@ -239,7 +250,9 @@ final class AIAssetReaderWriterPipeline {
                         }
                     } else {
                         enhancementSource = sourceBuffer
-                        result.denoiseMethod = "Off (Apple temporal failed)"
+                        result.denoiseMethod = useNativeEnhancement
+                            ? "Core Image inline spatial fallback"
+                            : "Off (Apple temporal failed)"
                     }
                 }
             } else if let spatialDenoiser {
@@ -268,7 +281,7 @@ final class AIAssetReaderWriterPipeline {
             }
             let outputBuffer = writesTiledFramesDirectly
                 ? aiBuffer
-                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration, sourceIsHDR: job.assetInfo.isHDR)
+                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration, sourceIsHDR: job.assetInfo.isHDR, spatialDenoiseStrength: useNativeEnhancement && denoiser == nil ? job.configuration.denoise : 0)
             guard adaptor.append(outputBuffer, withPresentationTime: timestamp) else {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
@@ -324,7 +337,8 @@ final class AIAssetReaderWriterPipeline {
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
         size: CGSize,
         configuration: ExportConfiguration,
-        sourceIsHDR: Bool
+        sourceIsHDR: Bool,
+        spatialDenoiseStrength: Double
     ) throws -> CVPixelBuffer {
         guard let pool = adaptor.pixelBufferPool else {
             throw AppError.exportFailed("The encoder pixel-buffer pool is unavailable.")
@@ -335,10 +349,19 @@ final class AIAssetReaderWriterPipeline {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
         let image = CIImage(cvPixelBuffer: source)
+        var resizeInput = image
+        if spatialDenoiseStrength > 0 {
+            let denoise = CIFilter.noiseReduction()
+            let parameters = SpatialNoiseParameters(strength: spatialDenoiseStrength)
+            denoise.inputImage = resizeInput
+            denoise.noiseLevel = parameters.noiseLevel
+            denoise.sharpness = parameters.sharpness
+            if let filtered = denoise.outputImage { resizeInput = filtered }
+        }
         let sx = size.width / image.extent.width
         let sy = size.height / image.extent.height
         let filter = CIFilter.lanczosScaleTransform()
-        filter.inputImage = image
+        filter.inputImage = resizeInput
         filter.scale = Float(sy)
         filter.aspectRatio = Float(sx / sy)
         guard var processed = filter.outputImage else {
