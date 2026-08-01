@@ -68,16 +68,42 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
         #endif
     }
 
-    func testEverySupportedContainerAndCodecUpscalesTo4K() async throws {
+    func testMP4H264UpscalesTo4K() async throws {
+        try await runFormatCase(named: "MP4-H264")
+    }
+
+    func testMOVH264UpscalesTo4K() async throws {
+        try await runFormatCase(named: "MOV-H264")
+    }
+
+    func testM4VH264UpscalesTo4K() async throws {
+        try await runFormatCase(named: "M4V-H264")
+    }
+
+    func testMP4HEVCUpscalesTo4K() async throws {
+        try await runFormatCase(named: "MP4-HEVC")
+    }
+
+    func testMOVHEVCUpscalesTo4K() async throws {
+        try await runFormatCase(named: "MOV-HEVC")
+    }
+
+    func testMOVProRes422UpscalesTo4K() async throws {
+        try await runFormatCase(named: "MOV-ProRes422")
+    }
+
+    private func runFormatCase(named name: String) async throws {
         #if targetEnvironment(simulator)
-        for format in formatCases {
-            try await runUpscaleCase(
-                label: "format-" + format.name,
-                width: 640,
-                height: 360,
-                format: format
-            )
+        guard let format = formatCases.first(where: { $0.name == name }) else {
+            XCTFail("Missing simulator format fixture " + name)
+            return
         }
+        try await runUpscaleCase(
+            label: "format-" + format.name,
+            width: 640,
+            height: 360,
+            format: format
+        )
         #else
         throw XCTSkip("The format processing matrix runs on the iOS simulator job.")
         #endif
