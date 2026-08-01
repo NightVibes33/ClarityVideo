@@ -38,7 +38,10 @@ jobs:
           if [[ -n "$DEVICE" ]]; then
             xcrun simctl boot "$DEVICE" || true
             xcrun simctl bootstatus "$DEVICE" -b
-            xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO
+            COMMON_ARGS=(-project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO)
+            xcodebuild test "${COMMON_ARGS[@]}" -skip-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests
+            xcodebuild test "${COMMON_ARGS[@]}" -only-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests/testEverySupportedAspectRatioUpscalesTo4K
+            xcodebuild test "${COMMON_ARGS[@]}" -only-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests/testEverySupportedContainerAndCodecUpscalesTo4K
           else
             echo "No bootable iPhone simulator is available; the required MP4 upscale integration test cannot run."
             exit 1
