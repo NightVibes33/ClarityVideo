@@ -74,12 +74,15 @@ final class AIAssetReaderWriterPipeline {
         try Task.checkCancellation()
         let sourcePixelFormat = plan.requiresTiling ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         var denoiser: TemporalNoiseFilterService?
-        if job.configuration.denoise > 0 {
-            guard probe.temporalNoiseSupported else {
-                throw AppError.unsupported("Temporal denoise is selected, but Apple reports it unavailable on this device.")
-            }
+        if job.configuration.denoise > 0, probe.temporalNoiseSupported,
+           TemporalNoiseFilterService.supports(
+            width: sourceWidth, height: sourceHeight, pixelFormat: sourcePixelFormat
+           ) {
             let service = TemporalNoiseFilterService()
-            try service.start(width: sourceWidth, height: sourceHeight, pixelFormat: sourcePixelFormat, strength: job.configuration.denoise)
+            try service.start(
+                width: sourceWidth, height: sourceHeight,
+                pixelFormat: sourcePixelFormat, strength: job.configuration.denoise
+            )
             denoiser = service
             temporalDenoiser = service
         }
@@ -200,7 +203,21 @@ final class AIAssetReaderWriterPipeline {
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
             let isSceneCut = sceneCutDetector.isSceneCut(sourceBuffer)
             if isSceneCut { processor.resetTemporalHistory() }
-            let enhancementSource = try await denoiser?.process(source: sourceBuffer, presentationTime: timestamp, hasDiscontinuity: isSceneCut) ?? sourceBuffer
+            let enhancementSource: CVPixelBuffer
+            if let activeDenoiser = denoiser {
+                do {
+                    enhancementSource = try await activeDenoiser.process(
+                        source: sourceBuffer, presentationTime: timestamp, hasDiscontinuity: isSceneCut
+                    )
+                } catch {
+                    activeDenoiser.endSession()
+                    denoiser = nil
+                    temporalDenoiser = nil
+                    enhancementSource = sourceBuffer
+                }
+            } else {
+                enhancementSource = sourceBuffer
+            }
             let aiBuffer: CVPixelBuffer
             if let tiled {
                 let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil

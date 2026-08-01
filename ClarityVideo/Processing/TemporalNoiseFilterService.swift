@@ -11,6 +11,12 @@ final class TemporalNoiseFilterService {
     private var configuration: VTTemporalNoiseFilterConfiguration?
     private var previousFrames: [VTFrameProcessorFrame] = []
     private var strength: Float = 0
+    static func supports(width: Int, height: Int, pixelFormat: OSType) -> Bool {
+        guard VTTemporalNoiseFilterConfiguration.isSupported else { return false }
+        return VTTemporalNoiseFilterConfiguration(
+            frameWidth: width, frameHeight: height, sourcePixelFormat: pixelFormat
+        ) != nil
+    }
 
     func start(width: Int, height: Int, pixelFormat: OSType, strength: Double) throws {
         guard VTTemporalNoiseFilterConfiguration.isSupported,
@@ -106,6 +112,7 @@ final class TemporalNoiseFilterService {
 @available(iOS 26.0, *)
 @MainActor
 final class TemporalNoiseFilterService {
+    static func supports(width: Int, height: Int, pixelFormat: OSType) -> Bool { false }
     func start(width: Int, height: Int, pixelFormat: OSType, strength: Double) throws {
         throw AppleFrameProcessorError.unavailable
     }

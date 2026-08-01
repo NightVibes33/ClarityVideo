@@ -138,6 +138,16 @@ enum AppleFrameProcessorError: LocalizedError {
     }
 
 
+    static func preferredFullQualitySourcePixelFormat(width: Int, height: Int, scaleFactor: Int) -> OSType {
+        guard let configuration = makeConfiguration(width: width, height: height, scaleFactor: scaleFactor) else {
+            return kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        }
+        let value = configuration.sourcePixelBufferAttributes[kCVPixelBufferPixelFormatTypeKey as String]
+        if let formats = value as? [NSNumber], let first = formats.first { return first.uint32Value }
+        if let format = value as? NSNumber { return format.uint32Value }
+        return kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+    }
+
     static func lowLatencyScaleFactors(width: Int, height: Int) -> [Double] {
         VTLowLatencySuperResolutionScalerConfiguration
             .supportedScaleFactors(frameWidth: width, frameHeight: height)
@@ -253,11 +263,15 @@ enum AppleFrameProcessorError: LocalizedError {
             height: configuration.frameHeight * configuration.scaleFactor
         )
         guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime),
-              let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime),
-              let parameters = VTSuperResolutionScalerParameters(
+              let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime) else {
+            throw AppleFrameProcessorError.frameCreation
+        }
+        let previousFrame = sequential ? state.2 : nil
+        let previousOutputFrame = sequential ? state.3 : nil
+        guard let parameters = VTSuperResolutionScalerParameters(
                 sourceFrame: sourceFrame,
-                previousFrame: state.2,
-                previousOutputFrame: state.3,
+                previousFrame: previousFrame,
+                previousOutputFrame: previousOutputFrame,
                 opticalFlow: nil,
                 submissionMode: sequential ? .sequential : .random,
                 destinationFrame: destinationFrame
@@ -269,8 +283,8 @@ enum AppleFrameProcessorError: LocalizedError {
             }
         }
         lock.withLock {
-            previousSourceFrame = sourceFrame
-            previousOutputFrame = destinationFrame
+            previousSourceFrame = sequential ? sourceFrame : nil
+            previousOutputFrame = sequential ? destinationFrame : nil
         }
         return destination
     }
@@ -432,6 +446,10 @@ enum AppleFrameProcessorError: LocalizedError {
     func endSession() {}
 
 
+
+    static func preferredFullQualitySourcePixelFormat(width: Int, height: Int, scaleFactor: Int) -> OSType {
+        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+    }
 
     static func lowLatencyScaleFactors(width: Int, height: Int) -> [Double] { [] }
     func startLowLatencySession(width: Int, height: Int, scaleFactor: Float) throws { throw AppleFrameProcessorError.unavailable }

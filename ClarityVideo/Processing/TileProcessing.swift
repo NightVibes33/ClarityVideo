@@ -195,7 +195,8 @@ final class TiledAppleSRProcessor {
             frameWidth: sourceWidth, frameHeight: sourceHeight,
             tileWidth: tileWidth, tileHeight: tileHeight, overlap: overlap
         )
-        self.sourceTilePool = try Self.makePool(width: self.tileWidth, height: self.tileHeight, pixelFormat: kCVPixelFormatType_32BGRA)
+        let sourcePixelFormat = AppleFrameProcessorService.preferredFullQualitySourcePixelFormat(width: self.tileWidth, height: self.tileHeight, scaleFactor: scale)
+        self.sourceTilePool = try Self.makePool(width: self.tileWidth, height: self.tileHeight, pixelFormat: sourcePixelFormat)
         self.blendTilePool = try Self.makePool(width: self.tileWidth * scale, height: self.tileHeight * scale, pixelFormat: kCVPixelFormatType_32BGRA)
         self.assembler = try MetalTileAssembler()
     }
