@@ -222,11 +222,11 @@ enum AppleFrameProcessorError: LocalizedError {
         let pixelFormat = Self.preferredPixelFormat(
             from: attributes, fallback: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         )
-        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
+        let creationAttributes = Self.creationAttributes()
         var destination: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault, width, height, pixelFormat,
-            attributes as CFDictionary, &destination
+            creationAttributes, &destination
         )
         guard status == kCVReturnSuccess, let destination else { throw AppleFrameProcessorError.pixelBufferCreation(status) }
         guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime),
@@ -406,20 +406,27 @@ enum AppleFrameProcessorError: LocalizedError {
         let pixelFormat = preferredPixelFormat(
             from: attributes, fallback: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         )
-        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
+        let creationAttributes = Self.creationAttributes()
         var buffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
             width,
             height,
             pixelFormat,
-            attributes as CFDictionary,
+            creationAttributes,
             &buffer
         )
         guard status == kCVReturnSuccess, let buffer else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
         return buffer
+    }
+
+    private static func creationAttributes() -> CFDictionary {
+        [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
+        ] as CFDictionary
     }
 
     private static func preferredPixelFormat(from attributes: [String: Any], fallback: OSType) -> OSType {

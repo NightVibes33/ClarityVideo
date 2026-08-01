@@ -61,16 +61,25 @@ final class TemporalNoiseFilterService {
             return source
         }
 
-        var attributes = configuration.destinationPixelBufferAttributes
-        attributes[kCVPixelBufferWidthKey as String] = configuration.frameWidth
-        attributes[kCVPixelBufferHeightKey as String] = configuration.frameHeight
-        attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
+        let destinationAttributes = configuration.destinationPixelBufferAttributes
+        let formatValue = destinationAttributes[kCVPixelBufferPixelFormatTypeKey as String]
+        let sourcePixelFormat = CVPixelBufferGetPixelFormatType(source)
+        let pixelFormat: OSType
+        if let formats = formatValue as? [NSNumber], let first = formats.first {
+            pixelFormat = first.uint32Value
+        } else if let format = formatValue as? NSNumber {
+            pixelFormat = format.uint32Value
+        } else {
+            pixelFormat = sourcePixelFormat
+        }
         var destination: CVPixelBuffer?
-        let pixelFormat = CVPixelBufferGetPixelFormatType(source)
-        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
+        let creationAttributes: [String: Any] = [
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
+        ]
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault, configuration.frameWidth, configuration.frameHeight,
-            pixelFormat, attributes as CFDictionary, &destination
+            pixelFormat, creationAttributes as CFDictionary, &destination
         )
         guard status == kCVReturnSuccess, let destination else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
