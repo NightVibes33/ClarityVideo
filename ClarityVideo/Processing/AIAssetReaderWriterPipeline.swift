@@ -74,6 +74,8 @@ final class AIAssetReaderWriterPipeline {
         try Task.checkCancellation()
         let sourcePixelFormat = plan.requiresTiling ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         var denoiser: TemporalNoiseFilterService?
+        var spatialDenoiser: SpatialNoiseFilterService?
+        result.denoiseMethod = job.configuration.denoise > 0 ? "Requested" : "Off"
         if job.configuration.denoise > 0, probe.temporalNoiseSupported,
            TemporalNoiseFilterService.supports(
             width: sourceWidth, height: sourceHeight, pixelFormat: sourcePixelFormat
@@ -85,6 +87,14 @@ final class AIAssetReaderWriterPipeline {
             )
             denoiser = service
             temporalDenoiser = service
+            result.denoiseMethod = "Apple temporal"
+        } else if job.configuration.denoise > 0, plan.requiresTiling {
+            spatialDenoiser = try? SpatialNoiseFilterService(
+                width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
+            )
+            result.denoiseMethod = spatialDenoiser == nil ? "Off (spatial fallback unavailable)" : "Core Image spatial fallback"
+        } else if job.configuration.denoise > 0 {
+            result.denoiseMethod = "Off (unsupported input)"
         }
         let assetReader = try AVAssetReader(asset: asset)
         let trackOutput = AVAssetReaderTrackOutput(
@@ -213,8 +223,26 @@ final class AIAssetReaderWriterPipeline {
                     activeDenoiser.endSession()
                     denoiser = nil
                     temporalDenoiser = nil
-                    enhancementSource = sourceBuffer
+                    if plan.requiresTiling {
+                        if spatialDenoiser == nil {
+                            spatialDenoiser = try? SpatialNoiseFilterService(
+                                width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
+                            )
+                        }
+                        if let spatialDenoiser {
+                            enhancementSource = try spatialDenoiser.process(source: sourceBuffer)
+                            result.denoiseMethod = "Core Image spatial fallback"
+                        } else {
+                            enhancementSource = sourceBuffer
+                            result.denoiseMethod = "Off (spatial fallback unavailable)"
+                        }
+                    } else {
+                        enhancementSource = sourceBuffer
+                        result.denoiseMethod = "Off (Apple temporal failed)"
+                    }
                 }
+            } else if let spatialDenoiser {
+                enhancementSource = try spatialDenoiser.process(source: sourceBuffer)
             } else {
                 enhancementSource = sourceBuffer
             }

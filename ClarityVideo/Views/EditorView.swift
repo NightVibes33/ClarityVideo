@@ -32,8 +32,8 @@ struct EditorView: View {
                     .onChange(of: state.configuration.mode) { _, mode in
                         state.configuration.applyPreset(mode, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
                     }
-                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180).disabled(!state.capabilities.temporalNoiseFilteringAvailable) }
-                    if !state.capabilities.temporalNoiseFilteringAvailable { Text("Apple temporal denoise is unavailable on this device.").font(.caption).foregroundStyle(.secondary) }
+                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180) }
+                    if usesSpatialDenoiseFallback { Text("This source uses full-frame Core Image spatial denoise because Apple temporal denoise rejects its size or pixel format.").font(.caption).foregroundStyle(.secondary) } else if !state.capabilities.temporalNoiseFilteringAvailable { Text("Apple temporal denoise is unavailable; compatible tiled exports use Core Image spatial denoise.").font(.caption).foregroundStyle(.secondary) }
                     LabeledContent("Detail recovery") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
                     LabeledContent("Sharpening") { Slider(value: $state.configuration.sharpening, in: 0...1).frame(width: 180) }
                     Picker("HDR", selection: $state.configuration.hdrBehavior) {
@@ -125,6 +125,15 @@ struct EditorView: View {
         }
         .navigationTitle("Video setup")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { state.route = .home } } }
+    }
+
+    private var usesSpatialDenoiseFallback: Bool {
+        guard state.configuration.denoise > 0, let info = state.assetInfo,
+              let plan = currentPipelinePlan, plan.requiresTiling else { return false }
+        return !TemporalNoiseFilterService.supports(
+            width: info.encodedWidth, height: info.encodedHeight,
+            pixelFormat: kCVPixelFormatType_32BGRA
+        )
     }
 
     private var currentPipelinePlan: PipelinePlan? {
@@ -224,6 +233,7 @@ struct ResultsView: View {
                     VStack {
                         LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
                         LabeledContent("Codec", value: job.outputCodec ?? "HEVC")
+                        if let denoiseMethod = job.denoiseMethod { LabeledContent("Denoise", value: denoiseMethod) }
                         LabeledContent("Frames", value: "\(job.processedFrames)")
                         if let duration = job.processingDuration {
                             LabeledContent("Processing time", value: String(format: "%.1f min", duration / 60))

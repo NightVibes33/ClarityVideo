@@ -10,6 +10,7 @@ Clarity Video AI is a native SwiftUI iOS 26 app for private, fully on-device vid
 - Explicit Apple model download plus exportable one-frame neural still, five-second 4K, and gated five-second 8K diagnostics
 - Persistent full-quality or low-latency `VTFrameProcessor` sessions across the frame loop
 - Actual Apple temporal noise filtering, driven by the denoise control
+- Full-frame Core Image spatial denoise fallback for 4K/tiled inputs Apple temporal denoise rejects, with the applied route disclosed in Results
 - Luma-based scene-cut detection with temporal-history reset
 - Fixed overlapping AI tiles reconstructed by a Metal raised-cosine blend kernel
 - Honest lower-memory AI-plus-Lanczos fallback when the supported neural factor cannot directly reach the target

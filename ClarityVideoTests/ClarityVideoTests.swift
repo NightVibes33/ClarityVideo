@@ -2,6 +2,16 @@ import XCTest
 @testable import ClarityVideo
 
 final class ClarityVideoTests: XCTestCase {
+
+    func testSpatialNoiseParametersRemainInsideDocumentedFilterRange() {
+        let minimum = SpatialNoiseParameters(strength: -1)
+        let maximum = SpatialNoiseParameters(strength: 2)
+        XCTAssertEqual(minimum.noiseLevel, 0.005, accuracy: 0.0001)
+        XCTAssertEqual(minimum.sharpness, 0.60, accuracy: 0.0001)
+        XCTAssertEqual(maximum.noiseLevel, 0.05, accuracy: 0.0001)
+        XCTAssertEqual(maximum.sharpness, 0.40, accuracy: 0.0001)
+    }
+
     func testPreviewSelectionClampsToTwoToFiveSecondsAndSourceEnd() {
         XCTAssertEqual(
             PreviewSelection.resolve(sourceDuration: 20, requestedStart: 19, requestedDuration: 9),

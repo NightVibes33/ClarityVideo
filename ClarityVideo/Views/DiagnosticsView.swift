@@ -106,6 +106,7 @@ struct DiagnosticsView: View {
             diagnosticVideoCreated: state.diagnosticTestOutputURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false,
             activeJobStatus: state.activeJob?.status.rawValue,
             activeJobError: state.activeJob?.errorMessage,
+            activeJobDenoiseMethod: state.activeJob?.denoiseMethod,
             processingFPS: state.activeJob.flatMap { job in job.processingDuration.map { Double(job.processedFrames) / max(0.1, $0) } }
         )
         do {

@@ -2,6 +2,9 @@ import Foundation
 import CoreMedia
 import CoreVideo
 import VideoToolbox
+import CoreImage
+import CoreGraphics
+import CoreImage.CIFilterBuiltins
 
 #if !targetEnvironment(simulator)
 @available(iOS 26.0, *)
@@ -123,3 +126,65 @@ final class TemporalNoiseFilterService {
     func cancel() {}
 }
 #endif
+
+struct SpatialNoiseParameters: Equatable, Sendable {
+    let noiseLevel: Float
+    let sharpness: Float
+
+    init(strength: Double) {
+        let bounded = max(0, min(1, strength))
+        noiseLevel = Float(0.005 + bounded * 0.045)
+        sharpness = Float(0.60 - bounded * 0.20)
+    }
+}
+
+
+@MainActor
+final class SpatialNoiseFilterService {
+    private let context = CIContext(options: [.cacheIntermediates: false])
+    private let pool: CVPixelBufferPool
+    private let parameters: SpatialNoiseParameters
+
+    init(width: Int, height: Int, strength: Double) throws {
+        self.parameters = SpatialNoiseParameters(strength: strength)
+        let attributes: [String: Any] = [
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
+        ]
+        var createdPool: CVPixelBufferPool?
+        let status = CVPixelBufferPoolCreate(
+            kCFAllocatorDefault,
+            [kCVPixelBufferPoolMinimumBufferCountKey as String: 1] as CFDictionary,
+            attributes as CFDictionary,
+            &createdPool
+        )
+        guard status == kCVReturnSuccess, let createdPool else {
+            throw AppleFrameProcessorError.pixelBufferCreation(status)
+        }
+        pool = createdPool
+    }
+
+    func process(source: CVPixelBuffer) throws -> CVPixelBuffer {
+        var output: CVPixelBuffer?
+        let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &output)
+        guard status == kCVReturnSuccess, let output else {
+            throw AppleFrameProcessorError.pixelBufferCreation(status)
+        }
+        let filter = CIFilter.noiseReduction()
+        filter.inputImage = CIImage(cvPixelBuffer: source)
+        filter.noiseLevel = parameters.noiseLevel
+        filter.sharpness = parameters.sharpness
+        guard let filtered = filter.outputImage else {
+            throw AppError.exportFailed("Core Image spatial denoise did not produce a frame.")
+        }
+        context.render(
+            filtered, to: output,
+            bounds: CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(source), height: CVPixelBufferGetHeight(source)),
+            colorSpace: CIImage(cvPixelBuffer: source).colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        return output
+    }
+}

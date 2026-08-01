@@ -73,6 +73,7 @@ final class SegmentedProcessingCoordinator {
         let folder = try segmentFolder(checkpointID: checkpoint.jobID)
         var completedFiles: [URL] = []
         var completedBytes: Int64 = 0
+        var appliedDenoiseMethod: String?
 
         for segment in segments {
             if cancelled { throw CancellationError() }
@@ -130,6 +131,7 @@ final class SegmentedProcessingCoordinator {
                 },
                 outputBytes: { localBytes in outputBytes(segmentBaseBytes + localBytes) }
             )
+            appliedDenoiseMethod = segmentJob.denoiseMethod ?? appliedDenoiseMethod
             guard segmentJob.status == .completed, FileManager.default.fileExists(atPath: enhanced.path) else {
                 throw AppError.exportFailed("Enhanced segment " + String(segment.index + 1) + " did not complete.")
             }
@@ -162,6 +164,7 @@ final class SegmentedProcessingCoordinator {
         var result = job
         let encodedInfo = try await AssetInspector.inspect(finalURL)
         result.outputCodec = encodedInfo.codec.lowercased().contains("avc") ? "H.264" : "HEVC"
+        result.denoiseMethod = appliedDenoiseMethod ?? (job.configuration.denoise > 0 ? "Applied per segment" : "Off")
         result.status = .completed
         result.progress = 1
         result.processedFrames = result.totalFrames

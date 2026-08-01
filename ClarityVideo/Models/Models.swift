@@ -131,6 +131,7 @@ struct ProcessingJob: Codable, Identifiable, Sendable {
     var processingDuration: Double?
     var errorMessage: String?
     var outputCodec: String?
+    var denoiseMethod: String?
     var createdAt = Date()
 }
 
@@ -203,5 +204,6 @@ struct DiagnosticReport: Codable, Sendable {
     var diagnosticVideoCreated: Bool
     var activeJobStatus: String?
     var activeJobError: String?
+    var activeJobDenoiseMethod: String?
     var processingFPS: Double?
 }
