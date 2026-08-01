@@ -213,7 +213,8 @@ final class AIAssetReaderWriterPipeline {
         var frameIndex = 0
         var sceneCutDetector = SceneCutDetector()
         let totalFrames = max(1, result.totalFrames)
-        let writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize && !(job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR)
+        var writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize && !(job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR)
+        var appleSRFallback = false
         while let sample = trackOutput.copyNextSampleBuffer() {
             if cancelled { throw CancellationError() }
             try Task.checkCancellation()
@@ -261,19 +262,38 @@ final class AIAssetReaderWriterPipeline {
                 enhancementSource = sourceBuffer
             }
             let aiBuffer: CVPixelBuffer
-            if useNativeEnhancement {
+            if useNativeEnhancement || appleSRFallback {
                 aiBuffer = enhancementSource
-            } else if let tiled {
-                let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil
-                aiBuffer = try await tiled.process(
-                    frame: enhancementSource, presentationTime: timestamp, canvas: canvas,
-                    detailRecovery: writesTiledFramesDirectly ? job.configuration.detailRecovery : 0,
-                    sharpening: writesTiledFramesDirectly ? job.configuration.sharpening : 0
-                )
-            } else if useLowLatency {
-                aiBuffer = try await processor.processInActiveLowLatencySession(source: enhancementSource, presentationTime: timestamp)
             } else {
-                aiBuffer = try await processor.processInActiveSession(source: enhancementSource, presentationTime: timestamp, sequential: frameIndex > 0 && !isSceneCut)
+                do {
+                    if let tiled {
+                        let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil
+                        aiBuffer = try await tiled.process(
+                            frame: enhancementSource, presentationTime: timestamp, canvas: canvas,
+                            detailRecovery: writesTiledFramesDirectly ? job.configuration.detailRecovery : 0,
+                            sharpening: writesTiledFramesDirectly ? job.configuration.sharpening : 0
+                        )
+                    } else if useLowLatency {
+                        aiBuffer = try await processor.processInActiveLowLatencySession(
+                            source: enhancementSource, presentationTime: timestamp
+                        )
+                    } else {
+                        aiBuffer = try await processor.processInActiveSession(
+                            source: enhancementSource, presentationTime: timestamp,
+                            sequential: frameIndex > 0 && !isSceneCut
+                        )
+                    }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    appleSRFallback = true
+                    writesTiledFramesDirectly = false
+                    processor.endSession()
+                    tiled?.endSession()
+                    aiBuffer = enhancementSource
+                    let existingDenoise = result.denoiseMethod ?? "Off"
+                    result.denoiseMethod = "Core Image upscale fallback; denoise: " + existingDenoise
+                }
             }
             while !writerInput.isReadyForMoreMediaData {
                 if cancelled { throw CancellationError() }
@@ -281,7 +301,7 @@ final class AIAssetReaderWriterPipeline {
             }
             let outputBuffer = writesTiledFramesDirectly
                 ? aiBuffer
-                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration, sourceIsHDR: job.assetInfo.isHDR, spatialDenoiseStrength: useNativeEnhancement && denoiser == nil ? job.configuration.denoise : 0)
+                : try makeExactSizeBuffer(from: aiBuffer, adaptor: adaptor, size: targetSize, configuration: job.configuration, sourceIsHDR: job.assetInfo.isHDR, spatialDenoiseStrength: (useNativeEnhancement || appleSRFallback) && denoiser == nil ? job.configuration.denoise : 0)
             guard adaptor.append(outputBuffer, withPresentationTime: timestamp) else {
                 throw AppError.exportFailed(assetWriter.error?.localizedDescription ?? "The enhanced frame could not be encoded.")
             }
