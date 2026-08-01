@@ -41,7 +41,10 @@ enum AppleFrameProcessorError: LocalizedError {
         case .unavailable: "Apple super resolution is unavailable on this device."
         case .unsupportedConfiguration: "This frame size and AI scale are not supported by the device."
         case let .modelNotReady(state): "Apple's enhancement model is not ready (\(state.rawValue))."
-        case let .pixelBufferCreation(status): "Could not allocate an AI output buffer (\(status))."
+        case let .pixelBufferCreation(status):
+            status == kCVReturnInvalidArgument
+                ? "Apple rejected incompatible AI pixel-buffer attributes (\(status))."
+                : "Could not allocate an AI output buffer (\(status))."
         case .frameCreation: "The frame is not IOSurface-backed and cannot be processed."
         case .parameterCreation: "The super-resolution frame parameters were rejected."
         case let .processing(message): message
@@ -216,8 +219,15 @@ enum AppleFrameProcessorError: LocalizedError {
         attributes[kCVPixelBufferWidthKey as String] = width
         attributes[kCVPixelBufferHeightKey as String] = height
         attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
+        let pixelFormat = Self.preferredPixelFormat(
+            from: attributes, fallback: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
         var destination: CVPixelBuffer?
-        let status = CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes as CFDictionary, &destination)
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height, pixelFormat,
+            attributes as CFDictionary, &destination
+        )
         guard status == kCVReturnSuccess, let destination else { throw AppleFrameProcessorError.pixelBufferCreation(status) }
         guard let sourceFrame = VTFrameProcessorFrame(buffer: source, presentationTimeStamp: presentationTime),
               let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime) else {
@@ -393,12 +403,16 @@ enum AppleFrameProcessorError: LocalizedError {
         attributes[kCVPixelBufferWidthKey as String] = width
         attributes[kCVPixelBufferHeightKey as String] = height
         attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
+        let pixelFormat = preferredPixelFormat(
+            from: attributes, fallback: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
         var buffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault,
             width,
             height,
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            pixelFormat,
             attributes as CFDictionary,
             &buffer
         )
@@ -406,6 +420,17 @@ enum AppleFrameProcessorError: LocalizedError {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
         }
         return buffer
+    }
+
+    private static func preferredPixelFormat(from attributes: [String: Any], fallback: OSType) -> OSType {
+        let value = attributes[kCVPixelBufferPixelFormatTypeKey as String]
+        if let formats = value as? [NSNumber], let first = formats.first {
+            return first.uint32Value
+        }
+        if let format = value as? NSNumber {
+            return format.uint32Value
+        }
+        return fallback
     }
 
     private static func readiness(for status: VTSuperResolutionScalerConfiguration.ModelStatus) -> AppleModelReadiness {

@@ -67,6 +67,7 @@ final class TemporalNoiseFilterService {
         attributes[kCVPixelBufferIOSurfacePropertiesKey as String] = [String: String]()
         var destination: CVPixelBuffer?
         let pixelFormat = CVPixelBufferGetPixelFormatType(source)
+        attributes[kCVPixelBufferPixelFormatTypeKey as String] = NSNumber(value: pixelFormat)
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault, configuration.frameWidth, configuration.frameHeight,
             pixelFormat, attributes as CFDictionary, &destination
