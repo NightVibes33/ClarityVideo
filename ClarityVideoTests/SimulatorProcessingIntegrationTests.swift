@@ -124,8 +124,10 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
         let sourceURL = folder.appendingPathComponent("source." + format.fileExtension)
         let outputURL = folder.appendingPathComponent("upscaled-4k.mov")
         if format.codec == .proRes422 {
-            guard let fixture = Bundle(for: Self.self).url(forResource: "prores422", withExtension: "mov") else {
-                XCTFail("The macOS runner did not embed the generated ProRes fixture")
+            let testBundle = Bundle(for: SimulatorProcessingIntegrationTests.self)
+            let fixture = testBundle.bundleURL.appendingPathComponent("prores422.mov")
+            guard FileManager.default.fileExists(atPath: fixture.path) else {
+                XCTFail("Missing generated ProRes fixture at " + fixture.path)
                 return
             }
             try FileManager.default.copyItem(at: fixture, to: sourceURL)
