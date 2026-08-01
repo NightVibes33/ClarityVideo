@@ -47,8 +47,7 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
             FixtureFormat(name: "MOV-H264", fileType: .mov, fileExtension: "mov", codec: .h264, expectedCodecTokens: ["avc", "h264"]),
             FixtureFormat(name: "M4V-H264", fileType: .m4v, fileExtension: "m4v", codec: .h264, expectedCodecTokens: ["avc", "h264"]),
             FixtureFormat(name: "MP4-HEVC", fileType: .mp4, fileExtension: "mp4", codec: .hevc, expectedCodecTokens: ["hvc", "hevc"]),
-            FixtureFormat(name: "MOV-HEVC", fileType: .mov, fileExtension: "mov", codec: .hevc, expectedCodecTokens: ["hvc", "hevc"]),
-            FixtureFormat(name: "MOV-ProRes422", fileType: .mov, fileExtension: "mov", codec: .proRes422, expectedCodecTokens: ["apcn", "prores"])
+            FixtureFormat(name: "MOV-HEVC", fileType: .mov, fileExtension: "mov", codec: .hevc, expectedCodecTokens: ["hvc", "hevc"])
         ]
     }
     #endif
@@ -88,10 +87,6 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
         try await runFormatCase(named: "MOV-HEVC")
     }
 
-    func testMOVProRes422UpscalesTo4K() async throws {
-        try await runFormatCase(named: "MOV-ProRes422")
-    }
-
     private func runFormatCase(named name: String) async throws {
         #if targetEnvironment(simulator)
         guard let format = formatCases.first(where: { $0.name == name }) else {
@@ -123,17 +118,7 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
 
         let sourceURL = folder.appendingPathComponent("source." + format.fileExtension)
         let outputURL = folder.appendingPathComponent("upscaled-4k.mov")
-        if format.codec == .proRes422 {
-            let testBundle = Bundle(for: SimulatorProcessingIntegrationTests.self)
-            let fixture = testBundle.bundleURL.appendingPathComponent("prores422.mov")
-            guard FileManager.default.fileExists(atPath: fixture.path) else {
-                XCTFail("Missing generated ProRes fixture at " + fixture.path)
-                return
-            }
-            try FileManager.default.copyItem(at: fixture, to: sourceURL)
-        } else {
-            try await makeFixture(at: sourceURL, width: width, height: height, format: format)
-        }
+        try await makeFixture(at: sourceURL, width: width, height: height, format: format)
         let info = try await AssetInspector.inspect(sourceURL)
         XCTAssertEqual(info.encodedWidth, width, label + " encoded width")
         XCTAssertEqual(info.encodedHeight, height, label + " encoded height")

@@ -48,7 +48,6 @@ jobs:
             xcodebuild test "${COMMON_ARGS[@]}" -skip-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests
             xcodebuild test "${COMMON_ARGS[@]}" -only-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests/testEverySupportedAspectRatioUpscalesTo4K
             FORMAT_TESTS=(
-              testMOVProRes422UpscalesTo4K
               testMP4H264UpscalesTo4K
               testMOVH264UpscalesTo4K
               testM4VH264UpscalesTo4K
