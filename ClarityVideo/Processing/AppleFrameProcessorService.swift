@@ -254,7 +254,7 @@ enum AppleFrameProcessorError: LocalizedError {
 
     func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer {
         let sessionState = lock.withLock { (self.activeProcessor, self.activeConfiguration, self.previousSourceFrame, self.previousOutputFrame) }
-        guard let processor = sessionState.0, let configuration = state.1 else {
+        guard let processor = sessionState.0, let configuration = sessionState.1 else {
             throw AppleFrameProcessorError.processing("The Apple SR session is not active.")
         }
         let destination = try Self.makeDestinationBuffer(
