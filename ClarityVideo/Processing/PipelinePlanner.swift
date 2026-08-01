@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 
 enum ProcessingRoute: String, Codable, Sendable {
+    case nativeEnhancement
     case fullQualitySuperResolution
     case lowLatencySuperResolution
     case tiledSuperResolution
@@ -42,9 +43,32 @@ enum PipelinePlanner {
         let targetWidth = Int(encodedPortrait ? landscape.height : landscape.width)
         let targetHeight = Int(encodedPortrait ? landscape.width : landscape.height)
         let requiredScale = max(Double(targetWidth) / Double(sourceWidth), Double(targetHeight) / Double(sourceHeight))
+        if requiredScale <= 1.001 {
+            var nativePlan = makePlan(
+                route: .nativeEnhancement, factor: 1,
+                sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
+            )
+            nativePlan.disclosure = "Clarity preserves the native resolution while applying noise reduction, detail recovery, and sharpening."
+            return nativePlan
+        }
 
         let fullFactors = capabilities.supportedFullScaleFactors.sorted()
         let selectedFull = fullFactors.first { Double($0) >= requiredScale } ?? fullFactors.last
+        if let selectedFull {
+            let neuralWidth = Int64(sourceWidth) * Int64(selectedFull)
+            let neuralHeight = Int64(sourceHeight) * Int64(selectedFull)
+            let neuralCanvasBytes = neuralWidth * neuralHeight * 4
+            if neuralCanvasBytes > 256 * 1_024 * 1_024 {
+                var safePlan = makePlan(
+                    route: .nativeEnhancement, factor: 1,
+                    sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                    targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
+                )
+                safePlan.disclosure = "Clarity enhances the full-resolution frame, then uses a high-quality memory-safe resize because the available Apple AI scale would exceed safe frame memory."
+                return safePlan
+            }
+        }
         let lowFactors = lowLatencyFactorsForSource.sorted()
         let selectedLow = lowFactors.first { $0 >= requiredScale } ?? lowFactors.last
         let fullFrameEligible = capabilities.fullSuperResolutionAvailable

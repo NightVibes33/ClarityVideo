@@ -48,6 +48,31 @@ final class ClarityVideoTests: XCTestCase {
 }
 
 extension ClarityVideoTests {
+    func testNative4KInputAvoidsOversizedAIIntermediate() throws {
+        var caps = DeviceEnhancementCapabilities()
+        caps.fullSuperResolutionAvailable = true
+        caps.supportedFullScaleFactors = [4]
+        let plan = try PipelinePlanner.plan(
+            sourceWidth: 3840, sourceHeight: 2160, target: .uhd4K, mode: .quality,
+            capabilities: caps, lowLatencyFactorsForSource: []
+        )
+        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.aiScaleFactor, 1)
+        XCTAssertFalse(plan.requiresFinalResize)
+    }
+
+    func test4KTo8KUsesMemorySafeRouteWhenOnlyFourXIsAvailable() throws {
+        var caps = DeviceEnhancementCapabilities()
+        caps.fullSuperResolutionAvailable = true
+        caps.supportedFullScaleFactors = [4]
+        let plan = try PipelinePlanner.plan(
+            sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
+            capabilities: caps, lowLatencyFactorsForSource: []
+        )
+        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertTrue(plan.requiresFinalResize)
+    }
+
     func testPlannerUsesFullQualityFourXFor720pTo4K() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true

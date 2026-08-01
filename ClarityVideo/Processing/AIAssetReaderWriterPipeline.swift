@@ -52,8 +52,9 @@ final class AIAssetReaderWriterPipeline {
         )
         let targetSize = CGSize(width: plan.targetWidth, height: plan.targetHeight)
         let useLowLatency = plan.route == .lowLatencySuperResolution
+        let useNativeEnhancement = plan.route == .nativeEnhancement
         let lowScale: Double? = useLowLatency ? plan.aiScaleFactor : nil
-        let fullScale: Int? = useLowLatency ? nil : Int(plan.aiScaleFactor)
+        let fullScale: Int? = (useLowLatency || useNativeEnhancement) ? nil : Int(plan.aiScaleFactor)
         progress(0.01)
         var tiled: TiledAppleSRProcessor?
         if plan.requiresTiling {
@@ -72,7 +73,7 @@ final class AIAssetReaderWriterPipeline {
             _ = try await AppleFrameProcessorService.prepareModel(width: sourceWidth, height: sourceHeight, scaleFactor: fullScale)
         }
         try Task.checkCancellation()
-        let sourcePixelFormat = plan.requiresTiling ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let sourcePixelFormat = (plan.requiresTiling || useNativeEnhancement) ? kCVPixelFormatType_32BGRA : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         var denoiser: TemporalNoiseFilterService?
         var spatialDenoiser: SpatialNoiseFilterService?
         result.denoiseMethod = job.configuration.denoise > 0 ? "Requested" : "Off"
@@ -88,7 +89,7 @@ final class AIAssetReaderWriterPipeline {
             denoiser = service
             temporalDenoiser = service
             result.denoiseMethod = "Apple temporal"
-        } else if job.configuration.denoise > 0, plan.requiresTiling {
+        } else if job.configuration.denoise > 0, (plan.requiresTiling || useNativeEnhancement) {
             spatialDenoiser = try? SpatialNoiseFilterService(
                 width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
             )
@@ -223,7 +224,7 @@ final class AIAssetReaderWriterPipeline {
                     activeDenoiser.endSession()
                     denoiser = nil
                     temporalDenoiser = nil
-                    if plan.requiresTiling {
+                    if plan.requiresTiling || useNativeEnhancement {
                         if spatialDenoiser == nil {
                             spatialDenoiser = try? SpatialNoiseFilterService(
                                 width: sourceWidth, height: sourceHeight, strength: job.configuration.denoise
@@ -247,7 +248,9 @@ final class AIAssetReaderWriterPipeline {
                 enhancementSource = sourceBuffer
             }
             let aiBuffer: CVPixelBuffer
-            if let tiled {
+            if useNativeEnhancement {
+                aiBuffer = enhancementSource
+            } else if let tiled {
                 let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil
                 aiBuffer = try await tiled.process(
                     frame: enhancementSource, presentationTime: timestamp, canvas: canvas,
