@@ -40,8 +40,8 @@ jobs:
             xcrun simctl bootstatus "$DEVICE" -b
             xcodebuild test -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO
           else
-            echo "No iPhone simulator is available; compiling the complete test bundle."
-            xcodebuild build-for-testing -project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+            echo "No bootable iPhone simulator is available; the required MP4 upscale integration test cannot run."
+            exit 1
           fi
       - name: Build unsigned device app
         shell: bash

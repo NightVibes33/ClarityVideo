@@ -5,18 +5,21 @@ import CoreVideo
 
 @MainActor
 final class SimulatorProcessingIntegrationTests: XCTestCase {
-    func testSimulatorProcessesPortraitVideoEndToEnd() async throws {
+    func testSimulatorImports720pPortraitMP4AndUpscalesTo4K() async throws {
         #if targetEnvironment(simulator)
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClaritySimulatorIntegration-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
 
-        let sourceURL = folder.appendingPathComponent("portrait-source.mov")
+        let sourceURL = folder.appendingPathComponent("portrait-720x1280.mp4")
         let outputURL = folder.appendingPathComponent("portrait-4k.mov")
         try await makePortraitFixture(at: sourceURL)
         let info = try await AssetInspector.inspect(sourceURL)
         XCTAssertTrue(info.isPortrait)
+        XCTAssertEqual(info.encodedWidth, 720)
+        XCTAssertEqual(info.encodedHeight, 1280)
+        XCTAssertTrue(info.codec.lowercased().contains("avc") || info.codec.lowercased().contains("h264"))
 
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd4K
@@ -36,6 +39,9 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
         let outputInfo = try await AssetInspector.inspect(outputURL)
         XCTAssertEqual(outputInfo.displayWidth, 2160)
         XCTAssertEqual(outputInfo.displayHeight, 3840)
+        XCTAssertGreaterThan(outputInfo.displayWidth, info.displayWidth)
+        XCTAssertGreaterThan(outputInfo.displayHeight, info.displayHeight)
+        print("SIMULATOR_MP4_UPSCALE_PASS 720x1280 MP4 -> 2160x3840 video")
         #else
         throw XCTSkip("The end-to-end fallback processing test runs on the iOS simulator job.")
         #endif
@@ -43,9 +49,9 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
 
     #if targetEnvironment(simulator)
     private func makePortraitFixture(at url: URL) async throws {
-        let width = 72
-        let height = 128
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let width = 720
+        let height = 1280
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
         let input = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: [
