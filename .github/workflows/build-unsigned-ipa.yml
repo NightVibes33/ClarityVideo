@@ -29,6 +29,12 @@ jobs:
           sudo xcode-select --switch "$SELECTED/Contents/Developer"
           xcodebuild -version
           xcodebuild -showsdks
+      - name: Generate macOS ProRes decode fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun swift .github/scripts/generate-prores-fixture.swift ClarityVideoTests/Fixtures/prores422.mov
+          test -s ClarityVideoTests/Fixtures/prores422.mov
       - name: Run simulator unit and end-to-end video processing tests
         shell: bash
         run: |
