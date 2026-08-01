@@ -253,8 +253,8 @@ enum AppleFrameProcessorError: LocalizedError {
     }
 
     func processInActiveSession(source: CVPixelBuffer, presentationTime: CMTime, sequential: Bool) async throws -> CVPixelBuffer {
-        let state = lock.withLock { (activeProcessor, activeConfiguration, previousSourceFrame, previousOutputFrame) }
-        guard let processor = state.0, let configuration = state.1 else {
+        let sessionState = lock.withLock { (self.activeProcessor, self.activeConfiguration, self.previousSourceFrame, self.previousOutputFrame) }
+        guard let processor = sessionState.0, let configuration = state.1 else {
             throw AppleFrameProcessorError.processing("The Apple SR session is not active.")
         }
         let destination = try Self.makeDestinationBuffer(
@@ -266,12 +266,12 @@ enum AppleFrameProcessorError: LocalizedError {
               let destinationFrame = VTFrameProcessorFrame(buffer: destination, presentationTimeStamp: presentationTime) else {
             throw AppleFrameProcessorError.frameCreation
         }
-        let previousFrame = sequential ? state.2 : nil
-        let previousOutputFrame = sequential ? state.3 : nil
+        let historySourceFrame = sequential ? sessionState.2 : nil
+        let historyOutputFrame = sequential ? sessionState.3 : nil
         guard let parameters = VTSuperResolutionScalerParameters(
                 sourceFrame: sourceFrame,
-                previousFrame: previousFrame,
-                previousOutputFrame: previousOutputFrame,
+                previousFrame: historySourceFrame,
+                previousOutputFrame: historyOutputFrame,
                 opticalFlow: nil,
                 submissionMode: sequential ? .sequential : .random,
                 destinationFrame: destinationFrame
