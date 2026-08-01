@@ -13,58 +13,86 @@ struct EditorView: View {
                         .frame(height: 220).clipShape(RoundedRectangle(cornerRadius: 18))
                 }
                 if let info = state.assetInfo { AnalysisCard(info: info) }
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Enhancement").font(.title2.bold())
-                    Picker("Output", selection: $state.configuration.resolution) {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Create your enhanced video").font(.title2.bold())
+                        Text("Choose a result, then preview the difference before you begin.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+
+                    Text("Output quality").font(.headline)
+                    Picker("Output quality", selection: $state.configuration.resolution) {
                         Text("4K UHD").tag(OutputResolution.uhd4K)
                         if state.capabilities.supports8KHEVCEncode {
-                            Text("8K UHD \u{00B7} Experimental").tag(OutputResolution.uhd8K)
+                            Text("8K UHD - Experimental").tag(OutputResolution.uhd8K)
                         }
-                    }.pickerStyle(.segmented)
+                    }
+                    .pickerStyle(.segmented)
                     .onChange(of: state.configuration.resolution) { _, resolution in
                         if resolution == .uhd8K && state.configuration.codec == .h264 { state.configuration.codec = .hevc }
                         if resolution == .uhd8K && state.configuration.bitrateMbps == 55 { state.configuration.bitrateMbps = 160 }
                         if resolution == .uhd4K && state.configuration.bitrateMbps > 110 { state.configuration.bitrateMbps = 65 }
                     }
-                    Picker("Mode", selection: $state.configuration.mode) {
-                        ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Enhancement style").font(.headline)
+                        Picker("Enhancement style", selection: $state.configuration.mode) {
+                            ForEach(EnhancementMode.allCases) { Text($0.rawValue).tag($0) }
+                        }.pickerStyle(.menu)
+                        Text(modeDescription(state.configuration.mode))
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     .onChange(of: state.configuration.mode) { _, mode in
                         state.configuration.applyPreset(mode, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
                     }
-                    LabeledContent("Denoise") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180) }
-                    if usesSpatialDenoiseFallback { Text("This source uses full-frame Core Image spatial denoise because Apple temporal denoise rejects its size or pixel format.").font(.caption).foregroundStyle(.secondary) } else if !state.capabilities.temporalNoiseFilteringAvailable { Text("Apple temporal denoise is unavailable; compatible tiled exports use Core Image spatial denoise.").font(.caption).foregroundStyle(.secondary) }
-                    LabeledContent("Detail recovery") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
-                    LabeledContent("Sharpening") { Slider(value: $state.configuration.sharpening, in: 0...1).frame(width: 180) }
-                    Picker("HDR", selection: $state.configuration.hdrBehavior) {
-                        ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    Picker("Codec", selection: $state.configuration.codec) {
-                        ForEach(OutputCodec.allCases.filter { codec in
-                            codec == .hevc || (state.configuration.resolution == .uhd4K && state.assetInfo?.isHDR == false)
-                        }) { Text($0.rawValue).tag($0) }
-                    }
-                    .onChange(of: state.configuration.codec) { _, codec in
-                        if codec == .h264 && state.configuration.resolution == .uhd8K { state.configuration.codec = .hevc }
-                    }
-                    Stepper("Bitrate: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...300, step: 5)
-                    Toggle("Preserve source frame rate", isOn: $state.configuration.preserveFrameRate)
-                        .disabled(true)
-                    Text("Frame-rate conversion is not enabled; every export preserves source presentation timing.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let info = state.assetInfo {
-                        LabeledContent("Estimated output", value: ByteCountFormatter.string(fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration), countStyle: .file))
-                    }
-                }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
 
-                DisclosureGroup("How this export is produced") {
+                    Divider()
+                    Text("Fine tune").font(.headline)
+                    LabeledContent("Noise reduction") { Slider(value: $state.configuration.denoise, in: 0...1).frame(width: 180) }
+                    if usesSpatialDenoiseFallback {
+                        Label("Full-frame noise reduction will be used for this video.", systemImage: "checkmark.circle.fill")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    LabeledContent("Detail") { Slider(value: $state.configuration.detailRecovery, in: 0...1).frame(width: 180) }
+                    LabeledContent("Sharpness") { Slider(value: $state.configuration.sharpening, in: 0...1).frame(width: 180) }
+
+                    DisclosureGroup("Advanced export options") {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Picker("Color", selection: $state.configuration.hdrBehavior) {
+                                ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
+                            }
+                            Picker("Format", selection: $state.configuration.codec) {
+                                ForEach(OutputCodec.allCases.filter { codec in
+                                    codec == .hevc || (state.configuration.resolution == .uhd4K && state.assetInfo?.isHDR == false)
+                                }) { Text($0.rawValue).tag($0) }
+                            }
+                            .onChange(of: state.configuration.codec) { _, codec in
+                                if codec == .h264 && state.configuration.resolution == .uhd8K { state.configuration.codec = .hevc }
+                            }
+                            Stepper("Quality: \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...300, step: 5)
+                            Label("Original frame rate and timing are preserved.", systemImage: "film.stack")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }.padding(.top, 10)
+                    }
+
+                    if let info = state.assetInfo {
+                        HStack {
+                            Label("Estimated size", systemImage: "internaldrive")
+                            Spacer()
+                            Text(ByteCountFormatter.string(fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration), countStyle: .file)).bold()
+                        }
+                        .padding(14).background(.cyan.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
+
+                DisclosureGroup("How Clarity will enhance this video") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(state.capabilities.fullSuperResolutionAvailable ? "Apple frame processor detected" : "Apple AI processor unavailable", systemImage: "cpu")
+                        Label(state.capabilities.fullSuperResolutionAvailable ? "Best available enhancement ready" : "Enhancement unavailable", systemImage: "cpu")
                         if let plan = currentPipelinePlan {
-                            LabeledContent("Apple AI scale", value: String(format: "%.1fx", plan.aiScaleFactor))
+                            LabeledContent("Enhancement scale", value: String(format: "%.1fx", plan.aiScaleFactor))
                             LabeledContent("Output", value: "\(plan.targetWidth) x \(plan.targetHeight)")
                             if plan.requiresTiling {
-                                LabeledContent("Processing", value: "Overlapping tiles")
+                                LabeledContent("Processing", value: "Sectioned processing")
                             }
                             Text(plan.disclosure)
                                 .font(.footnote).foregroundStyle(.secondary)
@@ -72,7 +100,7 @@ struct EditorView: View {
                             Text("No compatible Apple super-resolution route is available for this source and output on this device.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
-                        Text("8K only appears after a real hardware encoder probe passes.")
+                        Text("8K appears only after Clarity confirms this device can create it reliably.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }.padding(.top, 8)
                 }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
@@ -102,12 +130,12 @@ struct EditorView: View {
                 }
 
                 Button { state.generateComparisonPreview() } label: {
-                    Label(state.isGeneratingPreview ? "Building preview \(Int(state.previewProgress * 100))%" : "Generate AI comparison", systemImage: "rectangle.split.2x1")
+                    Label(state.isGeneratingPreview ? "Building preview \(Int(state.previewProgress * 100))%" : "Preview the difference", systemImage: "rectangle.split.2x1")
                         .frame(maxWidth: .infinity)
                 }.buttonStyle(.bordered).controlSize(.large)
                     .disabled(state.isGeneratingPreview || (!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable))
                 Button { state.beginExport() } label: {
-                    Label("Enhance on this device", systemImage: "wand.and.stars")
+                    Label("Start enhancement", systemImage: "wand.and.stars")
                         .frame(maxWidth: .infinity)
                 }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable)
             }.padding()
@@ -123,7 +151,7 @@ struct EditorView: View {
                 }.padding().navigationTitle("AI Comparison")
             }
         }
-        .navigationTitle("Video setup")
+        .navigationTitle("Enhance video")
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { state.route = .home } } }
     }
 
@@ -146,6 +174,15 @@ struct EditorView: View {
             target: state.configuration.resolution, mode: state.configuration.mode,
             capabilities: state.capabilities, lowLatencyFactorsForSource: factors
         )
+    }
+
+    private func modeDescription(_ mode: EnhancementMode) -> String {
+        switch mode {
+        case .fast: "A quicker enhancement with a lighter touch."
+        case .quality: "The best supported detail and clarity for most videos."
+        case .restore: "Stronger cleanup for old, compressed, or noisy footage."
+        case .anime: "Crisp lines and controlled sharpening for animation and gameplay."
+        }
     }
 
     private func durationLabel(_ seconds: Double) -> String {

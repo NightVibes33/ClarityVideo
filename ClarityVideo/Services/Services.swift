@@ -77,7 +77,7 @@ enum AssetInspector {
         let isHDR = transfer.localizedCaseInsensitiveContains("HLG") || transfer.localizedCaseInsensitiveContains("PQ") || transfer.localizedCaseInsensitiveContains("2084")
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         return VideoAssetInfo(
-            fileName: url.lastPathComponent,
+            fileName: displayFileName(url),
             encodedWidth: Int(abs(size.width)),
             encodedHeight: Int(abs(size.height)),
             displayWidth: displayWidth,
@@ -88,6 +88,17 @@ enum AssetInspector {
             duration: duration.isFinite ? duration : 0,
             estimatedSourceBytes: Int64(values.fileSize ?? 0)
         )
+    }
+
+    private static func displayFileName(_ url: URL) -> String {
+        var name = url.lastPathComponent.isEmpty ? "Video.mov" : url.lastPathComponent
+        while name.count > 37 {
+            let prefixEnd = name.index(name.startIndex, offsetBy: 36)
+            let separator = name[prefixEnd]
+            guard separator == "-", UUID(uuidString: String(name[..<prefixEnd])) != nil else { break }
+            name.removeSubrange(name.startIndex...prefixEnd)
+        }
+        return name.isEmpty ? "Video.mov" : name
     }
 
     private static func fourCC(_ code: FourCharCode) -> String {
