@@ -14,6 +14,7 @@ final class DLSS5ContractTests: XCTestCase {
         )
         XCTAssertNoThrow(try contract.validate())
         XCTAssertEqual(contract.colorFormat, .rgba16Float)
+        XCTAssertEqual(contract.colorEncoding, .sRGBDisplayReferred)
         XCTAssertEqual(contract.depthFormat, .r32Float)
         XCTAssertEqual(contract.motionFormat, .rg16Float)
         XCTAssertTrue(contract.motionVectorsAreInPixels)
@@ -57,7 +58,7 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertFalse(DLSS5RuntimeProbe.current.available)
     }
 
-    func testFeedDescriptorUsesDLAAWhenWorkAndTargetMatch() throws {
+    func testFeedDescriptorUsesSDRForDefaultVideoContract() throws {
         let contract = DLSS5FrameContract(
             presentationTime: .zero,
             renderWidth: 1280,
@@ -71,11 +72,14 @@ final class DLSS5ContractTests: XCTestCase {
             hasColor: true,
             hasDepth: true,
             hasMotionVectors: true,
-            sourceDescription: "test"
+            sourceDescription: "test SDR"
         )
         let feed = DLSS5FeedDescriptor(metadata: metadata, sequence: 7)
         XCTAssertNoThrow(try feed.validate())
         XCTAssertFalse(feed.build.usesSuperResolution)
+        XCTAssertFalse(feed.build.hdr)
+        XCTAssertEqual(feed.build.colorEncoding, .sRGBDisplayReferred)
+        XCTAssertEqual(feed.build.motionDirection, .currentToPrevious)
         XCTAssertEqual(feed.frame.sequence, 7)
         let ngx = DLSS5NGXSemanticPacket(feed: feed)
         XCTAssertNoThrow(try ngx.validate())
@@ -83,10 +87,36 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertTrue(ngx.feature.flags.contains(.motionVectorsLowResolution))
         XCTAssertTrue(ngx.feature.flags.contains(.autoExposure))
         XCTAssertTrue(ngx.feature.flags.contains(.depthInverted))
-        XCTAssertTrue(ngx.feature.flags.contains(.hdr))
+        XCTAssertFalse(ngx.feature.flags.contains(.hdr))
         XCTAssertTrue(ngx.evaluate.reset)
         XCTAssertEqual(ngx.evaluate.preExposure, 1)
         XCTAssertEqual(ngx.evaluate.exposureScale, 1)
+    }
+
+    func testFeedDescriptorCarriesHDRFromLinearHDRContract() throws {
+        let contract = DLSS5FrameContract(
+            presentationTime: .zero,
+            renderWidth: 1920,
+            renderHeight: 1080,
+            outputWidth: 1920,
+            outputHeight: 1080,
+            resetHistory: true,
+            colorEncoding: .linearHDR
+        )
+        let metadata = DLSS5PreparedFrameMetadata(
+            contract: contract,
+            hasColor: true,
+            hasDepth: true,
+            hasMotionVectors: true,
+            sourceDescription: "test HDR"
+        )
+        let feed = DLSS5FeedDescriptor(metadata: metadata, sequence: 8)
+        XCTAssertNoThrow(try feed.validate())
+        XCTAssertTrue(feed.build.hdr)
+        XCTAssertEqual(feed.build.colorEncoding, .linearHDR)
+        let ngx = DLSS5NGXSemanticPacket(feed: feed)
+        XCTAssertNoThrow(try ngx.validate())
+        XCTAssertTrue(ngx.feature.flags.contains(.hdr))
     }
 
     func testFeedDescriptorSupportsSuperResolutionTarget() throws {
