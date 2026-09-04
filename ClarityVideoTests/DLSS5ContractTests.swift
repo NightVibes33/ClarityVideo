@@ -43,12 +43,12 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertEqual(second.y, Float(1.0 / 6.0), accuracy: 0.000_001)
     }
 
-    func testEvaluationConfigurationUsesDLAAReferenceMode() throws {
+    func testEvaluationConfigurationTargetsFeature18NativeResolution() throws {
         let configuration = DLSS5EvaluationConfiguration()
         XCTAssertNoThrow(try configuration.validate())
-        XCTAssertEqual(configuration.qualityMode, .dlaa)
-        XCTAssertTrue(configuration.inputIsHDR)
-        XCTAssertTrue(configuration.autoExposure)
+        XCTAssertEqual(configuration.executionMode, .neuralRenderingFeature18)
+        XCTAssertEqual(configuration.featureID, 18)
+        XCTAssertTrue(configuration.nativeResolutionOnly)
         XCTAssertTrue(configuration.depthIsInverted)
         XCTAssertEqual(configuration.motionVectorScaleX, 1)
         XCTAssertEqual(configuration.motionVectorScaleY, 1)
