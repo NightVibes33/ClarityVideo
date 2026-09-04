@@ -14,6 +14,13 @@ enum DLSS5ResourceFormat: String, Codable, Sendable {
     case rg16Float
 }
 
+enum DLSS5MotionDirection: String, Codable, Sendable {
+    /// Backward flow: for a pixel in the current frame, the vector locates the
+    /// corresponding sample in the previous frame. This matches the current
+    /// standalone DLSS Neural Rendering video reference.
+    case currentToPrevious
+}
+
 struct DLSS5FrameContract: Codable, Equatable, Sendable {
     var presentationTimeSeconds: Double
     var renderWidth: Int
@@ -27,6 +34,7 @@ struct DLSS5FrameContract: Codable, Equatable, Sendable {
     var jitterY: Float = 0
     var resetHistory: Bool
     var motionVectorsAreInPixels: Bool = true
+    var motionDirection: DLSS5MotionDirection = .currentToPrevious
     var depthIsReversed: Bool = true
 
     init(
@@ -70,6 +78,12 @@ struct DLSS5FrameContract: Codable, Equatable, Sendable {
         }
         guard motionFormat == .rg16Float else {
             throw DLSS5ContractError.invalidMotionFormat
+        }
+        guard motionVectorsAreInPixels,
+              motionDirection == .currentToPrevious else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The current DLSS Neural Rendering reference expects current-to-previous pixel-space motion vectors."
+            )
         }
     }
 }
@@ -123,9 +137,9 @@ enum DLSS5RuntimeProbe {
     }
 }
 
-/// Resources produced by future motion/depth preparation stages.
-/// The concrete GPU textures deliberately live outside this Codable contract so the
-/// same metadata can be recorded in diagnostics and reference captures.
+/// Resources produced by motion/depth preparation stages. The concrete GPU textures
+/// deliberately live outside this Codable contract so the same metadata can be
+/// recorded in diagnostics and reference captures.
 struct DLSS5PreparedFrameMetadata: Codable, Equatable, Sendable {
     var contract: DLSS5FrameContract
     var hasColor: Bool
