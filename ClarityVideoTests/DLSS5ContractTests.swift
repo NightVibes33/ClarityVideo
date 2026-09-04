@@ -35,10 +35,10 @@ final class DLSS5ContractTests: XCTestCase {
     func testHaltonJitterIsCenteredAndDeterministic() {
         let first = DLSS5Jitter.offset(frameIndex: 0)
         let second = DLSS5Jitter.offset(frameIndex: 1)
-        XCTAssertEqual(first.x, 0, accuracy: 0.000_001)
-        XCTAssertEqual(first.y, -1.0 / 6.0, accuracy: 0.000_001)
-        XCTAssertEqual(second.x, -0.25, accuracy: 0.000_001)
-        XCTAssertEqual(second.y, 1.0 / 6.0, accuracy: 0.000_001)
+        XCTAssertEqual(first.x, Float(0), accuracy: 0.000_001)
+        XCTAssertEqual(first.y, Float(-1.0 / 6.0), accuracy: 0.000_001)
+        XCTAssertEqual(second.x, Float(-0.25), accuracy: 0.000_001)
+        XCTAssertEqual(second.y, Float(1.0 / 6.0), accuracy: 0.000_001)
     }
 
     func testEvaluationConfigurationUsesDLAAReferenceMode() throws {
@@ -54,5 +54,67 @@ final class DLSS5ContractTests: XCTestCase {
 
     func testRuntimeProbeNeverClaimsUnlinkedDLSS5IsAvailable() {
         XCTAssertFalse(DLSS5RuntimeProbe.current.available)
+    }
+
+    func testFeedDescriptorUsesDLAAWhenWorkAndTargetMatch() throws {
+        let contract = DLSS5FrameContract(
+            presentationTime: .zero,
+            renderWidth: 1280,
+            renderHeight: 720,
+            outputWidth: 1280,
+            outputHeight: 720,
+            resetHistory: true
+        )
+        let metadata = DLSS5PreparedFrameMetadata(
+            contract: contract,
+            hasColor: true,
+            hasDepth: true,
+            hasMotionVectors: true,
+            sourceDescription: "test"
+        )
+        let feed = DLSS5FeedDescriptor(metadata: metadata, sequence: 7)
+        XCTAssertNoThrow(try feed.validate())
+        XCTAssertFalse(feed.build.usesSuperResolution)
+        XCTAssertEqual(feed.frame.sequence, 7)
+        let ngx = DLSS5NGXSemanticPacket(feed: feed)
+        XCTAssertNoThrow(try ngx.validate())
+        XCTAssertEqual(ngx.feature.quality, .dlaa)
+        XCTAssertTrue(ngx.feature.flags.contains(.motionVectorsLowResolution))
+        XCTAssertTrue(ngx.feature.flags.contains(.autoExposure))
+        XCTAssertTrue(ngx.feature.flags.contains(.depthInverted))
+        XCTAssertTrue(ngx.feature.flags.contains(.hdr))
+        XCTAssertTrue(ngx.evaluate.reset)
+        XCTAssertEqual(ngx.evaluate.preExposure, 1)
+        XCTAssertEqual(ngx.evaluate.exposureScale, 1)
+    }
+
+    func testFeedDescriptorSupportsSuperResolutionTarget() throws {
+        var contract = DLSS5FrameContract(
+            presentationTime: .zero,
+            renderWidth: 1280,
+            renderHeight: 720,
+            outputWidth: 3840,
+            outputHeight: 2160,
+            resetHistory: false
+        )
+        contract.jitterX = 0.25
+        contract.jitterY = -0.125
+        let metadata = DLSS5PreparedFrameMetadata(
+            contract: contract,
+            hasColor: true,
+            hasDepth: true,
+            hasMotionVectors: true,
+            sourceDescription: "test SR"
+        )
+        let feed = DLSS5FeedDescriptor(metadata: metadata, sequence: 9)
+        XCTAssertNoThrow(try feed.validate())
+        XCTAssertTrue(feed.build.usesSuperResolution)
+        let ngx = DLSS5NGXSemanticPacket(feed: feed)
+        XCTAssertEqual(ngx.feature.quality, .superResolution)
+        XCTAssertEqual(ngx.feature.targetWidth, 3840)
+        XCTAssertEqual(ngx.feature.targetHeight, 2160)
+        XCTAssertEqual(ngx.evaluate.jitterX, 0.25)
+        XCTAssertEqual(ngx.evaluate.jitterY, -0.125)
+        XCTAssertFalse(ngx.evaluate.reset)
     }
 }
