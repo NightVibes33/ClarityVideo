@@ -197,24 +197,42 @@ extension ClarityVideoTests {
             sourceFingerprint: "source", configuration: configuration, segmentCount: 2
         ))
     }
+
     func testSceneCutDetectorSeparatesCutsFromSmallChanges() {
         XCTAssertFalse(SceneCutDetector.isCut(previous: [0.20, 0.22, 0.21], current: [0.23, 0.24, 0.22]))
         XCTAssertTrue(SceneCutDetector.isCut(previous: [0.05, 0.08, 0.06], current: [0.90, 0.86, 0.92]))
     }
-    func testRestorePresetUsesStrongTemporalDenoiseWhenAvailable() {
+
+    func testRestorePresetKeepsStrongDenoiseForSpatialFallback() {
         var configuration = ExportConfiguration()
         configuration.applyPreset(.restore, temporalDenoiseAvailable: true)
         XCTAssertEqual(configuration.mode, .restore)
         XCTAssertGreaterThan(configuration.denoise, 0.5)
         configuration.applyPreset(.restore, temporalDenoiseAvailable: false)
-        XCTAssertEqual(configuration.denoise, 0)
+        XCTAssertGreaterThan(configuration.denoise, 0.5)
     }
+
+    func testProcessingJobEnhancementFieldsRemainOptionalForHistoryCompatibility() throws {
+        let info = VideoAssetInfo(
+            fileName: "x.mov", encodedWidth: 1280, encodedHeight: 720,
+            displayWidth: 1280, displayHeight: 720, frameRate: 30,
+            codec: "hvc1", isHDR: false, duration: 1, estimatedSourceBytes: 1
+        )
+        let job = ProcessingJob(sourceURL: URL(fileURLWithPath: "/tmp/x.mov"), assetInfo: info, configuration: ExportConfiguration())
+        let data = try JSONEncoder().encode(job)
+        let decoded = try JSONDecoder().decode(ProcessingJob.self, from: data)
+        XCTAssertNil(decoded.enhancementMethod)
+        XCTAssertNil(decoded.enhancementFallbackReason)
+        XCTAssertNil(decoded.enhancementFailureCount)
+    }
+
     func testOutputEstimateUsesSelectedBitrateAndDuration() {
         let info = VideoAssetInfo(fileName: "x.mov", encodedWidth: 1280, encodedHeight: 720, displayWidth: 1280, displayHeight: 720, frameRate: 30, codec: "hvc1", isHDR: false, duration: 8, estimatedSourceBytes: 1)
         var configuration = ExportConfiguration()
         configuration.bitrateMbps = 50
         XCTAssertEqual(StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration), 50_000_000)
     }
+
     func test8KStoragePreflightAllowsFinalAndSegmentCopies() {
         let info = VideoAssetInfo(fileName: "x.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 60, estimatedSourceBytes: 1)
         var configuration = ExportConfiguration()
@@ -222,6 +240,7 @@ extension ClarityVideoTests {
         let output = StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration)
         XCTAssertGreaterThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), output * 2)
     }
+
     func testDefaultSegmentsStayWithinFiveSeconds() {
         let segments = SegmentPlan.segments(duration: 12)
         XCTAssertEqual(segments.map(\.durationSeconds), [5, 5, 2])
@@ -236,7 +255,6 @@ extension ClarityVideoTests {
         XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
     }
 }
-
 
 extension ClarityVideoTests {
     func testCodecSelectionDefaultsToHEVC() {
