@@ -29,6 +29,21 @@ jobs:
           sudo xcode-select --switch "$SELECTED/Contents/Developer"
           xcodebuild -version
           xcodebuild -showsdks
+      - name: Fetch Apple Depth Anything V2 Core ML model
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL="ClarityVideo/Resources/Models/DepthAnythingV2SmallF16P6.mlpackage"
+          DATA="$MODEL/Data/com.apple.CoreML"
+          mkdir -p "$DATA/weights"
+          BASE="https://huggingface.co/apple/coreml-depth-anything-v2-small/resolve/main/DepthAnythingV2SmallF16P6.mlpackage"
+          curl -fL --retry 3 --retry-delay 2 "$BASE/Manifest.json?download=true" -o "$MODEL/Manifest.json"
+          curl -fL --retry 3 --retry-delay 2 "$BASE/Data/com.apple.CoreML/model.mlmodel?download=true" -o "$DATA/model.mlmodel"
+          curl -fL --retry 3 --retry-delay 2 "$BASE/Data/com.apple.CoreML/weights/weight.bin?download=true" -o "$DATA/weights/weight.bin"
+          test -s "$MODEL/Manifest.json"
+          test -s "$DATA/model.mlmodel"
+          test -s "$DATA/weights/weight.bin"
+          du -sh "$MODEL"
       - name: Generate macOS ProRes decode fixture
         shell: bash
         run: |
@@ -100,6 +115,7 @@ jobs:
           lipo -info "$EXECUTABLE" | grep -q 'arm64'
           ! file "$EXECUTABLE" | grep -qi simulator
           ! find "$APP" -name embedded.mobileprovision | grep -q .
+          find "$APP" -iname '*DepthAnything*' -print | grep -q .
       - name: Package and validate IPA
         shell: bash
         run: |
