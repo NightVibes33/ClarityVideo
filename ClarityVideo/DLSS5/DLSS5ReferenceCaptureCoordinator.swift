@@ -6,6 +6,7 @@ import CoreVideo
 struct DLSS5ReferenceCaptureResult: Sendable {
     var folderURL: URL
     var manifestURL: URL
+    var packageURL: URL
     var frameTimestampSeconds: Double
     var width: Int
     var height: Int
@@ -65,10 +66,14 @@ final class DLSS5ReferenceCaptureCoordinator {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         let backend = DLSS5ReferenceCaptureBackend()
         let manifest = try backend.capture(prepared, folder: root)
+        let packageURL = root.appendingPathComponent("ClarityVideo-Frame.cvdlss5")
+        try DLSS5PortableCaptureWriter.write(prepared, to: packageURL)
+        _ = try DLSS5PortableCaptureWriter.validate(url: packageURL)
 
         return DLSS5ReferenceCaptureResult(
             folderURL: root,
             manifestURL: manifest,
+            packageURL: packageURL,
             frameTimestampSeconds: timestamp.seconds.isFinite ? timestamp.seconds : safeStart,
             width: prepared.metadata.contract.renderWidth,
             height: prepared.metadata.contract.renderHeight
