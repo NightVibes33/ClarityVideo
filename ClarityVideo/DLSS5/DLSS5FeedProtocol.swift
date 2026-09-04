@@ -7,7 +7,7 @@ import CoreGraphics
 /// one iOS process.
 enum DLSS5FeedProtocol {
     static let magic: UInt32 = 0x35534C44 // 'DLS5'
-    static let version: UInt32 = 1
+    static let version: UInt32 = 2
 }
 
 enum DLSS5FeedSlot: Int, Codable, CaseIterable, Sendable {
@@ -25,23 +25,27 @@ struct DLSS5FeedBuild: Codable, Equatable, Sendable {
     var targetWidth: Int
     var targetHeight: Int
     var hdr: Bool
+    var colorEncoding: DLSS5ColorEncoding
     var depthInverted: Bool
     var motionVectorScaleX: Float
     var motionVectorScaleY: Float
+    var motionDirection: DLSS5MotionDirection
 
     var usesSuperResolution: Bool {
         targetWidth != workWidth || targetHeight != workHeight
     }
 
-    init(contract: DLSS5FrameContract, hdr: Bool = true) {
+    init(contract: DLSS5FrameContract) {
         workWidth = contract.renderWidth
         workHeight = contract.renderHeight
         targetWidth = contract.outputWidth
         targetHeight = contract.outputHeight
-        self.hdr = hdr
+        colorEncoding = contract.colorEncoding
+        hdr = contract.colorEncoding.isHDR
         depthInverted = contract.depthIsReversed
         motionVectorScaleX = contract.motionVectorsAreInPixels ? 1 : Float(contract.renderWidth)
         motionVectorScaleY = contract.motionVectorsAreInPixels ? 1 : Float(contract.renderHeight)
+        motionDirection = contract.motionDirection
     }
 
     func validate() throws {
@@ -56,8 +60,14 @@ struct DLSS5FeedBuild: Codable, Equatable, Sendable {
                 "The DLSS 5 feed target cannot be smaller than its work resolution."
             )
         }
-        guard motionVectorScaleX.isFinite, motionVectorScaleY.isFinite else {
-            throw DLSS5ContractError.runtimeUnavailable("Invalid DLSS 5 motion-vector scale.")
+        guard hdr == colorEncoding.isHDR else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The DLSS 5 feed HDR flag does not match the color-transfer contract."
+            )
+        }
+        guard motionVectorScaleX.isFinite, motionVectorScaleY.isFinite,
+              motionDirection == .currentToPrevious else {
+            throw DLSS5ContractError.runtimeUnavailable("Invalid DLSS 5 motion-vector contract.")
         }
     }
 }
