@@ -28,7 +28,7 @@ final class DLSS5ReferenceCaptureCoordinator {
         let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(
             start: CMTime(seconds: safeStart, preferredTimescale: 600),
-            duration: CMTime(seconds: 0.25, preferredTimescale: 600)
+            duration: CMTime(seconds: 0.35, preferredTimescale: 600)
         )
         let output = AVAssetReaderTrackOutput(
             track: track,
@@ -46,20 +46,44 @@ final class DLSS5ReferenceCaptureCoordinator {
         guard reader.startReading() else {
             throw AppError.exportFailed(reader.error?.localizedDescription ?? "The DLSS 5 reference decoder did not start.")
         }
-        guard let sample = output.copyNextSampleBuffer(),
-              let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else {
+
+        guard let firstSample = output.copyNextSampleBuffer(),
+              let firstBuffer = CMSampleBufferGetImageBuffer(firstSample) else {
             throw AppError.exportFailed(reader.error?.localizedDescription ?? "No decoded frame was available for the DLSS 5 reference capture.")
         }
 
-        let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
-        let preparer = try DLSS5FramePreparer(depthProvider: DLSS5DepthProviderFactory.bestAvailable())
-        let prepared = try preparer.prepareVideoFrame(
-            source: pixelBuffer,
-            presentationTime: timestamp,
+        // Prime temporal history with the first decoded frame, then capture the next
+        // frame when available. This exercises the real Vision RG16F motion path for
+        // ordinary video while preserving a valid first-frame fallback for one-frame
+        // clips and cut boundaries.
+        let temporal = try DLSS5TemporalVideoPreparer(
+            depthProvider: DLSS5DepthProviderFactory.bestAvailable(),
+            motionProvider: DLSS5VisionMotionProvider(accuracy: .high)
+        )
+        let firstTimestamp = CMSampleBufferGetPresentationTimeStamp(firstSample)
+        let firstPrepared = try temporal.prepare(
+            source: firstBuffer,
+            presentationTime: firstTimestamp,
             frameIndex: 0,
-            resetHistory: true,
             useJitter: false
         )
+
+        let prepared: DLSS5PreparedFrame
+        let timestamp: CMTime
+        if let secondSample = output.copyNextSampleBuffer(),
+           let secondBuffer = CMSampleBufferGetImageBuffer(secondSample) {
+            let secondTimestamp = CMSampleBufferGetPresentationTimeStamp(secondSample)
+            prepared = try temporal.prepare(
+                source: secondBuffer,
+                presentationTime: secondTimestamp,
+                frameIndex: 1,
+                useJitter: false
+            )
+            timestamp = secondTimestamp
+        } else {
+            prepared = firstPrepared
+            timestamp = firstTimestamp
+        }
 
         let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("DLSS5ReferenceCaptures", isDirectory: true)
