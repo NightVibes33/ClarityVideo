@@ -3,8 +3,9 @@ import Metal
 
 struct DLSS5PortableCaptureHeader: Codable, Sendable {
     var format = "ClarityVideo.DLSS5ReferenceCapture"
-    var version = 1
+    var version = 2
     var metadata: DLSS5PreparedFrameMetadata
+    var neuralRendering: DLSS5NeuralRenderingPacket?
     var colorBytes: Int
     var depthBytes: Int
     var motionBytes: Int
@@ -22,8 +23,11 @@ enum DLSS5PortableCaptureWriter {
         let depth = try textureData(frame.depth, width: width, height: height, bytesPerPixel: 4)
         let motion = try textureData(frame.motion, width: width, height: height, bytesPerPixel: 4)
 
+        let neuralRendering = DLSS5NeuralRenderingPacket(contract: frame.metadata.contract)
+        try neuralRendering.validate()
         let header = DLSS5PortableCaptureHeader(
             metadata: frame.metadata,
+            neuralRendering: neuralRendering,
             colorBytes: color.count,
             depthBytes: depth.count,
             motionBytes: motion.count
@@ -77,6 +81,14 @@ enum DLSS5PortableCaptureWriter {
             )
         }
         try header.metadata.validateForExecution()
+        if header.version >= 2 {
+            guard let neuralRendering = header.neuralRendering else {
+                throw DLSS5ContractError.runtimeUnavailable(
+                    "Version 2 DLSS 5 captures must contain the Neural Rendering feature-18 semantic packet."
+                )
+            }
+            try neuralRendering.validate()
+        }
         return header
     }
 
