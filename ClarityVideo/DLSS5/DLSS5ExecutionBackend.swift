@@ -1,21 +1,31 @@
 import Foundation
 import Metal
 
+/// Static execution invariants for the real Neural Rendering stage. Transfer
+/// characteristics (SDR display-referred vs HDR linear) belong to each frame's
+/// contract and are deliberately not hard-coded here.
 struct DLSS5EvaluationConfiguration: Codable, Equatable, Sendable {
-    enum QualityMode: String, Codable, Sendable {
-        case dlaa
+    enum ExecutionMode: String, Codable, Sendable {
+        case neuralRenderingFeature18
     }
 
-    var qualityMode: QualityMode = .dlaa
-    var inputIsHDR = true
-    var autoExposure = true
+    var executionMode: ExecutionMode = .neuralRenderingFeature18
+    var featureID: UInt32 = 18
+    var nativeResolutionOnly = true
     var depthIsInverted = true
     var motionVectorScaleX: Float = 1
     var motionVectorScaleY: Float = 1
 
     func validate() throws {
-        guard qualityMode == .dlaa else {
-            throw DLSS5ContractError.runtimeUnavailable("The current DLSS 5 reference contract expects a DLAA evaluation.")
+        guard executionMode == .neuralRenderingFeature18, featureID == 18 else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The current DLSS 5 execution contract targets NGX Neural Rendering feature 18."
+            )
+        }
+        guard nativeResolutionOnly else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "Feature 18 is modeled as a native-resolution stage; DLSS Super Resolution runs before it."
+            )
         }
         guard motionVectorScaleX.isFinite, motionVectorScaleY.isFinite else {
             throw DLSS5ContractError.runtimeUnavailable("DLSS 5 motion-vector scale must be finite.")
@@ -34,9 +44,9 @@ protocol DLSS5ExecutionBackend: AnyObject {
     func end()
 }
 
-/// The production boundary for the eventual ARM64/Metal rehost. Keeping this as
-/// a concrete backend prevents ClarityVideo from ever silently substituting Apple
-/// SR while reporting that NVIDIA DLSS 5 ran.
+/// Production boundary for the eventual ARM64/Metal rehost. It remains unavailable
+/// until a genuine feature-18-compatible executor exists; Apple SR/Core Image is never
+/// substituted behind this type and reported as NVIDIA DLSS.
 @MainActor
 final class DLSS5UnlinkedMetalRuntime: DLSS5ExecutionBackend {
     let evaluationConfiguration = DLSS5EvaluationConfiguration()
@@ -44,6 +54,9 @@ final class DLSS5UnlinkedMetalRuntime: DLSS5ExecutionBackend {
 
     func start(renderWidth: Int, renderHeight: Int) throws {
         try evaluationConfiguration.validate()
+        guard renderWidth > 0, renderHeight > 0 else {
+            throw DLSS5ContractError.invalidDimensions
+        }
         guard availability.available else {
             throw DLSS5ContractError.runtimeUnavailable(
                 availability.reason ?? "The ARM64/Metal DLSS 5 runtime is not linked."
@@ -62,8 +75,8 @@ final class DLSS5UnlinkedMetalRuntime: DLSS5ExecutionBackend {
     func end() {}
 }
 
-/// Useful during the port: validates the exact feeder resources and captures them
-/// without pretending an NVIDIA neural evaluation occurred.
+/// Useful during the port: validates and captures the exact feeder resources without
+/// pretending an NVIDIA neural evaluation occurred.
 @MainActor
 final class DLSS5ReferenceCaptureBackend {
     private(set) var captureCount = 0
