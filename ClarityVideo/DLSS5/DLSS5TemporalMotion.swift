@@ -61,15 +61,14 @@ final class DLSS5ZeroMotionProvider: DLSS5MotionProvider {
     }
 }
 
-/// Produces the backward motion field expected by the current DLSS Neural Rendering
-/// video references: for a pixel in the current frame, the vector points to the
-/// corresponding location in the previous frame. Vision describes
-/// VNGenerateOpticalFlowRequest as transforming the targeted image into the image
-/// processed by the handler, so the current frame is the targeted image and the
-/// previous frame is the handler input.
+/// Produces a full-resolution two-component half-float optical-flow field. The
+/// request is intentionally arranged with the current frame as the targeted image
+/// and the previous frame as the processed image so the result can be validated
+/// against the current-to-previous pixel-space convention used by the DLSSNR
+/// reference path.
 @MainActor
 final class DLSS5VisionMotionProvider: DLSS5MotionProvider {
-    let providerDescription = "Vision optical flow; current-to-previous; RG16F"
+    let providerDescription = "Vision optical flow; targeted current vs previous; RG16F"
 
     private let accuracy: VNGenerateOpticalFlowRequest.ComputationAccuracy
     private var textureCache: CVMetalTextureCache?
@@ -330,12 +329,14 @@ final class DLSS5SceneCutDetector {
 final class DLSS5TemporalVideoPreparer {
     private let preparer: DLSS5FramePreparer
     private let sceneCutDetector: DLSS5SceneCutDetector
+    private let colorEncoding: DLSS5ColorEncoding
     private var previousFrame: CVPixelBuffer?
 
     init(
         depthProvider: (any DLSS5DepthProvider)? = nil,
         motionProvider: (any DLSS5MotionProvider)? = nil,
-        sceneCutThreshold: Float = 0.24
+        sceneCutThreshold: Float = 0.24,
+        colorEncoding: DLSS5ColorEncoding = .sRGBDisplayReferred
     ) throws {
         let resolvedDepthProvider = depthProvider ?? DLSS5DepthProviderFactory.bestAvailable()
         let resolvedMotionProvider = motionProvider ?? DLSS5VisionMotionProvider()
@@ -344,6 +345,7 @@ final class DLSS5TemporalVideoPreparer {
             motionProvider: resolvedMotionProvider
         )
         sceneCutDetector = DLSS5SceneCutDetector(threshold: sceneCutThreshold)
+        self.colorEncoding = colorEncoding
     }
 
     func reset() {
@@ -369,7 +371,8 @@ final class DLSS5TemporalVideoPreparer {
             presentationTime: presentationTime,
             frameIndex: frameIndex,
             resetHistory: resetHistory,
-            useJitter: useJitter
+            useJitter: useJitter,
+            colorEncoding: colorEncoding
         )
         previousFrame = source
         return prepared
