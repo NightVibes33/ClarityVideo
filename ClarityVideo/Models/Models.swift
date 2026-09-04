@@ -68,21 +68,23 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
 extension ExportConfiguration {
     mutating func applyPreset(_ mode: EnhancementMode, temporalDenoiseAvailable: Bool) {
         self.mode = mode
+        // Spatial denoise remains available when Apple's temporal filter is unavailable.
+        // Keep the preset strength instead of silently forcing denoise to zero.
         switch mode {
         case .fast:
-            denoise = temporalDenoiseAvailable ? 0.08 : 0
+            denoise = 0.08
             detailRecovery = 0.25
             sharpening = 0.10
         case .quality:
-            denoise = temporalDenoiseAvailable ? 0.20 : 0
+            denoise = 0.20
             detailRecovery = 0.50
             sharpening = 0.15
         case .restore:
-            denoise = temporalDenoiseAvailable ? 0.65 : 0
+            denoise = 0.65
             detailRecovery = 0.55
             sharpening = 0.10
         case .anime:
-            denoise = temporalDenoiseAvailable ? 0.10 : 0
+            denoise = 0.10
             detailRecovery = 0.70
             sharpening = 0.35
         }
