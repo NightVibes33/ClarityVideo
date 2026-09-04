@@ -88,26 +88,73 @@ struct DLSS5NeuralRenderingModelParameters: Codable, Equatable, Sendable {
     }
 }
 
+/// The current reference path performs enlargement with ordinary DLSS Super
+/// Resolution first, then runs feature 18 at the final target resolution. Feature 18
+/// itself is therefore modeled as a 1:1 stage even when the overall pipeline upscales.
+struct DLSS5NeuralRenderingPipelinePlan: Codable, Equatable, Sendable {
+    var superResolutionRequired: Bool
+    var superResolutionRenderWidth: Int
+    var superResolutionRenderHeight: Int
+    var superResolutionTargetWidth: Int
+    var superResolutionTargetHeight: Int
+    var neuralRenderingWidth: Int
+    var neuralRenderingHeight: Int
+
+    init(contract: DLSS5FrameContract) {
+        superResolutionRenderWidth = contract.renderWidth
+        superResolutionRenderHeight = contract.renderHeight
+        superResolutionTargetWidth = contract.outputWidth
+        superResolutionTargetHeight = contract.outputHeight
+        superResolutionRequired = contract.outputWidth != contract.renderWidth ||
+            contract.outputHeight != contract.renderHeight
+        neuralRenderingWidth = contract.outputWidth
+        neuralRenderingHeight = contract.outputHeight
+    }
+
+    func validate() throws {
+        guard superResolutionRenderWidth > 0,
+              superResolutionRenderHeight > 0,
+              superResolutionTargetWidth > 0,
+              superResolutionTargetHeight > 0,
+              neuralRenderingWidth > 0,
+              neuralRenderingHeight > 0 else {
+            throw DLSS5ContractError.invalidDimensions
+        }
+        guard superResolutionTargetWidth >= superResolutionRenderWidth,
+              superResolutionTargetHeight >= superResolutionRenderHeight else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The current reference pipeline only models native-resolution or enlarged output."
+            )
+        }
+        guard neuralRenderingWidth == superResolutionTargetWidth,
+              neuralRenderingHeight == superResolutionTargetHeight else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "DLSS Neural Rendering must consume the final SR target resolution."
+            )
+        }
+    }
+}
+
 struct DLSS5NeuralRenderingCreateDescriptor: Codable, Equatable, Sendable {
     var featureID: UInt32 = 18
     var inputWidth: Int
     var inputHeight: Int
     var outputWidth: Int
     var outputHeight: Int
-    var upscaling: Bool
+    var upscaling: Bool = false
     var depthInverted: Bool
     var model: DLSS5NeuralRenderingModelParameters
 
     init(
-        contract: DLSS5FrameContract,
+        plan: DLSS5NeuralRenderingPipelinePlan,
+        depthInverted: Bool,
         model: DLSS5NeuralRenderingModelParameters = .init()
     ) {
-        inputWidth = contract.renderWidth
-        inputHeight = contract.renderHeight
-        outputWidth = contract.outputWidth
-        outputHeight = contract.outputHeight
-        upscaling = contract.outputWidth != contract.renderWidth || contract.outputHeight != contract.renderHeight
-        depthInverted = contract.depthIsReversed
+        inputWidth = plan.neuralRenderingWidth
+        inputHeight = plan.neuralRenderingHeight
+        outputWidth = plan.neuralRenderingWidth
+        outputHeight = plan.neuralRenderingHeight
+        self.depthInverted = depthInverted
         self.model = model
     }
 
@@ -131,9 +178,11 @@ struct DLSS5NeuralRenderingCreateDescriptor: Codable, Equatable, Sendable {
               outputWidth > 0, outputHeight > 0 else {
             throw DLSS5ContractError.invalidDimensions
         }
-        guard outputWidth >= inputWidth, outputHeight >= inputHeight else {
+        guard inputWidth == outputWidth,
+              inputHeight == outputHeight,
+              !upscaling else {
             throw DLSS5ContractError.runtimeUnavailable(
-                "The current DLSS Neural Rendering reference only models native-resolution or upscale output."
+                "The observed feature-18 path is native-resolution; DLSS SR must perform enlargement before Neural Rendering."
             )
         }
         try model.validate()
@@ -155,12 +204,17 @@ struct DLSS5NeuralRenderingEvaluateDescriptor: Codable, Equatable, Sendable {
     var outputSubrectBaseX: Int = 0
     var outputSubrectBaseY: Int = 0
 
-    init(contract: DLSS5FrameContract, motionVectorScaleX: Float = 1, motionVectorScaleY: Float = 1) {
-        reset = contract.resetHistory
+    init(
+        plan: DLSS5NeuralRenderingPipelinePlan,
+        reset: Bool,
+        motionVectorScaleX: Float = 1,
+        motionVectorScaleY: Float = 1
+    ) {
+        self.reset = reset
         self.motionVectorScaleX = motionVectorScaleX
         self.motionVectorScaleY = motionVectorScaleY
-        colorSubrectWidth = contract.renderWidth
-        colorSubrectHeight = contract.renderHeight
+        colorSubrectWidth = plan.neuralRenderingWidth
+        colorSubrectHeight = plan.neuralRenderingHeight
     }
 
     func validate() throws {
@@ -176,6 +230,7 @@ struct DLSS5NeuralRenderingEvaluateDescriptor: Codable, Equatable, Sendable {
 }
 
 struct DLSS5NeuralRenderingPacket: Codable, Equatable, Sendable {
+    var pipeline: DLSS5NeuralRenderingPipelinePlan
     var create: DLSS5NeuralRenderingCreateDescriptor
     var evaluate: DLSS5NeuralRenderingEvaluateDescriptor
 
@@ -185,15 +240,23 @@ struct DLSS5NeuralRenderingPacket: Codable, Equatable, Sendable {
         motionVectorScaleX: Float = 1,
         motionVectorScaleY: Float = 1
     ) {
-        create = DLSS5NeuralRenderingCreateDescriptor(contract: contract, model: model)
+        let plan = DLSS5NeuralRenderingPipelinePlan(contract: contract)
+        pipeline = plan
+        create = DLSS5NeuralRenderingCreateDescriptor(
+            plan: plan,
+            depthInverted: contract.depthIsReversed,
+            model: model
+        )
         evaluate = DLSS5NeuralRenderingEvaluateDescriptor(
-            contract: contract,
+            plan: plan,
+            reset: contract.resetHistory,
             motionVectorScaleX: motionVectorScaleX,
             motionVectorScaleY: motionVectorScaleY
         )
     }
 
     func validate() throws {
+        try pipeline.validate()
         try create.validate()
         try evaluate.validate()
     }
