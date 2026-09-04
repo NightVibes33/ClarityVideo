@@ -61,7 +61,7 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
-    func test1080pTo4KAvoidsEightKHalfFloatIntermediate() throws {
+    func test1080pTo4KUsesTiledAppleSRWhenOnlyFourXIsAvailable() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
@@ -69,11 +69,14 @@ extension ClarityVideoTests {
             sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertTrue(plan.requiresTiling)
         XCTAssertTrue(plan.requiresFinalResize)
+        XCTAssertEqual(plan.tileWidth, 960)
+        XCTAssertEqual(plan.tileHeight, 540)
     }
 
-    func test4KTo8KUsesMemorySafeRouteWhenOnlyFourXIsAvailable() throws {
+    func test4KTo8KUsesTiledAppleSRWhenOnlyFourXIsAvailable() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
@@ -81,11 +84,12 @@ extension ClarityVideoTests {
             sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertTrue(plan.requiresTiling)
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
-    func testPlannerAvoidsLargeHalfFloatCanvasFor720pTo4K() throws {
+    func testPlannerUsesTiledAppleSRFor720pTo4KInsteadOfLanczosBypass() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
@@ -93,8 +97,9 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd4K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
-        XCTAssertEqual(plan.aiScaleFactor, 1)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertEqual(plan.aiScaleFactor, 4)
+        XCTAssertTrue(plan.requiresTiling)
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
@@ -111,7 +116,7 @@ extension ClarityVideoTests {
         XCTAssertFalse(plan.requiresFinalResize)
     }
 
-    func testPlannerLabelsMemorySafe8KFallback() throws {
+    func testPlannerLabelsMemorySafeTiled8KRoute() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
@@ -119,12 +124,13 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertTrue(plan.requiresTiling)
         XCTAssertTrue(plan.requiresFinalResize)
         XCTAssertTrue(plan.disclosure.contains("memory-safe"))
     }
 
-    func testPlannerTiles4KTo8KWithoutLowLatencyRoute() throws {
+    func testPlannerTiles4KTo8KAtExactTwoX() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2]
@@ -132,9 +138,9 @@ extension ClarityVideoTests {
             sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
-        XCTAssertTrue(plan.requiresFinalResize)
-        XCTAssertTrue(plan.disclosure.contains("memory-safe"))
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertTrue(plan.requiresTiling)
+        XCTAssertFalse(plan.requiresFinalResize)
     }
 }
 
@@ -218,7 +224,11 @@ extension ClarityVideoTests {
             displayWidth: 1280, displayHeight: 720, frameRate: 30,
             codec: "hvc1", isHDR: false, duration: 1, estimatedSourceBytes: 1
         )
-        let job = ProcessingJob(sourceURL: URL(fileURLWithPath: "/tmp/x.mov"), assetInfo: info, configuration: ExportConfiguration())
+        let job = ProcessingJob(
+            sourceURL: URL(fileURLWithPath: "/tmp/x.mov"),
+            assetInfo: info,
+            configuration: ExportConfiguration()
+        )
         let data = try JSONEncoder().encode(job)
         let decoded = try JSONDecoder().decode(ProcessingJob.self, from: data)
         XCTAssertNil(decoded.enhancementMethod)
@@ -252,7 +262,9 @@ extension ClarityVideoTests {
             jobID: UUID(), sourceFingerprint: "source", configuration: configuration,
             expectedSegmentCount: 1, pipelineVersion: 1
         )
-        XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
+        XCTAssertFalse(checkpoint.isCompatible(
+            sourceFingerprint: "source", configuration: configuration, segmentCount: 1
+        ))
     }
 }
 
