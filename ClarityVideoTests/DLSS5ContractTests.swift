@@ -179,12 +179,16 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertEqual(packet.create.outputWidth, 3840)
         XCTAssertEqual(packet.create.outputHeight, 2160)
         XCTAssertTrue(packet.create.depthInverted)
-        XCTAssertEqual(packet.create.scaleX, 1, accuracy: 0.000_001)
-        XCTAssertEqual(packet.create.scaleY, 1, accuracy: 0.000_001)
+        XCTAssertEqual(packet.create.scale, 1, accuracy: 0.000_001)
+        XCTAssertEqual(packet.create.scalingRatio, 1, accuracy: 0.000_001)
         XCTAssertEqual(packet.evaluate.colorSubrectWidth, 3840)
         XCTAssertEqual(packet.evaluate.colorSubrectHeight, 2160)
+        XCTAssertEqual(packet.evaluate.depthSubrectWidth, 3840)
+        XCTAssertEqual(packet.evaluate.motionSubrectWidth, 3840)
+        XCTAssertEqual(packet.evaluate.outputSubrectWidth, 3840)
         XCTAssertFalse(packet.evaluate.reset)
         XCTAssertEqual(DLSS5NeuralRenderingKey.motion, "DLSSNR.MVec")
         XCTAssertEqual(DLSS5NeuralRenderingKey.reset, "DLSSNR.Reset")
+        XCTAssertEqual(DLSS5NeuralRenderingKey.outputWidthAlias, "DLSSNR.Output.Width")
     }
 }
