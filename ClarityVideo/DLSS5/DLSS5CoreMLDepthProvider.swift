@@ -61,13 +61,7 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
             inputName: MLFeatureValue(pixelBuffer: modelInput)
         ])
         let prediction = try model.prediction(from: provider)
-        guard let array = firstMultiArray(in: prediction) else {
-            throw DLSS5ContractError.runtimeUnavailable(
-                "The bundled depth model did not produce a multi-array depth map."
-            )
-        }
-
-        let plane = try normalizedDepthPlane(array)
+        let plane = try depthPlane(in: prediction)
         let outputWidth = CVPixelBufferGetWidth(source)
         let outputHeight = CVPixelBufferGetHeight(source)
         let destination = try DLSS5TextureFactory.makeSharedTexture(
@@ -114,9 +108,11 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
     private func makeModelInput(source: CVPixelBuffer) throws -> CVPixelBuffer {
         let pixelFormat: OSType
         switch inputPixelFormat {
-        case kCVPixelFormatType_32BGRA,
+        case kCVPixelFormatType_32ARGB,
+             kCVPixelFormatType_32BGRA,
              kCVPixelFormatType_OneComponent8,
              kCVPixelFormatType_OneComponent16Half,
+             kCVPixelFormatType_OneComponent32Float,
              kCVPixelFormatType_64RGBAHalf:
             pixelFormat = inputPixelFormat
         default:
@@ -153,12 +149,71 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
         return destination
     }
 
-    private func firstMultiArray(in prediction: any MLFeatureProvider) -> MLMultiArray? {
+    private func depthPlane(in prediction: any MLFeatureProvider) throws -> (values: [Float], width: Int, height: Int) {
         for name in prediction.featureNames {
-            guard let value = prediction.featureValue(for: name), value.type == .multiArray else { continue }
-            if let array = value.multiArrayValue { return array }
+            guard let value = prediction.featureValue(for: name) else { continue }
+            if value.type == .image, let buffer = value.imageBufferValue {
+                return try normalizedDepthPlane(buffer)
+            }
+            if value.type == .multiArray, let array = value.multiArrayValue {
+                return try normalizedDepthPlane(array)
+            }
         }
-        return nil
+        throw DLSS5ContractError.runtimeUnavailable(
+            "The bundled depth model produced neither an image-buffer nor multi-array depth map."
+        )
+    }
+
+    private func normalizedDepthPlane(_ buffer: CVPixelBuffer) throws -> (values: [Float], width: Int, height: Int) {
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        guard width > 0, height > 0 else { throw DLSS5ContractError.invalidDimensions }
+
+        let format = CVPixelBufferGetPixelFormatType(buffer)
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else {
+            throw DLSS5ContractError.runtimeUnavailable("The Core ML depth buffer has no CPU-readable base address.")
+        }
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(buffer)
+        var raw = Array(repeating: Float.zero, count: width * height)
+
+        switch format {
+        case kCVPixelFormatType_OneComponent32Float,
+             kCVPixelFormatType_DepthFloat32:
+            let values = base.assumingMemoryBound(to: Float.self)
+            let stride = bytesPerRow / MemoryLayout<Float>.stride
+            for y in 0..<height {
+                for x in 0..<width { raw[y * width + x] = values[y * stride + x] }
+            }
+        case kCVPixelFormatType_OneComponent16Half,
+             kCVPixelFormatType_DepthFloat16:
+            let values = base.assumingMemoryBound(to: Float16.self)
+            let stride = bytesPerRow / MemoryLayout<Float16>.stride
+            for y in 0..<height {
+                for x in 0..<width { raw[y * width + x] = Float(values[y * stride + x]) }
+            }
+        case kCVPixelFormatType_OneComponent8:
+            let values = base.assumingMemoryBound(to: UInt8.self)
+            for y in 0..<height {
+                for x in 0..<width { raw[y * width + x] = Float(values[y * bytesPerRow + x]) / 255 }
+            }
+        case kCVPixelFormatType_32ARGB:
+            let values = base.assumingMemoryBound(to: UInt8.self)
+            for y in 0..<height {
+                for x in 0..<width { raw[y * width + x] = Float(values[y * bytesPerRow + x * 4 + 1]) / 255 }
+            }
+        case kCVPixelFormatType_32BGRA:
+            let values = base.assumingMemoryBound(to: UInt8.self)
+            for y in 0..<height {
+                for x in 0..<width { raw[y * width + x] = Float(values[y * bytesPerRow + x * 4 + 2]) / 255 }
+            }
+        default:
+            throw DLSS5ContractError.runtimeUnavailable(
+                String(format: "Unsupported Core ML depth pixel format 0x%08X.", format)
+            )
+        }
+        return normalize(raw, width: width, height: height)
     }
 
     private func normalizedDepthPlane(_ array: MLMultiArray) throws -> (values: [Float], width: Int, height: Int) {
@@ -177,34 +232,40 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
         let yStride = strides[strides.count - 2]
         let xStride = strides[strides.count - 1]
         var raw = Array(repeating: Float.zero, count: width * height)
-        var minimum = Float.greatestFiniteMagnitude
-        var maximum = -Float.greatestFiniteMagnitude
-
         for y in 0..<height {
             for x in 0..<width {
                 let offset = y * yStride + x * xStride
-                let value = array[offset].floatValue
-                let finite = value.isFinite ? value : 0
-                raw[y * width + x] = finite
-                minimum = min(minimum, finite)
-                maximum = max(maximum, finite)
+                raw[y * width + x] = array[offset].floatValue
             }
         }
+        return normalize(raw, width: width, height: height)
+    }
 
+    /// Depth Anything V2 produces relative inverse depth (larger values are nearer),
+    /// which already matches the reversed-Z direction expected by the feeder. Normalize
+    /// its finite range into (0, 1) while preserving that ordering.
+    private func normalize(_ values: [Float], width: Int, height: Int) -> (values: [Float], width: Int, height: Int) {
+        var result = values
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        for value in result where value.isFinite {
+            minimum = min(minimum, value)
+            maximum = max(maximum, value)
+        }
         let range = maximum - minimum
         let epsilon = Float(1.0 / 65_504.0)
-        if !range.isFinite || range <= 1e-8 {
-            return (Array(repeating: 0.5, count: raw.count), width, height)
+        if !minimum.isFinite || !maximum.isFinite || !range.isFinite || range <= 1e-8 {
+            return (Array(repeating: 0.5, count: result.count), width, height)
         }
-        for index in raw.indices {
-            var normalized = (raw[index] - minimum) / range
+        for index in result.indices {
+            var normalized = result[index].isFinite ? (result[index] - minimum) / range : 0.5
             normalized = min(1, max(0, normalized))
             if abs(contrast - 1) > 0.001 {
                 normalized = pow(normalized, 1 / contrast)
             }
-            raw[index] = min(1 - 1e-6, max(epsilon, normalized))
+            result[index] = min(1 - 1e-6, max(epsilon, normalized))
         }
-        return (raw, width, height)
+        return (result, width, height)
     }
 }
 
@@ -212,6 +273,9 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
 enum DLSS5DepthProviderFactory {
     static func bestAvailable(device: any MTLDevice) -> any DLSS5DepthProvider {
         let preferredNames = [
+            "DepthAnythingV2SmallF16P6",
+            "DepthAnythingV2SmallF16P8",
+            "DepthAnythingV2SmallF16",
             "DepthAnythingV2Small",
             "DepthAnythingV2",
             "DepthAnything"
