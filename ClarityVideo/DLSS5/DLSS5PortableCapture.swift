@@ -3,7 +3,7 @@ import Metal
 
 struct DLSS5PortableCaptureHeader: Codable, Sendable {
     var format = "ClarityVideo.DLSS5ReferenceCapture"
-    var version = 2
+    var version = 3
     var metadata: DLSS5PreparedFrameMetadata
     var neuralRendering: DLSS5NeuralRenderingPacket?
     var colorBytes: Int
@@ -84,10 +84,18 @@ enum DLSS5PortableCaptureWriter {
         if header.version >= 2 {
             guard let neuralRendering = header.neuralRendering else {
                 throw DLSS5ContractError.runtimeUnavailable(
-                    "Version 2 DLSS 5 captures must contain the Neural Rendering feature-18 semantic packet."
+                    "Version \(header.version) DLSS 5 captures must contain the Neural Rendering feature-18 semantic packet."
                 )
             }
             try neuralRendering.validate()
+        }
+        if header.version >= 3 {
+            guard header.metadata.contract.colorEncoding == .sRGBDisplayReferred ||
+                    header.metadata.contract.colorEncoding == .linearHDR else {
+                throw DLSS5ContractError.runtimeUnavailable(
+                    "Version 3 DLSS 5 captures must declare the Neural Rendering color-transfer contract."
+                )
+            }
         }
         return header
     }
