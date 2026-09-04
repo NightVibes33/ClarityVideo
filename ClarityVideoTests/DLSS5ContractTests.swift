@@ -17,6 +17,7 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertEqual(contract.depthFormat, .r32Float)
         XCTAssertEqual(contract.motionFormat, .rg16Float)
         XCTAssertTrue(contract.motionVectorsAreInPixels)
+        XCTAssertEqual(contract.motionDirection, .currentToPrevious)
         XCTAssertTrue(contract.depthIsReversed)
     }
 
@@ -139,7 +140,7 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertGreaterThan(cutDifference, 0.24)
     }
 
-    func testNeuralRenderingFeature18PacketMatchesObservedContract() throws {
+    func testNeuralRenderingFeature18RunsAtFinalResolutionAfterSR() throws {
         let contract = DLSS5FrameContract(
             presentationTime: CMTime(value: 2, timescale: 60),
             renderWidth: 1920,
@@ -167,12 +168,21 @@ final class DLSS5ContractTests: XCTestCase {
         )
         XCTAssertNoThrow(try packet.validate())
         XCTAssertEqual(packet.create.featureID, 18)
-        XCTAssertTrue(packet.create.upscaling)
+        XCTAssertTrue(packet.pipeline.superResolutionRequired)
+        XCTAssertEqual(packet.pipeline.superResolutionRenderWidth, 1920)
+        XCTAssertEqual(packet.pipeline.superResolutionRenderHeight, 1080)
+        XCTAssertEqual(packet.pipeline.superResolutionTargetWidth, 3840)
+        XCTAssertEqual(packet.pipeline.superResolutionTargetHeight, 2160)
+        XCTAssertFalse(packet.create.upscaling)
+        XCTAssertEqual(packet.create.inputWidth, 3840)
+        XCTAssertEqual(packet.create.inputHeight, 2160)
+        XCTAssertEqual(packet.create.outputWidth, 3840)
+        XCTAssertEqual(packet.create.outputHeight, 2160)
         XCTAssertTrue(packet.create.depthInverted)
-        XCTAssertEqual(packet.create.scaleX, 2, accuracy: 0.000_001)
-        XCTAssertEqual(packet.create.scaleY, 2, accuracy: 0.000_001)
-        XCTAssertEqual(packet.evaluate.colorSubrectWidth, 1920)
-        XCTAssertEqual(packet.evaluate.colorSubrectHeight, 1080)
+        XCTAssertEqual(packet.create.scaleX, 1, accuracy: 0.000_001)
+        XCTAssertEqual(packet.create.scaleY, 1, accuracy: 0.000_001)
+        XCTAssertEqual(packet.evaluate.colorSubrectWidth, 3840)
+        XCTAssertEqual(packet.evaluate.colorSubrectHeight, 2160)
         XCTAssertFalse(packet.evaluate.reset)
         XCTAssertEqual(DLSS5NeuralRenderingKey.motion, "DLSSNR.MVec")
         XCTAssertEqual(DLSS5NeuralRenderingKey.reset, "DLSSNR.Reset")
