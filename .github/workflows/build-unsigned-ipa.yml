@@ -2,7 +2,7 @@ name: Build Unsigned iOS 26 IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
 permissions:
   contents: read
 concurrency:
