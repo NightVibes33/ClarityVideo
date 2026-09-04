@@ -52,7 +52,7 @@ final class DLSS5ReferenceCaptureCoordinator {
         }
 
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
-        let preparer = try DLSS5FramePreparer()
+        let preparer = try DLSS5FramePreparer(depthProvider: DLSS5DepthProviderFactory.bestAvailable())
         let prepared = try preparer.prepareVideoFrame(
             source: pixelBuffer,
             presentationTime: timestamp,
