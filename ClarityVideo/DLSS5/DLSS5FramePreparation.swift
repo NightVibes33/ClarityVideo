@@ -118,17 +118,21 @@ enum DLSS5TextureFactory {
     }
 }
 
-/// Converts a decoded video frame into the resource formats used by the current
-/// DLSS 5 feeder/reference implementations: linear RGBA16F color, reversed-Z
-/// R32F depth and RG16F motion vectors.
+/// Converts a decoded video frame into the resource formats used by current DLSS
+/// feeder / Neural Rendering references: linear RGBA16F color, reversed-Z R32F
+/// depth and RG16F pixel-space motion vectors.
 @MainActor
 final class DLSS5FramePreparer {
     private let device: any MTLDevice
     private let commandQueue: any MTLCommandQueue
     private let ciContext: CIContext
     private let depthProvider: any DLSS5DepthProvider
+    private let motionProvider: any DLSS5MotionProvider
 
-    init(depthProvider: any DLSS5DepthProvider = DLSS5FlatDepthProvider()) throws {
+    init(
+        depthProvider: any DLSS5DepthProvider = DLSS5FlatDepthProvider(),
+        motionProvider: any DLSS5MotionProvider = DLSS5ZeroMotionProvider()
+    ) throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               let commandQueue = device.makeCommandQueue() else {
             throw DLSS5ContractError.runtimeUnavailable("Metal is unavailable for DLSS 5 feeder preparation.")
@@ -137,10 +141,12 @@ final class DLSS5FramePreparer {
         self.commandQueue = commandQueue
         self.ciContext = CIContext(mtlDevice: device, options: [.cacheIntermediates: false])
         self.depthProvider = depthProvider
+        self.motionProvider = motionProvider
     }
 
     func prepareVideoFrame(
         source: CVPixelBuffer,
+        previousSource: CVPixelBuffer? = nil,
         presentationTime: CMTime,
         frameIndex: Int,
         resetHistory: Bool = true,
@@ -176,27 +182,26 @@ final class DLSS5FramePreparer {
         }
 
         let depth = try depthProvider.makeDepthTexture(source: source, device: device)
-        let motion = try DLSS5TextureFactory.makeSharedTexture(
-            device: device,
-            pixelFormat: .rg16Float,
-            width: width,
-            height: height,
-            usage: [.shaderRead]
+        guard depth.pixelFormat == .r32Float,
+              depth.width == width,
+              depth.height == height else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The DLSS 5 depth provider returned a resource outside the R32F full-resolution contract."
+            )
+        }
+
+        let motion = try motionProvider.makeMotionTexture(
+            previous: previousSource,
+            current: source,
+            resetHistory: resetHistory,
+            device: device
         )
-        // Current standalone DLSS 5 video/image feeders intentionally use exact-zero
-        // motion for independent frames. Shared Metal memory is zero-initialized on
-        // allocation in practice, but write it explicitly so captures are deterministic.
-        let zeroRow = Data(count: width * 4)
-        zeroRow.withUnsafeBytes { bytes in
-            guard let base = bytes.baseAddress else { return }
-            for y in 0..<height {
-                motion.replace(
-                    region: MTLRegionMake2D(0, y, width, 1),
-                    mipmapLevel: 0,
-                    withBytes: base,
-                    bytesPerRow: width * 4
-                )
-            }
+        guard motion.pixelFormat == .rg16Float,
+              motion.width == width,
+              motion.height == height else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The DLSS 5 motion provider returned a resource outside the RG16F full-resolution contract."
+            )
         }
 
         let jitter = useJitter ? DLSS5Jitter.offset(frameIndex: frameIndex) : .zero
@@ -217,7 +222,7 @@ final class DLSS5FramePreparer {
             hasColor: true,
             hasDepth: true,
             hasMotionVectors: true,
-            sourceDescription: "video frame; \(depthProvider.providerDescription); zero motion"
+            sourceDescription: "video frame; \(depthProvider.providerDescription); \(motionProvider.providerDescription)"
         )
         try metadata.validateForExecution()
         return DLSS5PreparedFrame(metadata: metadata, color: color, depth: depth, motion: motion)
