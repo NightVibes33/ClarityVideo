@@ -24,6 +24,7 @@ final class DLSS5ReferenceCaptureCoordinator {
         }
         let duration = try await asset.load(.duration)
         let safeStart = min(max(0, requestedSeconds), max(0, duration.seconds - 0.05))
+        let colorEncoding = try await Self.colorEncoding(for: track)
 
         let reader = try AVAssetReader(asset: asset)
         reader.timeRange = CMTimeRange(
@@ -53,12 +54,12 @@ final class DLSS5ReferenceCaptureCoordinator {
         }
 
         // Prime temporal history with the first decoded frame, then capture the next
-        // frame when available. This exercises the real Vision RG16F motion path for
-        // ordinary video while preserving a valid first-frame fallback for one-frame
-        // clips and cut boundaries.
+        // frame when available. This exercises the real RG16F motion preparation path
+        // while preserving a valid first-frame fallback for one-frame clips and cuts.
         let temporal = try DLSS5TemporalVideoPreparer(
             depthProvider: DLSS5DepthProviderFactory.bestAvailable(),
-            motionProvider: DLSS5VisionMotionProvider(accuracy: .high)
+            motionProvider: DLSS5VisionMotionProvider(accuracy: .high),
+            colorEncoding: colorEncoding
         )
         let firstTimestamp = CMSampleBufferGetPresentationTimeStamp(firstSample)
         let firstPrepared = try temporal.prepare(
@@ -102,5 +103,18 @@ final class DLSS5ReferenceCaptureCoordinator {
             width: prepared.metadata.contract.renderWidth,
             height: prepared.metadata.contract.renderHeight
         )
+    }
+
+    private static func colorEncoding(for track: AVAssetTrack) async throws -> DLSS5ColorEncoding {
+        let descriptions = try await track.load(.formatDescriptions)
+        guard let format = descriptions.first else { return .sRGBDisplayReferred }
+        let extensions = CMFormatDescriptionGetExtensions(format) as NSDictionary as? [String: Any] ?? [:]
+        let transfer = String(
+            describing: extensions[kCMFormatDescriptionExtension_TransferFunction as String] ?? ""
+        )
+        let isHDR = transfer.localizedCaseInsensitiveContains("HLG") ||
+            transfer.localizedCaseInsensitiveContains("PQ") ||
+            transfer.localizedCaseInsensitiveContains("2084")
+        return isHDR ? .linearHDR : .sRGBDisplayReferred
     }
 }
