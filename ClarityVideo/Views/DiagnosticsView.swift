@@ -33,6 +33,12 @@ struct DiagnosticsView: View {
                 DiagnosticRow("Maximum tested input", state.capabilities.maximumSafeInputSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "Unknown")
                 DiagnosticRow("Maximum encoder output", state.capabilities.maximumSafeOutputSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "Unknown")
             }
+
+            DLSS5DiagnosticsPanel(
+                sourceURL: state.importedURL,
+                requestedSeconds: state.previewStartSeconds
+            )
+
             Section("Actions") {
                 Button {
                     isRunning = true
@@ -67,7 +73,7 @@ struct DiagnosticsView: View {
                 }
             }
             Section("What this proves") {
-                Text("Encoder probes require hardware VideoToolbox sessions and successfully encode three frames at the requested dimensions. Frame-processor and model tests must run on a physical iOS 26 device; simulator and CI results are never presented as device proof.")
+                Text("Encoder probes require hardware VideoToolbox sessions and successfully encode three frames at the requested dimensions. Frame-processor and model tests must run on a physical iOS 26 device; simulator and CI results are never presented as device proof. DLSS 5 reference capture proves Clarity can construct and export the feeder resource contract; it does not claim NVIDIA's proprietary neural runtime executed on the iPhone.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
