@@ -118,9 +118,11 @@ enum DLSS5TextureFactory {
     }
 }
 
-/// Converts a decoded video frame into the resource formats used by current DLSS
-/// feeder / Neural Rendering references: linear RGBA16F color, reversed-Z R32F
-/// depth and RG16F pixel-space motion vectors.
+/// Converts decoded video into the resource formats and transfer characteristics
+/// observed in current real DLSS Neural Rendering video hosts:
+/// - RGBA16F color, display-referred for SDR / linear-light for HDR
+/// - reversed-Z R32F depth
+/// - current-to-previous RG16F pixel-space motion vectors
 @MainActor
 final class DLSS5FramePreparer {
     private let device: any MTLDevice
@@ -150,7 +152,8 @@ final class DLSS5FramePreparer {
         presentationTime: CMTime,
         frameIndex: Int,
         resetHistory: Bool = true,
-        useJitter: Bool = false
+        useJitter: Bool = false,
+        colorEncoding: DLSS5ColorEncoding = .sRGBDisplayReferred
     ) throws -> DLSS5PreparedFrame {
         let width = CVPixelBufferGetWidth(source)
         let height = CVPixelBufferGetHeight(source)
@@ -165,15 +168,17 @@ final class DLSS5FramePreparer {
         )
         let image = CIImage(cvPixelBuffer: source)
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
-              let linearColorSpace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) else {
-            throw DLSS5ContractError.runtimeUnavailable("The linear-light DLSS 5 color conversion could not be initialized.")
+              let outputColorSpace = Self.outputColorSpace(for: colorEncoding) else {
+            throw DLSS5ContractError.runtimeUnavailable(
+                "The DLSS 5 input color conversion could not be initialized for \(colorEncoding.rawValue)."
+            )
         }
         ciContext.render(
             image,
             to: color,
             commandBuffer: commandBuffer,
             bounds: CGRect(x: 0, y: 0, width: width, height: height),
-            colorSpace: linearColorSpace
+            colorSpace: outputColorSpace
         )
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
@@ -211,7 +216,8 @@ final class DLSS5FramePreparer {
             renderHeight: height,
             outputWidth: width,
             outputHeight: height,
-            resetHistory: resetHistory
+            resetHistory: resetHistory,
+            colorEncoding: colorEncoding
         )
         contract.jitterX = jitter.x
         contract.jitterY = jitter.y
@@ -222,15 +228,24 @@ final class DLSS5FramePreparer {
             hasColor: true,
             hasDepth: true,
             hasMotionVectors: true,
-            sourceDescription: "video frame; \(depthProvider.providerDescription); \(motionProvider.providerDescription)"
+            sourceDescription: "video frame; \(colorEncoding.rawValue); \(depthProvider.providerDescription); \(motionProvider.providerDescription)"
         )
         try metadata.validateForExecution()
         return DLSS5PreparedFrame(metadata: metadata, color: color, depth: depth, motion: motion)
     }
+
+    private static func outputColorSpace(for encoding: DLSS5ColorEncoding) -> CGColorSpace? {
+        switch encoding {
+        case .sRGBDisplayReferred:
+            return CGColorSpace(name: CGColorSpace.sRGB)
+        case .linearHDR:
+            return CGColorSpace(name: CGColorSpace.extendedLinearSRGB)
+        }
+    }
 }
 
 struct DLSS5ReferenceCaptureManifest: Codable, Sendable {
-    var version = 1
+    var version = 2
     var metadata: DLSS5PreparedFrameMetadata
     var colorFile = "color.rgba16f"
     var depthFile = "depth.r32f"
