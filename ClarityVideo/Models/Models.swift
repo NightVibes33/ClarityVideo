@@ -69,7 +69,6 @@ extension ExportConfiguration {
     mutating func applyPreset(_ mode: EnhancementMode, temporalDenoiseAvailable: Bool) {
         self.mode = mode
         // Spatial denoise remains available when Apple's temporal filter is unavailable.
-        // Keep the preset strength instead of silently forcing denoise to zero.
         switch mode {
         case .fast:
             denoise = 0.08
@@ -134,7 +133,6 @@ struct ProcessingJob: Codable, Identifiable, Sendable {
     var errorMessage: String?
     var outputCodec: String?
     var denoiseMethod: String?
-    // Optional so existing persisted job history remains decodable.
     var enhancementMethod: String?
     var enhancementFallbackReason: String?
     var enhancementFailureCount: Int?
@@ -152,15 +150,27 @@ struct ProcessingCheckpoint: Codable, Sendable {
     var osBuild: String
     var appBuild: String
     var pipelineVersion: Int
+    var denoiseMethod: String?
+    var enhancementMethod: String?
+    var enhancementFallbackReason: String?
+    var enhancementFailureCount: Int
     var updatedAt: Date
 
     init(
-        jobID: UUID, sourceFingerprint: String, configuration: ExportConfiguration,
-        completedSegments: [Int] = [], completedSegmentFiles: [String: URL] = [:],
-        expectedSegmentCount: Int, lastPresentationSeconds: Double = 0,
+        jobID: UUID,
+        sourceFingerprint: String,
+        configuration: ExportConfiguration,
+        completedSegments: [Int] = [],
+        completedSegmentFiles: [String: URL] = [:],
+        expectedSegmentCount: Int,
+        lastPresentationSeconds: Double = 0,
         osBuild: String = ProcessInfo.processInfo.operatingSystemVersionString,
         appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
-        pipelineVersion: Int = 2,
+        pipelineVersion: Int = 3,
+        denoiseMethod: String? = nil,
+        enhancementMethod: String? = nil,
+        enhancementFallbackReason: String? = nil,
+        enhancementFailureCount: Int = 0,
         updatedAt: Date = Date()
     ) {
         self.jobID = jobID
@@ -173,6 +183,10 @@ struct ProcessingCheckpoint: Codable, Sendable {
         self.osBuild = osBuild
         self.appBuild = appBuild
         self.pipelineVersion = pipelineVersion
+        self.denoiseMethod = denoiseMethod
+        self.enhancementMethod = enhancementMethod
+        self.enhancementFallbackReason = enhancementFallbackReason
+        self.enhancementFailureCount = enhancementFailureCount
         self.updatedAt = updatedAt
     }
 
@@ -182,7 +196,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
             && expectedSegmentCount == segmentCount
             && osBuild == ProcessInfo.processInfo.operatingSystemVersionString
             && appBuild == (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")
-            && pipelineVersion == 2
+            && pipelineVersion == 3
             && completedSegments.allSatisfy { index in
                 guard let url = completedSegmentFiles[String(index)] else { return false }
                 return FileManager.default.fileExists(atPath: url.path)

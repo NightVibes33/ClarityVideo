@@ -9,21 +9,45 @@ final class VideoProcessingCoordinator {
     private let aiPipeline = AIAssetReaderWriterPipeline()
     private lazy var segmentedPipeline = SegmentedProcessingCoordinator(aiPipeline: aiPipeline)
 
-    func process(job: ProcessingJob, progress: @escaping @Sendable (Double) -> Void, outputBytes: @escaping @Sendable (Int64) -> Void = { _ in }) async throws -> ProcessingJob {
+    func process(
+        job: ProcessingJob,
+        progress: @escaping @Sendable (Double) -> Void,
+        outputBytes: @escaping @Sendable (Int64) -> Void = { _ in }
+    ) async throws -> ProcessingJob {
         var result = job
         result.status = .preparing
-        guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
-        if AppleFrameProcessorService.probe().fullSupported || AppleFrameProcessorService.probe().lowLatencySupported {
-            if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {
-                return try await segmentedPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
+        guard let outputURL = job.outputURL else {
+            throw AppError.exportFailed("Missing output destination.")
+        }
+
+        let probe = AppleFrameProcessorService.probe()
+        if probe.fullSupported || probe.lowLatencySupported {
+            if SegmentPlan.requiresSegmentation(
+                duration: job.assetInfo.duration,
+                configuration: job.configuration
+            ) {
+                return try await segmentedPipeline.process(
+                    job: job,
+                    progress: progress,
+                    outputBytes: outputBytes
+                )
             }
-            return try await aiPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
+            return try await aiPipeline.process(
+                job: job,
+                progress: progress,
+                outputBytes: outputBytes
+            )
         }
 
         let asset = AVURLAsset(url: job.sourceURL)
-        guard let sourceTrack = try await asset.loadTracks(withMediaType: .video).first else { throw AppError.noVideoTrack }
+        guard let sourceTrack = try await asset.loadTracks(withMediaType: .video).first else {
+            throw AppError.noVideoTrack
+        }
         let composition = try await makeComposition(asset: asset, track: sourceTrack, job: job)
-        guard let session = AVAssetExportSession(asset: composition.asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
+        guard let session = AVAssetExportSession(
+            asset: composition.asset,
+            presetName: AVAssetExportPresetHEVCHighestQuality
+        ) else {
             throw AppError.exportFailed("HEVC export could not be initialized.")
         }
         session.videoComposition = composition.video
@@ -31,11 +55,17 @@ final class VideoProcessingCoordinator {
         session.shouldOptimizeForNetworkUse = false
         exportSession = session
         result.status = .processing
+        result.enhancementMethod = "Core Image compatibility fallback"
+        result.enhancementFallbackReason = probe.error
+            ?? "Apple frame-processor super resolution is unavailable on this device."
+        result.enhancementFailureCount = 0
 
         progressTask = Task {
             while !Task.isCancelled {
                 progress(Double(session.progress))
-                outputBytes(Int64((try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
+                outputBytes(
+                    Int64((try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+                )
                 try? await Task.sleep(for: .milliseconds(250))
             }
         }
@@ -50,11 +80,15 @@ final class VideoProcessingCoordinator {
         } catch {
             try? FileManager.default.removeItem(at: outputURL)
             if session.status == .cancelled { throw CancellationError() }
-            throw AppError.exportFailed(session.error?.localizedDescription ?? error.localizedDescription)
+            throw AppError.exportFailed(
+                session.error?.localizedDescription ?? error.localizedDescription
+            )
         }
         guard session.status == .completed else {
             try? FileManager.default.removeItem(at: outputURL)
-            throw AppError.exportFailed(session.error?.localizedDescription ?? "The export did not complete.")
+            throw AppError.exportFailed(
+                session.error?.localizedDescription ?? "The export did not complete."
+            )
         }
         progress(1)
         result.progress = 1
@@ -71,36 +105,70 @@ final class VideoProcessingCoordinator {
         progressTask?.cancel()
     }
 
-    private func makeComposition(asset: AVAsset, track: AVAssetTrack, job: ProcessingJob) async throws -> (asset: AVMutableComposition, video: AVMutableVideoComposition) {
+    private func makeComposition(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        job: ProcessingJob
+    ) async throws -> (asset: AVMutableComposition, video: AVMutableVideoComposition) {
         let duration = try await asset.load(.duration)
         let sourceSize = try await track.load(.naturalSize)
         let preferred = try await track.load(.preferredTransform)
-        let orientedRect = CGRect(origin: .zero, size: sourceSize).applying(preferred).standardized
+        let orientedRect = CGRect(origin: .zero, size: sourceSize)
+            .applying(preferred)
+            .standardized
+        guard orientedRect.width > 0, orientedRect.height > 0 else {
+            throw AppError.exportFailed("The video display transform produced invalid dimensions.")
+        }
         let targetLandscape = job.configuration.resolution.landscapeSize
         let target = orientedRect.height > orientedRect.width
             ? CGSize(width: targetLandscape.height, height: targetLandscape.width)
             : targetLandscape
 
         let mix = AVMutableComposition()
-        guard let videoTrack = mix.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+        guard let videoTrack = mix.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
             throw AppError.exportFailed("Could not create the video track.")
         }
-        try videoTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: track, at: .zero)
+        try videoTrack.insertTimeRange(
+            CMTimeRange(start: .zero, duration: duration),
+            of: track,
+            at: .zero
+        )
 
         if let audio = try await asset.loadTracks(withMediaType: .audio).first,
-           let audioTrack = mix.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-            try audioTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: audio, at: .zero)
+           let audioTrack = mix.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+           ) {
+            let audioRange = try await audio.load(.timeRange)
+            let audioDuration = min(duration, audioRange.duration)
+            if audioDuration > .zero {
+                try audioTrack.insertTimeRange(
+                    CMTimeRange(start: audioRange.start, duration: audioDuration),
+                    of: audio,
+                    at: .zero
+                )
+            }
         }
 
         let scale = min(target.width / orientedRect.width, target.height / orientedRect.height)
         var transform = preferred
-        transform = transform.concatenating(CGAffineTransform(translationX: -orientedRect.minX, y: -orientedRect.minY))
+        transform = transform.concatenating(
+            CGAffineTransform(translationX: -orientedRect.minX, y: -orientedRect.minY)
+        )
         transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
-        let rendered = CGSize(width: orientedRect.width * scale, height: orientedRect.height * scale)
-        transform = transform.concatenating(CGAffineTransform(
-            translationX: (target.width - rendered.width) / 2,
-            y: (target.height - rendered.height) / 2
-        ))
+        let rendered = CGSize(
+            width: orientedRect.width * scale,
+            height: orientedRect.height * scale
+        )
+        transform = transform.concatenating(
+            CGAffineTransform(
+                translationX: (target.width - rendered.width) / 2,
+                y: (target.height - rendered.height) / 2
+            )
+        )
 
         let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
         layer.setTransform(transform, at: .zero)
