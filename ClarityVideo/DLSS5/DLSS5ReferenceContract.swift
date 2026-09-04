@@ -14,6 +14,17 @@ enum DLSS5ResourceFormat: String, Codable, Sendable {
     case rg16Float
 }
 
+enum DLSS5ColorEncoding: String, Codable, Sendable {
+    /// Current standalone video references feed SDR content display-referred into
+    /// the RGBA16F texture rather than linearising it first.
+    case sRGBDisplayReferred
+
+    /// HDR mode feeds linear-light RGB into the RGBA16F Neural Rendering texture.
+    case linearHDR
+
+    var isHDR: Bool { self == .linearHDR }
+}
+
 enum DLSS5MotionDirection: String, Codable, Sendable {
     /// Backward flow: for a pixel in the current frame, the vector locates the
     /// corresponding sample in the previous frame. This matches the current
@@ -28,6 +39,7 @@ struct DLSS5FrameContract: Codable, Equatable, Sendable {
     var outputWidth: Int
     var outputHeight: Int
     var colorFormat: DLSS5ResourceFormat = .rgba16Float
+    var colorEncoding: DLSS5ColorEncoding = .sRGBDisplayReferred
     var depthFormat: DLSS5ResourceFormat = .r32Float
     var motionFormat: DLSS5ResourceFormat = .rg16Float
     var jitterX: Float = 0
@@ -43,7 +55,8 @@ struct DLSS5FrameContract: Codable, Equatable, Sendable {
         renderHeight: Int,
         outputWidth: Int,
         outputHeight: Int,
-        resetHistory: Bool
+        resetHistory: Bool,
+        colorEncoding: DLSS5ColorEncoding = .sRGBDisplayReferred
     ) {
         self.presentationTimeSeconds = presentationTime.seconds.isFinite
             ? presentationTime.seconds
@@ -53,6 +66,7 @@ struct DLSS5FrameContract: Codable, Equatable, Sendable {
         self.outputWidth = outputWidth
         self.outputHeight = outputHeight
         self.resetHistory = resetHistory
+        self.colorEncoding = colorEncoding
     }
 
     var renderSize: CGSize {
