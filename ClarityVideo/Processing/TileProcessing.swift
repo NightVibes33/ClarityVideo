@@ -78,6 +78,8 @@ final class MetalTileAssembler {
         var rightBoundary: UInt32
         var topBoundary: UInt32
         var bottomBoundary: UInt32
+        var targetWidth: UInt32
+        var targetHeight: UInt32
     }
 
     private let device: MTLDevice
@@ -119,7 +121,16 @@ final class MetalTileAssembler {
         return buffer
     }
 
-    func blend(tile: CVPixelBuffer, into canvas: CVPixelBuffer, region: TileRegion, scale: Int, overlap: Int) throws {
+    func blend(
+        tile: CVPixelBuffer,
+        into canvas: CVPixelBuffer,
+        region: TileRegion,
+        sourceFrameWidth: Int,
+        sourceFrameHeight: Int,
+        targetFrameWidth: Int,
+        targetFrameHeight: Int,
+        overlap: Int
+    ) throws {
         guard CVPixelBufferGetPixelFormatType(tile) == kCVPixelFormatType_32BGRA,
               CVPixelBufferGetPixelFormatType(canvas) == kCVPixelFormatType_32BGRA else {
             throw TileProcessingError.unsupportedPixelFormat
@@ -129,15 +140,31 @@ final class MetalTileAssembler {
         guard let command = queue.makeCommandBuffer(), let encoder = command.makeComputeCommandEncoder() else {
             throw TileProcessingError.commandEncoding
         }
+
+        let originX = mapped(region.x, source: sourceFrameWidth, target: targetFrameWidth)
+        let originY = mapped(region.y, source: sourceFrameHeight, target: targetFrameHeight)
+        let endX = mapped(region.x + region.width, source: sourceFrameWidth, target: targetFrameWidth)
+        let endY = mapped(region.y + region.height, source: sourceFrameHeight, target: targetFrameHeight)
+        let mappedWidth = max(1, endX - originX)
+        let mappedHeight = max(1, endY - originY)
+        let mappedOverlapX = overlap > 0
+            ? max(1, mapped(overlap, source: sourceFrameWidth, target: targetFrameWidth))
+            : 0
+        let mappedOverlapY = overlap > 0
+            ? max(1, mapped(overlap, source: sourceFrameHeight, target: targetFrameHeight))
+            : 0
+
         var uniforms = Uniforms(
-            originX: UInt32(region.x * scale),
-            originY: UInt32(region.y * scale),
-            overlapX: UInt32(overlap * scale),
-            overlapY: UInt32(overlap * scale),
+            originX: UInt32(max(0, originX)),
+            originY: UInt32(max(0, originY)),
+            overlapX: UInt32(mappedOverlapX),
+            overlapY: UInt32(mappedOverlapY),
             leftBoundary: region.touchesLeft ? 1 : 0,
             rightBoundary: region.touchesRight ? 1 : 0,
             topBoundary: region.touchesTop ? 1 : 0,
-            bottomBoundary: region.touchesBottom ? 1 : 0
+            bottomBoundary: region.touchesBottom ? 1 : 0,
+            targetWidth: UInt32(mappedWidth),
+            targetHeight: UInt32(mappedHeight)
         )
         encoder.setComputePipelineState(pipeline)
         encoder.setTexture(tileTexture, index: 0)
@@ -146,13 +173,18 @@ final class MetalTileAssembler {
         let width = pipeline.threadExecutionWidth
         let height = max(1, pipeline.maxTotalThreadsPerThreadgroup / width)
         encoder.dispatchThreads(
-            MTLSize(width: tileTexture.width, height: tileTexture.height, depth: 1),
+            MTLSize(width: mappedWidth, height: mappedHeight, depth: 1),
             threadsPerThreadgroup: MTLSize(width: width, height: height, depth: 1)
         )
         encoder.endEncoding()
         command.commit()
         command.waitUntilCompleted()
         if let error = command.error { throw error }
+    }
+
+    private func mapped(_ value: Int, source: Int, target: Int) -> Int {
+        guard source > 0 else { return 0 }
+        return Int((Double(value) * Double(target) / Double(source)).rounded())
     }
 
     private func texture(for buffer: CVPixelBuffer) throws -> MTLTexture {
@@ -173,6 +205,8 @@ final class MetalTileAssembler {
 final class TiledAppleSRProcessor {
     private let sourceWidth: Int
     private let sourceHeight: Int
+    private let targetWidth: Int
+    private let targetHeight: Int
     private let tileWidth: Int
     private let tileHeight: Int
     private let overlap: Int
@@ -184,9 +218,20 @@ final class TiledAppleSRProcessor {
     private let sourceTilePool: CVPixelBufferPool
     private let blendTilePool: CVPixelBufferPool
 
-    init(sourceWidth: Int, sourceHeight: Int, tileWidth: Int, tileHeight: Int, overlap: Int, scale: Int) throws {
+    init(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int? = nil,
+        targetHeight: Int? = nil,
+        tileWidth: Int,
+        tileHeight: Int,
+        overlap: Int,
+        scale: Int
+    ) throws {
         self.sourceWidth = sourceWidth
         self.sourceHeight = sourceHeight
+        self.targetWidth = targetWidth ?? sourceWidth * scale
+        self.targetHeight = targetHeight ?? sourceHeight * scale
         self.tileWidth = min(sourceWidth, tileWidth)
         self.tileHeight = min(sourceHeight, tileHeight)
         self.overlap = overlap
@@ -195,9 +240,21 @@ final class TiledAppleSRProcessor {
             frameWidth: sourceWidth, frameHeight: sourceHeight,
             tileWidth: tileWidth, tileHeight: tileHeight, overlap: overlap
         )
-        let sourcePixelFormat = AppleFrameProcessorService.preferredFullQualitySourcePixelFormat(width: self.tileWidth, height: self.tileHeight, scaleFactor: scale)
-        self.sourceTilePool = try Self.makePool(width: self.tileWidth, height: self.tileHeight, pixelFormat: sourcePixelFormat)
-        self.blendTilePool = try Self.makePool(width: self.tileWidth * scale, height: self.tileHeight * scale, pixelFormat: kCVPixelFormatType_32BGRA)
+        let sourcePixelFormat = AppleFrameProcessorService.preferredFullQualitySourcePixelFormat(
+            width: self.tileWidth,
+            height: self.tileHeight,
+            scaleFactor: scale
+        )
+        self.sourceTilePool = try Self.makePool(
+            width: self.tileWidth,
+            height: self.tileHeight,
+            pixelFormat: sourcePixelFormat
+        )
+        self.blendTilePool = try Self.makePool(
+            width: self.tileWidth * scale,
+            height: self.tileHeight * scale,
+            pixelFormat: kCVPixelFormatType_32BGRA
+        )
         self.assembler = try MetalTileAssembler()
     }
 
@@ -210,11 +267,17 @@ final class TiledAppleSRProcessor {
         )
     }
 
-    func process(frame: CVPixelBuffer, presentationTime: CMTime, canvas suppliedCanvas: CVPixelBuffer? = nil, detailRecovery: Double = 0, sharpening: Double = 0) async throws -> CVPixelBuffer {
+    func process(
+        frame: CVPixelBuffer,
+        presentationTime: CMTime,
+        canvas suppliedCanvas: CVPixelBuffer? = nil,
+        detailRecovery: Double = 0,
+        sharpening: Double = 0
+    ) async throws -> CVPixelBuffer {
         let canvas: CVPixelBuffer
         if let suppliedCanvas {
-            guard CVPixelBufferGetWidth(suppliedCanvas) == sourceWidth * scale,
-                  CVPixelBufferGetHeight(suppliedCanvas) == sourceHeight * scale,
+            guard CVPixelBufferGetWidth(suppliedCanvas) == targetWidth,
+                  CVPixelBufferGetHeight(suppliedCanvas) == targetHeight,
                   CVPixelBufferGetPixelFormatType(suppliedCanvas) == kCVPixelFormatType_32BGRA else {
                 throw TileProcessingError.unsupportedPixelFormat
             }
@@ -225,16 +288,32 @@ final class TiledAppleSRProcessor {
             }
             CVPixelBufferUnlockBaseAddress(canvas, [])
         } else {
-            canvas = try assembler.makeCanvas(width: sourceWidth * scale, height: sourceHeight * scale)
+            canvas = try assembler.makeCanvas(width: targetWidth, height: targetHeight)
         }
+
         for region in regions {
             try Task.checkCancellation()
             let tile = try makeSourceTile(from: frame, region: region)
             let enhanced = try await frameProcessor.processInActiveSession(
-                source: tile, presentationTime: presentationTime, sequential: false
+                source: tile,
+                presentationTime: presentationTime,
+                sequential: false
             )
-            let blendable = try makeBlendableTile(from: enhanced, detailRecovery: detailRecovery, sharpening: sharpening)
-            try assembler.blend(tile: blendable, into: canvas, region: region, scale: scale, overlap: overlap)
+            let blendable = try makeBlendableTile(
+                from: enhanced,
+                detailRecovery: detailRecovery,
+                sharpening: sharpening
+            )
+            try assembler.blend(
+                tile: blendable,
+                into: canvas,
+                region: region,
+                sourceFrameWidth: sourceWidth,
+                sourceFrameHeight: sourceHeight,
+                targetFrameWidth: targetWidth,
+                targetFrameHeight: targetHeight,
+                overlap: overlap
+            )
         }
         return canvas
     }
@@ -252,8 +331,10 @@ final class TiledAppleSRProcessor {
         ]
         var pool: CVPixelBufferPool?
         let status = CVPixelBufferPoolCreate(
-            kCFAllocatorDefault, [kCVPixelBufferPoolMinimumBufferCountKey as String: 1] as CFDictionary,
-            attributes as CFDictionary, &pool
+            kCFAllocatorDefault,
+            [kCVPixelBufferPoolMinimumBufferCountKey as String: 1] as CFDictionary,
+            attributes as CFDictionary,
+            &pool
         )
         guard status == kCVReturnSuccess, let pool else {
             throw AppleFrameProcessorError.pixelBufferCreation(status)
@@ -261,7 +342,11 @@ final class TiledAppleSRProcessor {
         return pool
     }
 
-    private func makeBlendableTile(from source: CVPixelBuffer, detailRecovery: Double, sharpening: Double) throws -> CVPixelBuffer {
+    private func makeBlendableTile(
+        from source: CVPixelBuffer,
+        detailRecovery: Double,
+        sharpening: Double
+    ) throws -> CVPixelBuffer {
         let width = CVPixelBufferGetWidth(source)
         let height = CVPixelBufferGetHeight(source)
         var output: CVPixelBuffer?
@@ -284,7 +369,8 @@ final class TiledAppleSRProcessor {
             if let filtered = filter.outputImage { processed = filtered }
         }
         ciContext.render(
-            processed, to: output,
+            processed,
+            to: output,
             bounds: CGRect(x: 0, y: 0, width: width, height: height),
             colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
         )
@@ -304,7 +390,12 @@ final class TiledAppleSRProcessor {
             .transformed(by: CGAffineTransform(translationX: -CGFloat(region.x), y: -CGFloat(sourceY)))
             .clampedToExtent()
             .cropped(to: CGRect(x: 0, y: 0, width: tileWidth, height: tileHeight))
-        ciContext.render(crop, to: tile, bounds: CGRect(x: 0, y: 0, width: tileWidth, height: tileHeight), colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
+        ciContext.render(
+            crop,
+            to: tile,
+            bounds: CGRect(x: 0, y: 0, width: tileWidth, height: tileHeight),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
         return tile
     }
 }
