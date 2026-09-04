@@ -117,4 +117,64 @@ final class DLSS5ContractTests: XCTestCase {
         XCTAssertEqual(ngx.evaluate.jitterY, -0.125)
         XCTAssertFalse(ngx.evaluate.reset)
     }
+
+    func testSceneCutMetricMatchesReferenceThresholdBehavior() {
+        let black = [UInt8](repeating: 0, count: 64 * 36 * 4)
+        var smallChange = black
+        var hardCut = black
+        for index in stride(from: 0, to: smallChange.count, by: 4) {
+            smallChange[index] = 32
+            smallChange[index + 1] = 32
+            smallChange[index + 2] = 32
+            smallChange[index + 3] = 255
+            hardCut[index] = 255
+            hardCut[index + 1] = 255
+            hardCut[index + 2] = 255
+            hardCut[index + 3] = 255
+        }
+
+        let smallDifference = DLSS5SceneCutDetector.meanAbsoluteLumaDifference(black, smallChange)
+        let cutDifference = DLSS5SceneCutDetector.meanAbsoluteLumaDifference(black, hardCut)
+        XCTAssertLessThan(smallDifference, 0.24)
+        XCTAssertGreaterThan(cutDifference, 0.24)
+    }
+
+    func testNeuralRenderingFeature18PacketMatchesObservedContract() throws {
+        let contract = DLSS5FrameContract(
+            presentationTime: CMTime(value: 2, timescale: 60),
+            renderWidth: 1920,
+            renderHeight: 1080,
+            outputWidth: 3840,
+            outputHeight: 2160,
+            resetHistory: false
+        )
+        let model = DLSS5NeuralRenderingModelParameters(
+            preset: 2,
+            intensity: 1.25,
+            style: .cinematic,
+            localStructureStrength: 1.1,
+            localToneStrength: 0.9,
+            skinStructureStrength: -1,
+            globalToneStrength: -1,
+            autoMask: false,
+            uiCorrection: false
+        )
+        let packet = DLSS5NeuralRenderingPacket(
+            contract: contract,
+            model: model,
+            motionVectorScaleX: 1,
+            motionVectorScaleY: 1
+        )
+        XCTAssertNoThrow(try packet.validate())
+        XCTAssertEqual(packet.create.featureID, 18)
+        XCTAssertTrue(packet.create.upscaling)
+        XCTAssertTrue(packet.create.depthInverted)
+        XCTAssertEqual(packet.create.scaleX, 2, accuracy: 0.000_001)
+        XCTAssertEqual(packet.create.scaleY, 2, accuracy: 0.000_001)
+        XCTAssertEqual(packet.evaluate.colorSubrectWidth, 1920)
+        XCTAssertEqual(packet.evaluate.colorSubrectHeight, 1080)
+        XCTAssertFalse(packet.evaluate.reset)
+        XCTAssertEqual(DLSS5NeuralRenderingKey.motion, "DLSSNR.MVec")
+        XCTAssertEqual(DLSS5NeuralRenderingKey.reset, "DLSSNR.Reset")
+    }
 }
