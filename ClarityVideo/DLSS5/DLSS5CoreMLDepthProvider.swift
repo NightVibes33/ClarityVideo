@@ -17,6 +17,7 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
     private let ciContext: CIContext
     private let commandQueue: any MTLCommandQueue
     private let contrast: Float
+    private let depthColorSpace = CGColorSpaceCreateDeviceGray()
 
     init(
         compiledModelURL: URL,
@@ -78,17 +79,13 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
         )
 
         let data = plane.values.withUnsafeBytes { Data($0) }
-        guard let depthImage = CIImage(
+        let depthImage = CIImage(
             bitmapData: data,
             bytesPerRow: plane.width * MemoryLayout<Float>.stride,
             size: CGSize(width: plane.width, height: plane.height),
             format: .Rf,
             colorSpace: nil
-        ) else {
-            throw DLSS5ContractError.runtimeUnavailable(
-                "Core Image could not wrap the depth model output."
-            )
-        }
+        )
         let sx = CGFloat(outputWidth) / CGFloat(plane.width)
         let sy = CGFloat(outputHeight) / CGFloat(plane.height)
         let scaled = depthImage.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
@@ -102,7 +99,7 @@ final class DLSS5CoreMLDepthProvider: DLSS5DepthProvider {
             to: destination,
             commandBuffer: commandBuffer,
             bounds: CGRect(x: 0, y: 0, width: outputWidth, height: outputHeight),
-            colorSpace: nil
+            colorSpace: depthColorSpace
         )
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
