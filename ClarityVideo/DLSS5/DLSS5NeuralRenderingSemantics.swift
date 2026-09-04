@@ -16,6 +16,8 @@ enum DLSS5NeuralRenderingKey {
     static let inputHeight = "DLSSNR.InputHeight"
     static let outputWidth = "DLSSNR.OutputWidth"
     static let outputHeight = "DLSSNR.OutputHeight"
+    static let outputWidthAlias = "DLSSNR.Output.Width"
+    static let outputHeightAlias = "DLSSNR.Output.Height"
     static let width = "DLSSNR.Width"
     static let height = "DLSSNR.Height"
 
@@ -41,12 +43,21 @@ enum DLSS5NeuralRenderingKey {
     static let colorSubrectBaseY = "DLSSNR.ColorSubrectBaseY"
     static let colorSubrectWidth = "DLSSNR.ColorSubrectWidth"
     static let colorSubrectHeight = "DLSSNR.ColorSubrectHeight"
+
     static let depthSubrectBaseX = "DLSSNR.DepthSubrectBaseX"
     static let depthSubrectBaseY = "DLSSNR.DepthSubrectBaseY"
+    static let depthSubrectWidth = "DLSSNR.DepthSubrectWidth"
+    static let depthSubrectHeight = "DLSSNR.DepthSubrectHeight"
+
     static let motionSubrectBaseX = "DLSSNR.MVecSubrectBaseX"
     static let motionSubrectBaseY = "DLSSNR.MVecSubrectBaseY"
+    static let motionSubrectWidth = "DLSSNR.MVecSubrectWidth"
+    static let motionSubrectHeight = "DLSSNR.MVecSubrectHeight"
+
     static let outputSubrectBaseX = "DLSSNR.OutputSubrectBaseX"
     static let outputSubrectBaseY = "DLSSNR.OutputSubrectBaseY"
+    static let outputSubrectWidth = "DLSSNR.OutputSubrectWidth"
+    static let outputSubrectHeight = "DLSSNR.OutputSubrectHeight"
 }
 
 enum DLSS5NeuralRenderingStyle: UInt32, Codable, Sendable {
@@ -88,9 +99,9 @@ struct DLSS5NeuralRenderingModelParameters: Codable, Equatable, Sendable {
     }
 }
 
-/// The current reference path performs enlargement with ordinary DLSS Super
-/// Resolution first, then runs feature 18 at the final target resolution. Feature 18
-/// itself is therefore modeled as a 1:1 stage even when the overall pipeline upscales.
+/// The observed video path enlarges with DLSS Super Resolution first, then runs
+/// feature 18 at the final target resolution. Feature 18 itself is therefore a 1:1
+/// stage even when the overall pipeline upscales.
 struct DLSS5NeuralRenderingPipelinePlan: Codable, Equatable, Sendable {
     var superResolutionRequired: Bool
     var superResolutionRenderWidth: Int
@@ -141,7 +152,9 @@ struct DLSS5NeuralRenderingCreateDescriptor: Codable, Equatable, Sendable {
     var inputHeight: Int
     var outputWidth: Int
     var outputHeight: Int
-    var upscaling: Bool = false
+    var upscaling = false
+    var scale: Float = 1
+    var scalingRatio: Float = 1
     var depthInverted: Bool
     var model: DLSS5NeuralRenderingModelParameters
 
@@ -158,16 +171,6 @@ struct DLSS5NeuralRenderingCreateDescriptor: Codable, Equatable, Sendable {
         self.model = model
     }
 
-    var scaleX: Float {
-        guard inputWidth > 0 else { return 0 }
-        return Float(outputWidth) / Float(inputWidth)
-    }
-
-    var scaleY: Float {
-        guard inputHeight > 0 else { return 0 }
-        return Float(outputHeight) / Float(inputHeight)
-    }
-
     func validate() throws {
         guard featureID == 18 else {
             throw DLSS5ContractError.runtimeUnavailable(
@@ -180,7 +183,9 @@ struct DLSS5NeuralRenderingCreateDescriptor: Codable, Equatable, Sendable {
         }
         guard inputWidth == outputWidth,
               inputHeight == outputHeight,
-              !upscaling else {
+              !upscaling,
+              scale == 1,
+              scalingRatio == 1 else {
             throw DLSS5ContractError.runtimeUnavailable(
                 "The observed feature-18 path is native-resolution; DLSS SR must perform enlargement before Neural Rendering."
             )
@@ -193,16 +198,26 @@ struct DLSS5NeuralRenderingEvaluateDescriptor: Codable, Equatable, Sendable {
     var reset: Bool
     var motionVectorScaleX: Float
     var motionVectorScaleY: Float
-    var colorSubrectBaseX: Int = 0
-    var colorSubrectBaseY: Int = 0
+
+    var colorSubrectBaseX = 0
+    var colorSubrectBaseY = 0
     var colorSubrectWidth: Int
     var colorSubrectHeight: Int
-    var depthSubrectBaseX: Int = 0
-    var depthSubrectBaseY: Int = 0
-    var motionSubrectBaseX: Int = 0
-    var motionSubrectBaseY: Int = 0
-    var outputSubrectBaseX: Int = 0
-    var outputSubrectBaseY: Int = 0
+
+    var depthSubrectBaseX = 0
+    var depthSubrectBaseY = 0
+    var depthSubrectWidth: Int
+    var depthSubrectHeight: Int
+
+    var motionSubrectBaseX = 0
+    var motionSubrectBaseY = 0
+    var motionSubrectWidth: Int
+    var motionSubrectHeight: Int
+
+    var outputSubrectBaseX = 0
+    var outputSubrectBaseY = 0
+    var outputSubrectWidth: Int
+    var outputSubrectHeight: Int
 
     init(
         plan: DLSS5NeuralRenderingPipelinePlan,
@@ -215,10 +230,22 @@ struct DLSS5NeuralRenderingEvaluateDescriptor: Codable, Equatable, Sendable {
         self.motionVectorScaleY = motionVectorScaleY
         colorSubrectWidth = plan.neuralRenderingWidth
         colorSubrectHeight = plan.neuralRenderingHeight
+        depthSubrectWidth = plan.neuralRenderingWidth
+        depthSubrectHeight = plan.neuralRenderingHeight
+        motionSubrectWidth = plan.neuralRenderingWidth
+        motionSubrectHeight = plan.neuralRenderingHeight
+        outputSubrectWidth = plan.neuralRenderingWidth
+        outputSubrectHeight = plan.neuralRenderingHeight
     }
 
     func validate() throws {
-        guard colorSubrectWidth > 0, colorSubrectHeight > 0 else {
+        let dimensions = [
+            colorSubrectWidth, colorSubrectHeight,
+            depthSubrectWidth, depthSubrectHeight,
+            motionSubrectWidth, motionSubrectHeight,
+            outputSubrectWidth, outputSubrectHeight
+        ]
+        guard dimensions.allSatisfy({ $0 > 0 }) else {
             throw DLSS5ContractError.invalidDimensions
         }
         guard motionVectorScaleX.isFinite, motionVectorScaleY.isFinite else {
