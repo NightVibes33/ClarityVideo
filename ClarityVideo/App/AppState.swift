@@ -52,9 +52,11 @@ final class AppState {
 
     func refreshCapabilities() async {
         capabilities = await capabilityDetector.detect()
-        if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
+        // Do not force denoise to zero when Apple's temporal filter is unavailable.
+        // The processing pipeline has a spatial fallback for that exact case.
         CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
     }
+
     func importVideo(from url: URL, sourceLabel: String = "video") async {
         lastImportError = nil
         isImporting = true
@@ -75,11 +77,22 @@ final class AppState {
             guard info.duration > 0, info.encodedWidth > 0, info.encodedHeight > 0 else {
                 throw AppError.importFailedReason("The selected video has invalid dimensions or duration.")
             }
+            if let previous = importedURL, previous != localURL {
+                try? FileManager.default.removeItem(at: previous)
+            }
             lastImportedSummary = info.fileName + " " + info.resolutionText + " " + info.durationText
             importedURL = localURL
             assetInfo = info
+            // HDR preservation is intentionally blocked in the current neural path. Avoid
+            // setting up every HDR import to fail on the first export attempt.
+            if info.isHDR {
+                configuration.hdrBehavior = .convertToSDR
+                if configuration.resolution == .uhd8K { configuration.resolution = .uhd4K }
+                if configuration.codec == .h264 { configuration.codec = .hevc }
+            }
             previewDurationSeconds = min(3, info.duration)
             previewStartSeconds = max(0, min(info.duration - previewDurationSeconds, info.duration * 0.25))
+            comparisonPreview = nil
             route = .editor
         } catch {
             if let copiedURL { try? FileManager.default.removeItem(at: copiedURL) }
@@ -147,16 +160,16 @@ final class AppState {
                 var completed = try await engine.process(
                     job: job,
                     progress: { [weak self] progress in
-                    Task { @MainActor in
-                        self?.activeJob?.progress = progress
-                        if let count = self?.activeJob?.segmentCount, count > 1 {
-                            self?.activeJob?.currentSegment = min(count, Int(progress * Double(count)) + 1)
+                        Task { @MainActor in
+                            self?.activeJob?.progress = progress
+                            if let count = self?.activeJob?.segmentCount, count > 1 {
+                                self?.activeJob?.currentSegment = min(count, Int(progress * Double(count)) + 1)
+                            }
+                            if let total = self?.activeJob?.totalFrames {
+                                self?.activeJob?.processedFrames = min(total, Int(progress * Double(total)))
+                            }
                         }
-                        if let total = self?.activeJob?.totalFrames {
-                            self?.activeJob?.processedFrames = min(total, Int(progress * Double(total)))
-                        }
-                    }
-                },
+                    },
                     outputBytes: { [weak self] bytes in
                         Task { @MainActor in self?.outputBytesSoFar = bytes }
                     }
@@ -199,16 +212,35 @@ final class AppState {
         do {
             _ = try await AppleFrameProcessorService.prepareModel(width: 1280, height: 720, scaleFactor: scale)
             diagnosticStatus = "Running one-frame AI test..."
-            let attributes = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()] as CFDictionary
+            let attributes = [
+                kCVPixelBufferMetalCompatibilityKey as String: true,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()
+            ] as CFDictionary
             var source: CVPixelBuffer?
-            let status = CVPixelBufferCreate(kCFAllocatorDefault, 1280, 720, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes, &source)
-            guard status == kCVReturnSuccess, let source else { throw AppleFrameProcessorError.pixelBufferCreation(status) }
+            let status = CVPixelBufferCreate(
+                kCFAllocatorDefault, 1280, 720,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                attributes, &source
+            )
+            guard status == kCVReturnSuccess, let source else {
+                throw AppleFrameProcessorError.pixelBufferCreation(status)
+            }
             CVPixelBufferLockBaseAddress(source, [])
-            if let y = CVPixelBufferGetBaseAddressOfPlane(source, 0) { memset(y, 96, CVPixelBufferGetBytesPerRowOfPlane(source, 0) * 720) }
-            if let uv = CVPixelBufferGetBaseAddressOfPlane(source, 1) { memset(uv, 128, CVPixelBufferGetBytesPerRowOfPlane(source, 1) * 360) }
+            if let y = CVPixelBufferGetBaseAddressOfPlane(source, 0) {
+                memset(y, 96, CVPixelBufferGetBytesPerRowOfPlane(source, 0) * 720)
+            }
+            if let uv = CVPixelBufferGetBaseAddressOfPlane(source, 1) {
+                memset(uv, 128, CVPixelBufferGetBytesPerRowOfPlane(source, 1) * 360)
+            }
             CVPixelBufferUnlockBaseAddress(source, [])
-            let output = try await AppleFrameProcessorService().processFullQuality(source: source, presentationTime: .zero, scaleFactor: scale, sequential: false)
-            let stillFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Diagnostics", isDirectory: true)
+            let output = try await AppleFrameProcessorService().processFullQuality(
+                source: source,
+                presentationTime: .zero,
+                scaleFactor: scale,
+                sequential: false
+            )
+            let stillFolder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Diagnostics", isDirectory: true)
             try FileManager.default.createDirectory(at: stillFolder, withIntermediateDirectories: true)
             let stillURL = stillFolder.appendingPathComponent("Clarity-AI-Self-Test.png")
             let image = CIImage(cvPixelBuffer: output)
@@ -220,7 +252,9 @@ final class AppState {
             diagnosticStillURL = stillURL
             lastSuccessfulSelfTest = Date()
             CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
-            diagnosticStatus = "Passed: 1280x720 -> " + String(CVPixelBufferGetWidth(output)) + "x" + String(CVPixelBufferGetHeight(output)) + " with Apple SR"
+            diagnosticStatus = "Passed: 1280x720 -> "
+                + String(CVPixelBufferGetWidth(output)) + "x" + String(CVPixelBufferGetHeight(output))
+                + " with Apple SR"
             await refreshCapabilities()
         } catch {
             diagnosticStatus = "Failed: " + error.localizedDescription
@@ -228,7 +262,6 @@ final class AppState {
             await refreshCapabilities()
         }
     }
-
 
     func runFiveSecondDiagnostic(resolution: OutputResolution = .uhd4K) {
         guard let importedURL, let assetInfo else {
@@ -254,7 +287,10 @@ final class AppState {
                     Task { @MainActor in self?.previewProgress = progress }
                 }
                 diagnosticTestOutputURL = result.enhancedURL
-                diagnosticStatus = String(format: "Passed five-second %@ export in %.1f seconds", resolution.rawValue, result.previewProcessingDuration)
+                diagnosticStatus = String(
+                    format: "Passed five-second %@ export in %.1f seconds",
+                    resolution.rawValue, result.previewProcessingDuration
+                )
             } catch {
                 diagnosticStatus = "Five-second test failed: " + error.localizedDescription
             }
@@ -281,6 +317,9 @@ final class AppState {
         importedURL = job.sourceURL
         assetInfo = job.assetInfo
         configuration = job.configuration
+        if job.assetInfo.isHDR && configuration.hdrBehavior == .preserve {
+            configuration.hdrBehavior = .convertToSDR
+        }
         recentJobs.removeAll { $0.id == job.id }
         JobHistoryStore.save(recentJobs)
         beginExport()
@@ -298,7 +337,8 @@ final class AppState {
     func clearProcessingCache() {
         do {
             try ProcessingCache.clear()
-            let previews = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ComparisonPreviews", isDirectory: true)
+            let previews = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("ComparisonPreviews", isDirectory: true)
             try? FileManager.default.removeItem(at: previews)
             diagnosticStatus = "Processing cache cleared"
         } catch {
