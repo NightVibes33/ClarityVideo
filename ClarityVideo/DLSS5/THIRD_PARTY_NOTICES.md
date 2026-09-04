@@ -20,6 +20,17 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+## Apple Core ML Depth Anything V2 Small
+
+The unsigned device build downloads and bundles Apple's `DepthAnythingV2SmallF16P6.mlpackage` from `apple/coreml-depth-anything-v2-small` on Hugging Face. It is used only to create monocular depth guidance for the experimental DLSS 5 feeder path.
+
+- Model: Depth Anything V2 Small, Core ML F16 P6
+- Publisher: Apple
+- License: Apache License 2.0
+- Upstream model authors: Lihe Yang et al.
+
+The model remains subject to the Apache License 2.0 and its upstream notices. ClarityVideo does not claim authorship of the model.
+
 ## DLSS5-Image-Converter
 
 `criso2hd-alt/DLSS5-Image-Converter` was used only as a behavioral/reference source for the standalone video/image feeder contract. Its source is source-available and is **not copied or redistributed** in ClarityVideo.
