@@ -14,7 +14,7 @@ struct VideoAssetInfo: Codable, Equatable, Sendable {
     var duration: Double
     var estimatedSourceBytes: Int64
     var isPortrait: Bool { displayHeight > displayWidth }
-    var resolutionText: String { "\(displayWidth) \u{00D7} \(displayHeight)" }
+    var resolutionText: String { "\(displayWidth) × \(displayHeight)" }
     var durationText: String {
         let seconds = Int(duration.rounded())
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
@@ -132,6 +132,10 @@ struct ProcessingJob: Codable, Identifiable, Sendable {
     var errorMessage: String?
     var outputCodec: String?
     var denoiseMethod: String?
+    // Optional so existing persisted job history remains decodable.
+    var enhancementMethod: String?
+    var enhancementFallbackReason: String?
+    var enhancementFailureCount: Int?
     var createdAt = Date()
 }
 
