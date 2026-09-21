@@ -433,7 +433,8 @@ struct ResultsView: View {
                         HStack(spacing: 11) {
                             Image(systemName: "lock.shield.fill").foregroundStyle(.cyan)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("AI Powered. On Device.").font(.subheadline.bold())
+                                Text(job.outputCodec?.contains("spatial upscale") == true ? "Upscaled On Device." : "AI Powered. On Device.")
+                                    .font(.subheadline.bold())
                                 Text("Your privacy stays with you.").font(.caption).foregroundStyle(.white.opacity(0.46))
                             }
                             Spacer()

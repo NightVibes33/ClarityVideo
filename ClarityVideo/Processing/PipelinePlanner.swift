@@ -112,7 +112,7 @@ enum PipelinePlanner {
                 sourceWidth: sourceWidth, sourceHeight: sourceHeight,
                 targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
             )
-            plan.disclosure = "Apple AI cleanup with a memory-safe spatial resize to the requested dimensions."
+            plan.disclosure = "On-device cleanup with a memory-safe spatial resize to the requested dimensions."
             return plan
         }
         // If the requested output is larger than the source, never route through a

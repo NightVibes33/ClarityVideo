@@ -167,7 +167,9 @@ final class AIAssetReaderWriterPipeline {
             }
             selectedCodec = "H.264"
         }
-        result.outputCodec = selectedCodec
+        result.outputCodec = selectedCodec + (useNativeEnhancement
+            ? (plan.requiresFinalResize ? " (spatial upscale)" : " (on-device enhancement)")
+            : " (Apple AI upscale)")
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
         writerInput.transform = try await track.load(.preferredTransform)
