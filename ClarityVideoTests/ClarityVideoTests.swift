@@ -133,7 +133,7 @@ extension ClarityVideoTests {
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .tiledSuperResolution)
-        XCTAssertTrue(plan.requiresFinalResize)
+        XCTAssertFalse(plan.requiresFinalResize) // Exact 2× tiles write directly into the 8K output.
         XCTAssertTrue(plan.disclosure.contains("tiles"))
     }
 }

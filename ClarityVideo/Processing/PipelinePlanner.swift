@@ -104,6 +104,17 @@ enum PipelinePlanner {
                 tiled: false
             )
         }
+        // Four-times scaling a 4K frame would create a 16K neural canvas.
+        // The 8K target can be reached with a bounded spatial pass instead.
+        if sourceWidth >= 3840 && sourceHeight >= 2160 && (selectedFull ?? 0) > 2 {
+            var plan = makePlan(
+                route: .nativeEnhancement, factor: 1,
+                sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
+            )
+            plan.disclosure = "Apple AI cleanup with a memory-safe spatial resize to the requested dimensions."
+            return plan
+        }
         // If the requested output is larger than the source, never route through a
         // conventional resize. Large sources are processed as overlapping SR tiles
         // so every output pixel still originates from Apple's neural scaler.
