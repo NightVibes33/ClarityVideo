@@ -105,7 +105,7 @@ struct EditorView: View {
                 .foregroundStyle(.white)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("TARGET RESOLUTION").font(.caption2.bold()).tracking(1.2).foregroundStyle(.white.opacity(0.42))
+                Text("Target Resolution").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
                 Picker("Target resolution", selection: $state.configuration.resolution) {
                     Text("4K").tag(OutputResolution.uhd4K)
                     if state.capabilities.supports8KHEVCEncode { Text("8K").tag(OutputResolution.uhd8K) }
@@ -119,7 +119,7 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("ENHANCEMENT MODE").font(.caption2.bold()).tracking(1.2).foregroundStyle(.white.opacity(0.42))
+                Text("Enhancement Mode").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
                 Picker("Enhancement mode", selection: $state.configuration.mode) {
                     ForEach(EnhancementMode.allCases) { Text(shortModeName($0)).tag($0) }
                 }
@@ -216,7 +216,7 @@ struct EditorView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 18).padding(.vertical, 16)
                 .background(
-                    LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .leading, endPoint: .trailing),
+                    LinearGradient(colors: [Color(red: 0.66, green: 0.36, blue: 1), Color(red: 0.20, green: 0.64, blue: 1), .cyan], startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                 )
             }
