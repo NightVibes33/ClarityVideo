@@ -303,51 +303,56 @@ struct AnalysisCard: View {
 
 struct ProcessingView: View {
     @Environment(AppState.self) private var state
+
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            Image(systemName: "wand.and.rays").font(.system(size: 58)).foregroundStyle(.cyan).symbolEffect(.pulse)
-            Text("\(state.activeJob?.configuration.mode.rawValue ?? "Enhancing") \(state.activeJob?.configuration.resolution.rawValue ?? "")")
-                .font(.title.bold())
-            let progress = state.activeJob?.progress ?? 0
-            ProgressView(value: progress).progressViewStyle(.linear).padding(.horizontal, 32)
-            Text("\(Int(progress * 100))%").font(.system(.largeTitle, design: .rounded).bold())
-            if let job = state.activeJob {
-                VStack(spacing: 4) {
-                    if job.segmentCount > 1 { Text("Segment \(max(1, job.currentSegment)) of \(job.segmentCount)") }
-                    Text("\(job.processedFrames) of \(job.totalFrames) frames")
-                    Text("Output so far: \(ByteCountFormatter.string(fromByteCount: state.outputBytesSoFar, countStyle: .file))")
-                    if job.processedFrames > 0 {
-                        Text(String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, Date().timeIntervalSince(job.createdAt))))
+        ZStack {
+            Color(red: 0.008, green: 0.018, blue: 0.034).ignoresSafeArea()
+            VStack(spacing: 24) {
+                Spacer()
+                ZStack {
+                    Circle().stroke(Color.blue.opacity(0.18), lineWidth: 13).frame(width: 150, height: 150)
+                    Circle().trim(from: 0, to: state.activeJob?.progress ?? 0)
+                        .stroke(LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                style: StrokeStyle(lineWidth: 13, lineCap: .round))
+                        .rotationEffect(.degrees(-90)).frame(width: 150, height: 150)
+                    VStack(spacing: 4) {
+                        Text("\(Int((state.activeJob?.progress ?? 0) * 100))%").font(.system(size: 35, weight: .bold, design: .rounded))
+                        Text("ENHANCING").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.45))
                     }
-                }.font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            VStack(spacing: 6) {
-                Text("Processing remains on this device")
-                Text("Temperature: \(thermalLabel)")
-                Text(ProcessInfo.processInfo.thermalState == .critical ? "Paused to protect your device" : "Temperature monitored automatically")
-                Text("If you leave the app, iOS may pause heavy processing. Completed segments are checkpointed for resume.")
-                    .multilineTextAlignment(.center)
-            }.font(.subheadline).foregroundStyle(.secondary)
-            Spacer()
-            HStack {
-                Button { state.pauseExport() } label: {
-                    Label("Pause", systemImage: "pause.circle").frame(maxWidth: .infinity)
-                }.buttonStyle(.borderedProminent)
-                Button(role: .destructive) { state.cancelExport() } label: {
-                    Label("Cancel", systemImage: "xmark.circle").frame(maxWidth: .infinity)
-                }.buttonStyle(.bordered)
-            }.controlSize(.large).padding()
+                }
+                Text("\(state.activeJob?.configuration.mode.rawValue ?? "Enhancing") · \(state.activeJob?.configuration.resolution.rawValue ?? "")")
+                    .font(.title2.bold())
+                if let job = state.activeJob {
+                    VStack(spacing: 7) {
+                        if job.segmentCount > 1 { Text("Segment \(max(1, job.currentSegment)) of \(job.segmentCount)") }
+                        Text("\(job.processedFrames) / \(job.totalFrames) frames")
+                        Text(ByteCountFormatter.string(fromByteCount: state.outputBytesSoFar, countStyle: .file) + " written")
+                        if job.processedFrames > 0 {
+                            Text(String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, Date().timeIntervalSince(job.createdAt))))
+                        }
+                    }.font(.subheadline.monospacedDigit()).foregroundStyle(.white.opacity(0.58))
+                }
+                Label("AI processing stays on this iPhone", systemImage: "lock.fill")
+                    .font(.subheadline).foregroundStyle(.cyan)
+                Text(thermalLabel).font(.caption).foregroundStyle(.white.opacity(0.48))
+                Spacer()
+                HStack(spacing: 12) {
+                    Button { state.pauseExport() } label: { Label("Pause", systemImage: "pause.fill").frame(maxWidth: .infinity) }
+                        .buttonStyle(.borderedProminent).tint(.blue)
+                    Button(role: .destructive) { state.cancelExport() } label: { Label("Cancel", systemImage: "xmark").frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered)
+                }.controlSize(.large)
+            }.padding(22)
         }.navigationBarBackButtonHidden()
     }
 
     private var thermalLabel: String {
         switch ProcessInfo.processInfo.thermalState {
-        case .nominal: "Normal"
-        case .fair: "Warm"
-        case .serious: "Hot - slowing down"
-        case .critical: "Critical - pausing"
-         default: "Unknown"
+        case .nominal: "Temperature normal"
+        case .fair: "Device is warm"
+        case .serious: "Device is hot · processing may slow"
+        case .critical: "Critical temperature · processing paused"
+        default: "Temperature unavailable"
         }
     }
 }
@@ -355,43 +360,85 @@ struct ProcessingView: View {
 struct ResultsView: View {
     @Environment(AppState.self) private var state
     @State private var saving = false
+
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 68)).foregroundStyle(.green)
-                Text("Enhancement complete").font(.largeTitle.bold())
-                if let job = state.activeJob, let url = job.outputURL {
-                    ComparisonPlaybackView(beforeURL: job.sourceURL, afterURL: url)
-                    VStack {
-                        LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
-                        LabeledContent("Codec", value: job.outputCodec ?? "HEVC")
-                        if let denoiseMethod = job.denoiseMethod { LabeledContent("Denoise", value: denoiseMethod) }
-                        LabeledContent("Frames", value: "\(job.processedFrames)")
-                        if let duration = job.processingDuration {
-                            LabeledContent("Processing time", value: String(format: "%.1f min", duration / 60))
-                            LabeledContent("Average speed", value: String(format: "%.1f FPS", Double(job.processedFrames) / max(0.1, duration)))
+        ZStack {
+            Color(red: 0.008, green: 0.018, blue: 0.034).ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 17) {
+                    HStack {
+                        Button { state.route = .home } label: { Image(systemName: "chevron.left") }
+                        Spacer()
+                        Text("Export").font(.headline)
+                        Spacer()
+                        Image(systemName: "magnifyingglass").opacity(0.7)
+                    }
+                    if let job = state.activeJob, let url = job.outputURL {
+                        HStack(spacing: 13) {
+                            RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: [.indigo, .blue], startPoint: .top, endPoint: .bottom))
+                                .frame(width: 78, height: 78)
+                                .overlay(Image(systemName: "mountain.2.fill").font(.title).foregroundStyle(.white.opacity(0.8)))
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(job.assetInfo.fileName).font(.headline).lineLimit(1)
+                                Text("\(job.assetInfo.durationText) · \(job.configuration.resolution.rawValue) · \(job.outputCodec ?? "HEVC")")
+                                    .font(.caption).foregroundStyle(.white.opacity(0.58))
+                                if let bytes = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                                    Text(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
+                                        .font(.caption).foregroundStyle(.white.opacity(0.45))
+                                }
+                            }
+                            Spacer()
                         }
-                        if let bytes = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                            LabeledContent("Output size", value: ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))
+                        .padding(14).background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20))
+
+                        ComparisonPlaybackView(beforeURL: job.sourceURL, afterURL: url)
+
+                        VStack(alignment: .leading, spacing: 15) {
+                            Text("Export Complete").font(.headline)
+                            LabeledContent("Format", value: job.outputCodec ?? "HEVC")
+                            LabeledContent("Resolution", value: job.configuration.resolution.rawValue)
+                            if let d = job.denoiseMethod { LabeledContent("Denoise", value: d) }
+                            if let duration = job.processingDuration {
+                                LabeledContent("Processing", value: String(format: "%.1f min", duration / 60))
+                            }
                         }
-                    }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                    Button {
-                        saving = true
-                        Task {
-                            defer { saving = false }
-                            do { try await PhotosExportService.save(url) } catch { state.errorMessage = error.localizedDescription }
+                        .font(.subheadline)
+                        .padding(16).background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20))
+
+                        Button {
+                            saving = true
+                            Task {
+                                defer { saving = false }
+                                do { try await PhotosExportService.save(url) }
+                                catch { state.errorMessage = error.localizedDescription }
+                            }
+                        } label: {
+                            HStack { Spacer(); Image(systemName: "photo.badge.arrow.down"); Text(saving ? "Saving…" : "Save to Photos"); Spacer() }
+                                .font(.headline).padding(.vertical, 16)
+                                .background(LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .leading, endPoint: .trailing), in: RoundedRectangle(cornerRadius: 17))
+                                .foregroundStyle(.white)
+                        }.buttonStyle(.plain).disabled(saving)
+
+                        ShareLink(item: url) {
+                            Label("Save to Files or Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
+                        }.buttonStyle(.bordered).controlSize(.large)
+
+                        HStack(spacing: 11) {
+                            Image(systemName: "lock.shield.fill").foregroundStyle(.cyan)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("AI Powered. On Device.").font(.subheadline.bold())
+                                Text("Your privacy stays with you.").font(.caption).foregroundStyle(.white.opacity(0.46))
+                            }
+                            Spacer()
                         }
-                    } label: { Label(saving ? "Saving\u{2026}" : "Save to Photos", systemImage: "photo.badge.arrow.down").frame(maxWidth: .infinity) }
-                        .buttonStyle(.borderedProminent).controlSize(.large).disabled(saving)
-                    ShareLink(item: url) { Label("Save to Files or Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity) }
-                        .buttonStyle(.bordered).controlSize(.large)
-                    Button(role: .destructive) { state.deleteActiveOutput() } label: {
-                        Label("Delete output", systemImage: "trash").frame(maxWidth: .infinity)
-                    }.buttonStyle(.bordered).controlSize(.large)
-                }
-                Button("Enhance another video") { state.route = .home }
-            }.padding()
-        }.navigationBarBackButtonHidden()
+                        .padding(15).background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
+
+                        Button("Enhance Another Video") { state.route = .home }.font(.subheadline.bold())
+                        Button(role: .destructive) { state.deleteActiveOutput() } label: { Label("Delete Output", systemImage: "trash") }
+                    }
+                }.padding(17).padding(.bottom, 20)
+            }
+        }.navigationBarBackButtonHidden().preferredColorScheme(.dark)
     }
 }
 
