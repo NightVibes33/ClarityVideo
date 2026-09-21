@@ -286,13 +286,12 @@ final class AIAssetReaderWriterPipeline {
                 } catch is CancellationError {
                     throw CancellationError()
                 } catch {
-                    appleSRFallback = true
-                    writesTiledFramesDirectly = false
+                    // Never silently turn a requested AI enhancement into an ordinary resize.
+                    // A failed Apple SR session means the requested operation did not succeed.
                     processor.endSession()
                     tiled?.endSession()
-                    aiBuffer = enhancementSource
-                    let existingDenoise = result.denoiseMethod ?? "Off"
-                    result.denoiseMethod = "Core Image upscale fallback; denoise: " + existingDenoise
+                    let route = plan.requiresTiling ? "tiled Apple Super Resolution" : (useLowLatency ? "low-latency Apple Super Resolution" : "Apple Super Resolution")
+                    throw AppError.exportFailed(route + " failed while processing frame " + String(frameIndex + 1) + ": " + error.localizedDescription)
                 }
             }
             while !writerInput.isReadyForMoreMediaData {
