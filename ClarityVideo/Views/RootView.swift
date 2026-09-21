@@ -89,6 +89,7 @@ struct RootView: View {
             Group {
                 switch state.route {
                 case .home: HomeView()
+                case .importVideo: ImportVideoView()
                 case .editor: EditorView()
                 case .processing: ProcessingView()
                 case .results: ResultsView()
@@ -192,7 +193,7 @@ struct HomeView: View {
     private var primaryActions: some View {
         VStack(spacing: 11) {
             HomeMenuButton(symbol: "video.fill", title: "Enhance Video", subtitle: "Import from Photos, Files or Camera") {
-                showingPhotos = true
+                state.route = .importVideo
             }
             HomeMenuButton(symbol: "clock.fill", title: "Recent Projects", subtitle: "Continue your work") { }
             HomeMenuButton(symbol: "gearshape.fill", title: "Settings", subtitle: "Quality, export and advanced options") {
@@ -251,7 +252,7 @@ struct HomeView: View {
         HStack {
             BottomItem(symbol: "house.fill", title: "Home", selected: true) { }
             BottomItem(symbol: "folder.fill", title: "Projects") { }
-            Button { showingPhotos = true } label: {
+            Button { state.route = .importVideo } label: {
                 ZStack {
                     Circle().fill(ClarityTheme.brandGradient).frame(width: 58, height: 58)
                     Circle().stroke(.cyan.opacity(0.85), lineWidth: 2).frame(width: 58, height: 58)

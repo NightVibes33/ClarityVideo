@@ -65,7 +65,10 @@ struct EditorView: View {
 
     private var previewCard: some View {
         VStack(spacing: 0) {
-            if let url = state.importedURL {
+            if let comparison = state.comparisonPreview {
+                ComparisonPlaybackView(beforeURL: comparison.sourceURL, afterURL: comparison.enhancedURL)
+                    .frame(height: 260)
+            } else if let url = state.importedURL {
                 VideoPlayer(player: AVPlayer(url: url))
                     .frame(height: 225)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -121,7 +124,9 @@ struct EditorView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Enhancement Mode").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
                 Picker("Enhancement mode", selection: $state.configuration.mode) {
-                    ForEach(EnhancementMode.allCases) { Text(shortModeName($0)).tag($0) }
+                    Text("Balanced").tag(EnhancementMode.fast)
+                    Text("Quality").tag(EnhancementMode.quality)
+                    Text("Ultra").tag(EnhancementMode.restore)
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: state.configuration.mode) { _, mode in
@@ -208,7 +213,7 @@ struct EditorView: View {
 
             Button { state.beginExport() } label: {
                 HStack {
-                    Text("Start Processing")
+                    Text("Start Export")
                     Spacer()
                     Image(systemName: "arrow.right")
                 }

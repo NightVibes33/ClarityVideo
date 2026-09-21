@@ -8,7 +8,7 @@ import CoreMedia
 
 @MainActor @Observable
 final class AppState {
-    enum Route { case home, editor, processing, results }
+    enum Route { case home, importVideo, editor, processing, results }
     var route: Route = .home
     var importedURL: URL?
     var assetInfo: VideoAssetInfo?
