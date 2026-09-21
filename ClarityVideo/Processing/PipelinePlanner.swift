@@ -104,15 +104,9 @@ enum PipelinePlanner {
                 tiled: false
             )
         }
-        if !fullCanvasSafe, selectedFull != nil {
-            var safePlan = makePlan(
-                route: .nativeEnhancement, factor: 1,
-                sourceWidth: sourceWidth, sourceHeight: sourceHeight,
-                targetWidth: targetWidth, targetHeight: targetHeight, tiled: false
-            )
-            safePlan.disclosure = "Clarity enhances the full-resolution frame, then uses a high-quality memory-safe resize because the available Apple AI scale would exceed safe frame memory."
-            return safePlan
-        }
+        // If the requested output is larger than the source, never route through a
+        // conventional resize. Large sources are processed as overlapping SR tiles
+        // so every output pixel still originates from Apple's neural scaler.
         guard capabilities.fullSuperResolutionAvailable, let tileFactor = selectedFull else {
             throw PipelinePlanningError.noSuperResolutionRoute
         }
