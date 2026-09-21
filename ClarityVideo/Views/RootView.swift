@@ -110,8 +110,6 @@ struct RootView: View {
 
 struct HomeView: View {
     @Environment(AppState.self) private var state
-    @State private var showingPhotos = false
-    @State private var showingFiles = false
     @State private var showingSettings = false
 
     var body: some View {
@@ -121,6 +119,7 @@ struct HomeView: View {
                 VStack(spacing: 16) {
                     topBar
                     wordmark
+                    featureStrip
                     primaryActions
                     recentProjects
                     Spacer(minLength: 6)
@@ -135,35 +134,7 @@ struct HomeView: View {
         .preferredColorScheme(.dark)
         .navigationBarHidden(true)
         .sheet(isPresented: $showingSettings) { SettingsView().preferredColorScheme(.dark) }
-        .sheet(isPresented: $showingPhotos) { photosPicker }
-        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
-            switch result {
-            case .success(let url):
-                state.isImporting = true
-                state.importStatus = "Opening video..."
-                Task { await state.importVideo(from: url, sourceLabel: "Files video") }
-            case .failure(let error):
-                state.lastImportError = error.localizedDescription
-                state.errorMessage = error.localizedDescription
-            }
-        }
         .overlay { if state.isImporting { importOverlay } }
-    }
-
-    private var photosPicker: some View {
-        VideoPhotosPicker { result in
-            showingPhotos = false
-            switch result {
-            case .success(let url):
-                state.isImporting = true
-                state.importStatus = "Importing video..."
-                Task { await state.importVideo(from: url, sourceLabel: "Photos video") }
-            case .failure(let error):
-                state.lastImportError = error.localizedDescription
-                state.errorMessage = error.localizedDescription
-            }
-        } onCancel: { showingPhotos = false }
-        .ignoresSafeArea()
     }
 
     private var topBar: some View {
@@ -184,10 +155,19 @@ struct HomeView: View {
                 Text("Video").foregroundStyle(ClarityTheme.brandGradient)
             }
             .font(.system(size: 31, weight: .bold, design: .rounded))
-            Text("Sharper.  Clearer.  Better.")
+            Text("ENHANCE.  RESTORE.  BRING IT TO LIFE.")
                 .font(.caption2.weight(.medium)).tracking(1.1).foregroundStyle(.white.opacity(0.52))
         }
         .padding(.vertical, 6)
+    }
+
+    private var featureStrip: some View {
+        HStack(spacing: 8) {
+            ReferenceFeature(symbol: "4k.tv.fill", title: "4K / 8K", subtitle: "Upscaling")
+            ReferenceFeature(symbol: "sparkles", title: "AI", subtitle: "Enhancement")
+            ReferenceFeature(symbol: "bolt.fill", title: "Fast", subtitle: "On-Device")
+            ReferenceFeature(symbol: "lock.fill", title: "Private", subtitle: "Local Only")
+        }.padding(.vertical, 4)
     }
 
     private var primaryActions: some View {
@@ -295,6 +275,21 @@ private struct ClarityBackground: View {
             RadialGradient(colors: [Color.blue.opacity(0.16), .clear], center: .top, startRadius: 0, endRadius: 480)
             RadialGradient(colors: [Color.purple.opacity(0.10), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 420)
         }.ignoresSafeArea()
+    }
+}
+
+private struct ReferenceFeature: View {
+    let symbol: String
+    let title: String
+    let subtitle: String
+    var body: some View {
+        VStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.045)).frame(width: 38, height: 38)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.45)))
+                .overlay(Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(ClarityTheme.brandGradient))
+            Text(title).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+            Text(subtitle).font(.system(size: 8, weight: .medium)).foregroundStyle(.white.opacity(0.46)).lineLimit(1)
+        }.frame(maxWidth: .infinity)
     }
 }
 

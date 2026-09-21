@@ -117,6 +117,18 @@ final class AppState {
     func beginExport() {
         pauseRequested = false
         guard let importedURL, let assetInfo else { return }
+        guard capabilities.fullSuperResolutionAvailable || capabilities.lowLatencySuperResolutionAvailable else {
+            errorMessage = "AI Super Resolution is not available on this device. Clarity will not substitute a normal resize and call it AI enhancement."
+            return
+        }
+        if configuration.resolution == .uhd8K && !capabilities.supports8KHEVCEncode {
+            errorMessage = "This device did not pass Clarity’s real 8K hardware encoder validation."
+            return
+        }
+        if configuration.resolution == .uhd4K && configuration.codec == .hevc && !capabilities.supports4KHEVCEncode {
+            errorMessage = "This device did not pass Clarity’s real 4K HEVC hardware encoder validation. Choose H.264 for 4K SDR or use a supported device."
+            return
+        }
         let output = TemporaryFileManager.outputURL(for: configuration.resolution)
         var job = ProcessingJob(sourceURL: importedURL, assetInfo: assetInfo, configuration: configuration)
         job.outputURL = output

@@ -17,8 +17,11 @@ struct ImportVideoView: View {
 
     var filteredAssets: [PHAsset] {
         switch filter {
-        case .favorites: assets.filter(\.isFavorite)
-        default: assets
+        case .favorites: return assets.filter(\.isFavorite)
+        case .recents:
+            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
+            return assets.filter { ($0.creationDate ?? .distantPast) >= cutoff }
+        case .all, .videos: return assets
         }
     }
 
@@ -147,7 +150,12 @@ struct ImportVideoView: View {
             var resumed = false
             manager.requestImage(for: asset, targetSize: CGSize(width: 360, height: 240), contentMode: .aspectFill, options: options) { image, info in
                 let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-                if !degraded && !resumed { resumed = true; continuation.resume(returning: image) }
+                let cancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let requestError = info?[PHImageErrorKey] as? Error
+                if (!degraded || cancelled || requestError != nil) && !resumed {
+                    resumed = true
+                    continuation.resume(returning: image)
+                }
             }
         }
         if let image { thumbnails[asset.localIdentifier] = image }
