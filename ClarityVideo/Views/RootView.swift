@@ -91,6 +91,7 @@ struct RootView: View {
                 case .home: HomeView()
                 case .importVideo: ImportVideoView()
                 case .editor: EditorView()
+                case .exportSetup: ExportSetupView()
                 case .processing: ProcessingView()
                 case .results: ResultsView()
                 }
@@ -111,6 +112,7 @@ struct RootView: View {
 struct HomeView: View {
     @Environment(AppState.self) private var state
     @State private var showingSettings = false
+    @State private var showingProjects = false
 
     var body: some View {
         ZStack {
@@ -119,7 +121,6 @@ struct HomeView: View {
                 VStack(spacing: 16) {
                     topBar
                     wordmark
-                    featureStrip
                     primaryActions
                     recentProjects
                     Spacer(minLength: 6)
@@ -134,6 +135,30 @@ struct HomeView: View {
         .preferredColorScheme(.dark)
         .navigationBarHidden(true)
         .sheet(isPresented: $showingSettings) { SettingsView().preferredColorScheme(.dark) }
+        .sheet(isPresented: $showingProjects) {
+            NavigationStack {
+                List(state.recentJobs) { job in
+                    Button {
+                        if job.status == .paused {
+                            state.resume(job)
+                        } else if job.status == .completed && job.outputURL != nil {
+                            state.activeJob = job
+                            state.route = .results
+                        }
+                        showingProjects = false
+                    } label: {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(job.assetInfo.fileName).lineLimit(1)
+                            Text("\(job.configuration.resolution.rawValue) · \(job.status.rawValue.capitalized)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .overlay { if state.recentJobs.isEmpty { ContentUnavailableView("No recent projects", systemImage: "film") } }
+                .navigationTitle("Recent Projects")
+                .toolbar { Button("Done") { showingProjects = false } }
+            }.preferredColorScheme(.dark)
+        }
         .overlay { if state.isImporting { importOverlay } }
     }
 
@@ -149,14 +174,22 @@ struct HomeView: View {
     }
 
     private var wordmark: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 7) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 19).fill(Color(red: 0.025, green: 0.04, blue: 0.09))
+                    .frame(width: 74, height: 74)
+                    .overlay(RoundedRectangle(cornerRadius: 19).stroke(ClarityTheme.brandGradient, lineWidth: 2))
+                    .shadow(color: .blue.opacity(0.65), radius: 15)
+                Circle().stroke(ClarityTheme.brandGradient, lineWidth: 4).frame(width: 50, height: 50)
+                Image(systemName: "play.fill").font(.title2).foregroundStyle(.white)
+            }.padding(.bottom, 2)
             HStack(spacing: 0) {
                 Text("Clarity").foregroundStyle(.white)
                 Text("Video").foregroundStyle(ClarityTheme.brandGradient)
             }
             .font(.system(size: 31, weight: .bold, design: .rounded))
-            Text("ENHANCE.  RESTORE.  BRING IT TO LIFE.")
-                .font(.caption2.weight(.medium)).tracking(1.1).foregroundStyle(.white.opacity(0.52))
+            Text("Sharper. Clearer. Better.")
+                .font(.caption.weight(.medium)).tracking(1).foregroundStyle(.white.opacity(0.65))
         }
         .padding(.vertical, 6)
     }
@@ -175,7 +208,7 @@ struct HomeView: View {
             HomeMenuButton(symbol: "video.fill", title: "Enhance Video", subtitle: "Import from Photos, Files or Camera") {
                 state.route = .importVideo
             }
-            HomeMenuButton(symbol: "clock.fill", title: "Recent Projects", subtitle: "Continue your work") { }
+            HomeMenuButton(symbol: "clock.fill", title: "Recent Projects", subtitle: "Continue your work") { showingProjects = true }
             HomeMenuButton(symbol: "gearshape.fill", title: "Settings", subtitle: "Quality, export and advanced options") {
                 showingSettings = true
             }
@@ -213,17 +246,18 @@ struct HomeView: View {
 
     private var mountainPanel: some View {
         ZStack(alignment: .bottom) {
-            LinearGradient(colors: [Color.blue.opacity(0.04), Color.indigo.opacity(0.32), Color.black.opacity(0.82)], startPoint: .top, endPoint: .bottom)
+            if let mountain = ReferenceArtwork.mountain {
+                Image(uiImage: mountain).resizable().scaledToFill().frame(height: 255).clipped()
+            }
+            LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
             VStack(spacing: 10) {
-                Image(systemName: "mountain.2.fill")
-                    .resizable().scaledToFit().frame(height: 86)
-                    .foregroundStyle(LinearGradient(colors: [.indigo.opacity(0.7), .blue.opacity(0.7)], startPoint: .leading, endPoint: .trailing))
+                Spacer()
                 Text("TURN GOOD FOOTAGE\nINTO GREAT MEMORIES.")
                     .font(.caption2.bold()).tracking(2.5).multilineTextAlignment(.center).foregroundStyle(.white.opacity(0.76))
                     .padding(.bottom, 15)
             }
         }
-        .frame(height: 175)
+        .frame(height: 255)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.blue.opacity(0.18)))
     }
@@ -231,7 +265,7 @@ struct HomeView: View {
     private var bottomBar: some View {
         HStack {
             BottomItem(symbol: "house.fill", title: "Home", selected: true) { }
-            BottomItem(symbol: "folder.fill", title: "Projects") { }
+            BottomItem(symbol: "folder.fill", title: "Projects") { showingProjects = true }
             Button { state.route = .importVideo } label: {
                 ZStack {
                     Circle().fill(ClarityTheme.brandGradient).frame(width: 58, height: 58)
@@ -257,6 +291,16 @@ struct HomeView: View {
             .padding(28).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
         }
     }
+}
+
+private enum ReferenceArtwork {
+    // The mountains are taken from the supplied design, keeping the artwork
+    // identical while the controls remain accessible native SwiftUI views.
+    static let mountain: UIImage? = {
+        guard let image = UIImage(named: "ReferenceArtwork")?.cgImage,
+              let crop = image.cropping(to: CGRect(x: 205, y: 177, width: 820, height: 158)) else { return nil }
+        return UIImage(cgImage: crop)
+    }()
 }
 
 private enum ClarityTheme {

@@ -8,7 +8,7 @@ import CoreMedia
 
 @MainActor @Observable
 final class AppState {
-    enum Route { case home, importVideo, editor, processing, results }
+    enum Route { case home, importVideo, editor, exportSetup, processing, results }
     var route: Route = .home
     var importedURL: URL?
     var assetInfo: VideoAssetInfo?
@@ -35,6 +35,7 @@ final class AppState {
     var outputBytesSoFar: Int64 = 0
     var isGeneratingPreview = false
     var isPreparingModel = false
+    var saveToPhotosAfterExport = false
     private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
@@ -78,6 +79,7 @@ final class AppState {
             lastImportedSummary = info.fileName + " " + info.resolutionText + " " + info.durationText
             importedURL = localURL
             assetInfo = info
+            if info.isHDR { configuration.hdrBehavior = .convertToSDR }
             previewDurationSeconds = min(3, info.duration)
             previewStartSeconds = max(0, min(info.duration - previewDurationSeconds, info.duration * 0.25))
             route = .editor
@@ -117,10 +119,6 @@ final class AppState {
     func beginExport() {
         pauseRequested = false
         guard let importedURL, let assetInfo else { return }
-        guard capabilities.fullSuperResolutionAvailable || capabilities.lowLatencySuperResolutionAvailable else {
-            errorMessage = "AI Super Resolution is not available on this device. Clarity will not substitute a normal resize and call it AI enhancement."
-            return
-        }
         if configuration.resolution == .uhd8K && !capabilities.supports8KHEVCEncode {
             errorMessage = "This device did not pass Clarity’s real 8K hardware encoder validation."
             return
@@ -178,6 +176,10 @@ final class AppState {
                 recentJobs.insert(completed, at: 0)
                 JobHistoryStore.save(recentJobs)
                 route = .results
+                if saveToPhotosAfterExport, let url = completed.outputURL {
+                    do { try await PhotosExportService.save(url) }
+                    catch { errorMessage = "Export completed, but saving to Photos failed: " + error.localizedDescription }
+                }
             } catch is CancellationError {
                 if pauseRequested, var paused = activeJob {
                     paused.status = .paused
@@ -189,13 +191,13 @@ final class AppState {
                 } else {
                     activeJob?.status = .cancelled
                     if let output = activeJob?.outputURL { try? FileManager.default.removeItem(at: output) }
-                    route = .editor
+                    route = .exportSetup
                 }
             } catch {
                 activeJob?.status = .failed
                 activeJob?.errorMessage = error.localizedDescription
                 errorMessage = error.localizedDescription
-                route = .editor
+                route = .exportSetup
             }
         }
     }

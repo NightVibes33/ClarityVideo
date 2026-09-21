@@ -135,12 +135,15 @@ struct EditorView: View {
                 Text(modeDescription(state.configuration.mode)).font(.caption).foregroundStyle(.white.opacity(0.50))
             }
 
+            Text("Clarity tries Apple AI Super Resolution first. If this video is rejected by the scaler, export uses spatial upscaling and labels the result accordingly.")
+                .font(.caption2).foregroundStyle(.white.opacity(0.55))
+
             HStack(spacing: 10) {
                 Image(systemName: state.capabilities.fullSuperResolutionAvailable ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                     .foregroundStyle(state.capabilities.fullSuperResolutionAvailable ? .cyan : .orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AI Super Resolution").font(.subheadline.bold())
-                    Text(currentPipelinePlan?.disclosure ?? "No compatible enhancement route for this source.")
+                    Text(currentPipelinePlan?.disclosure ?? "Spatial 4K/8K upscaling is available; Apple AI Super Resolution is unavailable for this source.")
                         .font(.caption2).foregroundStyle(.white.opacity(0.48)).lineLimit(2)
                 }
                 Spacer()
@@ -211,7 +214,7 @@ struct EditorView: View {
             .controlSize(.large)
             .disabled(state.isGeneratingPreview || (!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable))
 
-            Button { state.beginExport() } label: {
+            Button { state.route = .exportSetup } label: {
                 HStack {
                     Text("Start Export")
                     Spacer()
@@ -226,7 +229,6 @@ struct EditorView: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(!state.capabilities.fullSuperResolutionAvailable && !state.capabilities.lowLatencySuperResolutionAvailable)
         }
     }
 

@@ -140,6 +140,7 @@ final class SimulatorProcessingIntegrationTests: XCTestCase {
         job.totalFrames = 2
         let result = try await VideoProcessingCoordinator().process(job: job, progress: { _ in })
         XCTAssertTrue(result.status == .completed, label + " processing status")
+        XCTAssertTrue(result.outputCodec?.contains("spatial upscale") == true, label + " processing route")
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path), label + " output file")
 
         let outputInfo = try await AssetInspector.inspect(outputURL)

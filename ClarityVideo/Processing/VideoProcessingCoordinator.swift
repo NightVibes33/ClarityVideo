@@ -13,18 +13,29 @@ final class VideoProcessingCoordinator {
         var result = job
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
-        if AppleFrameProcessorService.probe().fullSupported || AppleFrameProcessorService.probe().lowLatencySupported {
-            if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {
-                return try await segmentedPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
+        let probe = AppleFrameProcessorService.probe()
+        if probe.fullSupported || probe.lowLatencySupported {
+            do {
+                if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {
+                    return try await segmentedPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
+                }
+                return try await aiPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // An advertised scaler can still reject a particular source or require
+                // a model download. Keep the export usable and label the actual route.
+                if let output = job.outputURL { try? FileManager.default.removeItem(at: output) }
+                progress(0)
             }
-            return try await aiPipeline.process(job: job, progress: progress, outputBytes: outputBytes)
         }
 
         let asset = AVURLAsset(url: job.sourceURL)
         guard let sourceTrack = try await asset.loadTracks(withMediaType: .video).first else { throw AppError.noVideoTrack }
         let composition = try await makeComposition(asset: asset, track: sourceTrack, job: job)
-        guard let session = AVAssetExportSession(asset: composition.asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
-            throw AppError.exportFailed("HEVC export could not be initialized.")
+        let preset = job.configuration.codec == .hevc ? AVAssetExportPresetHEVCHighestQuality : AVAssetExportPresetHighestQuality
+        guard let session = AVAssetExportSession(asset: composition.asset, presetName: preset) else {
+            throw AppError.exportFailed("Video export could not be initialized.")
         }
         session.videoComposition = composition.video
         session.metadata = try await asset.load(.metadata)
@@ -56,9 +67,13 @@ final class VideoProcessingCoordinator {
             try? FileManager.default.removeItem(at: outputURL)
             throw AppError.exportFailed(session.error?.localizedDescription ?? "The export did not complete.")
         }
+        try await OutputValidator.validate(
+            outputURL: outputURL, sourceURL: job.sourceURL,
+            info: job.assetInfo, configuration: job.configuration
+        )
         progress(1)
         result.progress = 1
-        result.outputCodec = "HEVC"
+        result.outputCodec = job.configuration.codec == .hevc ? "HEVC (spatial upscale)" : "H.264 (spatial upscale)"
         result.processedFrames = result.totalFrames
         result.status = .completed
         return result
