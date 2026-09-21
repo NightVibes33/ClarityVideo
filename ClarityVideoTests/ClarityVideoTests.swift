@@ -69,7 +69,7 @@ extension ClarityVideoTests {
             sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
@@ -93,8 +93,8 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd4K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
-        XCTAssertEqual(plan.aiScaleFactor, 1)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertEqual(plan.aiScaleFactor, 4)
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
@@ -119,9 +119,9 @@ extension ClarityVideoTests {
             sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
         XCTAssertTrue(plan.requiresFinalResize)
-        XCTAssertTrue(plan.disclosure.contains("memory-safe"))
+        XCTAssertTrue(plan.disclosure.contains("tiles"))
     }
 
     func testPlannerTiles4KTo8KWithoutLowLatencyRoute() throws {
@@ -132,9 +132,9 @@ extension ClarityVideoTests {
             sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
         XCTAssertTrue(plan.requiresFinalResize)
-        XCTAssertTrue(plan.disclosure.contains("memory-safe"))
+        XCTAssertTrue(plan.disclosure.contains("tiles"))
     }
 }
 
