@@ -214,7 +214,7 @@ final class AIAssetReaderWriterPipeline {
         var sceneCutDetector = SceneCutDetector()
         let totalFrames = max(1, result.totalFrames)
         var writesTiledFramesDirectly = tiled != nil && !plan.requiresFinalResize && !(job.assetInfo.isHDR && job.configuration.hdrBehavior == .convertToSDR)
-        var appleSRFallback = false
+        let appleSRFallback = false
         while let sample = trackOutput.copyNextSampleBuffer() {
             if cancelled { throw CancellationError() }
             try Task.checkCancellation()
