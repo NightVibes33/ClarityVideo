@@ -114,101 +114,26 @@ struct HomeView: View {
     @State private var showingSettings = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                HStack {
-                    HStack(spacing: 10) {
-                        Image(systemName: "sparkles.tv.fill")
-                            .font(.title2).foregroundStyle(.cyan)
-                        Text("Clarity").font(.title2.bold())
-                    }
-                    Spacer()
-                    Button { showingSettings = true } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.headline)
-                            .frame(width: 42, height: 42)
-                            .background(.thinMaterial, in: Circle())
-                    }
-                    .accessibilityLabel("Settings")
-                }.padding(.top, 12)
+        ZStack {
+            ClarityBackground()
 
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 18) {
-                    ZStack {
-                        Circle().fill(.cyan.opacity(0.16)).frame(width: 108, height: 108)
-                        Image(systemName: "wand.and.stars")
-                            .font(.system(size: 48, weight: .medium))
-                            .foregroundStyle(.cyan)
-                    }
-                    Text("Make every frame feel new")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                    Text("Restore detail, reduce noise, and create beautiful 4K or 8K video - privately on your iPhone.")
-                        .font(.title3).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+                    brandHeader
+                    hero
+                    quickActions
+                    featureStrip
+                    projects
+                    privacyFooter
                 }
-                .padding(.vertical, 28)
                 .padding(.horizontal, 18)
-                .frame(maxWidth: .infinity)
-                .background(
-                    LinearGradient(colors: [.cyan.opacity(0.18), .blue.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 28)
-                )
-
-                HStack(spacing: 8) {
-                    HomeBenefit(symbol: "4k.tv.fill", title: "4K & 8K")
-                    HomeBenefit(symbol: "iphone.gen3", title: "On-device")
-                    HomeBenefit(symbol: "lock.fill", title: "Always private")
-                }
-
-                VStack(spacing: 12) {
-                    Button { showingPhotos = true } label: {
-                        Label("Choose a video", systemImage: "photo.on.rectangle.angled")
-                            .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 4)
-                    }
-                    .disabled(state.isImporting)
-                    .buttonStyle(.borderedProminent).controlSize(.large)
-                    Button { showingFiles = true } label: {
-                        Label("Browse Files", systemImage: "folder")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .disabled(state.isImporting)
-                    .buttonStyle(.bordered).controlSize(.large)
-                }
-
-                PrivacyCard()
-
-                HStack {
-                    Text("Your videos").font(.title2.bold())
-                    Spacer()
-                }
-                if state.recentJobs.isEmpty {
-                    VStack(spacing: 10) { Image(systemName: "film.stack").font(.largeTitle).foregroundStyle(.secondary); Text("Your enhanced videos will appear here").font(.headline); Text("Choose a video above to create your first enhancement.").font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center) }.frame(maxWidth: .infinity).padding(.vertical, 34).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
-                } else {
-                    ForEach(state.recentJobs) { job in
-                        HStack {
-                            Image(systemName: job.status == .completed ? "checkmark.circle.fill" : "pause.circle")
-                                .foregroundStyle(job.status == .completed ? .green : .orange)
-                            VStack(alignment: .leading) {
-                                Text(job.assetInfo.fileName).lineLimit(1)
-                                Text("\(job.configuration.resolution.rawValue) \u{00B7} \(job.status.rawValue.capitalized)")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if job.status == .paused {
-                                Button("Resume") { state.resume(job) }.buttonStyle(.borderedProminent)
-                            } else if job.status == .completed {
-                                Button("View") {
-                                    state.activeJob = job
-                                    state.route = .results
-                                }.buttonStyle(.bordered)
-                            }
-                        }.padding().background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    }
-                }
-            }.padding()
+                .padding(.top, 8)
+                .padding(.bottom, 34)
+            }
         }
+        .preferredColorScheme(.dark)
         .navigationBarHidden(true)
-        .sheet(isPresented: $showingSettings) { SettingsView() }
+        .sheet(isPresented: $showingSettings) { SettingsView().preferredColorScheme(.dark) }
         .sheet(isPresented: $showingPhotos) {
             VideoPhotosPicker { result in
                 showingPhotos = false
@@ -221,25 +146,266 @@ struct HomeView: View {
                     state.lastImportError = error.localizedDescription
                     state.errorMessage = error.localizedDescription
                 }
-            } onCancel: {
-                showingPhotos = false
-            }
+            } onCancel: { showingPhotos = false }
             .ignoresSafeArea()
         }
         .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
-            if case let .success(url) = result {
+            switch result {
+            case .success(let url):
                 state.isImporting = true
                 state.importStatus = "Opening the selected Files video..."
                 Task { await state.importVideo(from: url, sourceLabel: "Files video") }
+            case .failure(let error):
+                state.lastImportError = error.localizedDescription
+                state.errorMessage = error.localizedDescription
             }
-            if case let .failure(error) = result { state.lastImportError = error.localizedDescription; state.errorMessage = error.localizedDescription }
         }
         .overlay {
             if state.isImporting {
-                ProgressView(state.importStatus ?? "Importing video...")
-                    .padding(28).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+                ZStack {
+                    Color.black.opacity(0.46).ignoresSafeArea()
+                    VStack(spacing: 14) {
+                        ProgressView().controlSize(.large).tint(.cyan)
+                        Text(state.importStatus ?? "Importing video...")
+                            .font(.subheadline.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(26)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                }
             }
         }
+    }
+
+    private var brandHeader: some View {
+        HStack(spacing: 12) {
+            ClarityMark(size: 42)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 0) {
+                    Text("Clarity").foregroundStyle(.white)
+                    Text("Video").foregroundStyle(ClarityTheme.brandGradient)
+                }
+                .font(.system(size: 25, weight: .bold, design: .rounded))
+                Text("ENHANCE  ·  RESTORE  ·  CREATE")
+                    .font(.system(size: 8, weight: .semibold))
+                    .tracking(1.7)
+                    .foregroundStyle(.white.opacity(0.46))
+            }
+            Spacer()
+            Button { state.showDiagnostics = true } label: {
+                Image(systemName: "waveform.path.ecg")
+                    .frame(width: 42, height: 42)
+                    .background(ClarityTheme.panel, in: Circle())
+            }
+            .accessibilityLabel("Diagnostics")
+            Button { showingSettings = true } label: {
+                Image(systemName: "gearshape.fill")
+                    .frame(width: 42, height: 42)
+                    .background(ClarityTheme.panel, in: Circle())
+            }
+            .accessibilityLabel("Settings")
+        }
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("Sharper. Cleaner. Better.")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                    Text("Bring detail back to every frame with private, on-device enhancement.")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.67))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "sparkles")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(ClarityTheme.brandGradient)
+                    .padding(15)
+                    .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+
+            Button { showingPhotos = true } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(ClarityTheme.brandGradient)
+                            .frame(width: 48, height: 48)
+                        Image(systemName: "play.rectangle.fill").font(.title3.bold()).foregroundStyle(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enhance Video").font(.headline)
+                        Text("Import from Photos and start enhancing").font(.caption).foregroundStyle(.white.opacity(0.62))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.subheadline.bold()).foregroundStyle(.white.opacity(0.65))
+                }
+                .padding(14)
+                .background(
+                    LinearGradient(colors: [Color.blue.opacity(0.30), Color.indigo.opacity(0.18)], startPoint: .leading, endPoint: .trailing),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                )
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.cyan.opacity(0.24), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(state.isImporting)
+        }
+        .padding(20)
+        .background(ClarityTheme.heroPanel, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(.white.opacity(0.07), lineWidth: 1))
+    }
+
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            ClarityAction(symbol: "photo.on.rectangle.angled", title: "Photos", tint: .blue) { showingPhotos = true }
+            ClarityAction(symbol: "folder.fill", title: "Files", tint: .indigo) { showingFiles = true }
+            ClarityAction(symbol: "slider.horizontal.3", title: "Settings", tint: .purple) { showingSettings = true }
+        }
+    }
+
+    private var featureStrip: some View {
+        HStack(spacing: 8) {
+            HomeBenefit(symbol: "4k.tv.fill", title: "4K / 8K")
+            HomeBenefit(symbol: "sparkles", title: "AI Enhance")
+            HomeBenefit(symbol: "bolt.fill", title: "On-device")
+            HomeBenefit(symbol: "lock.fill", title: "Private")
+        }
+    }
+
+    private var projects: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Recent Projects").font(.title3.bold())
+                Spacer()
+                Text("\(state.recentJobs.count)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.cyan)
+                    .padding(.horizontal, 9).padding(.vertical, 5)
+                    .background(.cyan.opacity(0.10), in: Capsule())
+            }
+
+            if state.recentJobs.isEmpty {
+                HStack(spacing: 14) {
+                    Image(systemName: "film.stack.fill")
+                        .font(.title2)
+                        .foregroundStyle(ClarityTheme.brandGradient)
+                        .frame(width: 48, height: 48)
+                        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("No projects yet").font(.headline)
+                        Text("Import a video to create your first enhancement.")
+                            .font(.caption).foregroundStyle(.white.opacity(0.55))
+                    }
+                    Spacer()
+                }
+                .padding(15)
+                .background(ClarityTheme.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else {
+                ForEach(state.recentJobs.prefix(6)) { job in
+                    HStack(spacing: 13) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.055)).frame(width: 54, height: 54)
+                            Image(systemName: job.status == .completed ? "checkmark.seal.fill" : "film.fill")
+                                .foregroundStyle(job.status == .completed ? Color.cyan : Color.purple)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(job.assetInfo.fileName).font(.subheadline.bold()).lineLimit(1)
+                            Text("\(job.configuration.resolution.rawValue)  ·  \(job.status.rawValue.capitalized)")
+                                .font(.caption).foregroundStyle(.white.opacity(0.52))
+                        }
+                        Spacer()
+                        if job.status == .paused {
+                            Button("Resume") { state.resume(job) }.buttonStyle(.borderedProminent).tint(.blue)
+                        } else if job.status == .completed {
+                            Button {
+                                state.activeJob = job
+                                state.route = .results
+                            } label: { Image(systemName: "chevron.right") }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(13)
+                    .background(ClarityTheme.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private var privacyFooter: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "lock.shield.fill").foregroundStyle(.cyan)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("AI Powered. On Device.").font(.subheadline.bold())
+                Text("Your source video stays with you.").font(.caption).foregroundStyle(.white.opacity(0.48))
+            }
+            Spacer()
+        }
+        .padding(15)
+        .background(ClarityTheme.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
+private enum ClarityTheme {
+    static let brandGradient = LinearGradient(
+        colors: [Color(red: 0.20, green: 0.72, blue: 1.0), Color(red: 0.42, green: 0.42, blue: 1.0), Color(red: 0.68, green: 0.30, blue: 1.0)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+    static let panel = Color(red: 0.055, green: 0.085, blue: 0.13).opacity(0.94)
+    static let heroPanel = LinearGradient(
+        colors: [Color(red: 0.04, green: 0.10, blue: 0.18), Color(red: 0.04, green: 0.06, blue: 0.10)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+}
+
+private struct ClarityBackground: View {
+    var body: some View {
+        ZStack {
+            Color(red: 0.015, green: 0.025, blue: 0.045)
+            RadialGradient(colors: [Color.blue.opacity(0.20), .clear], center: .topLeading, startRadius: 0, endRadius: 430)
+            RadialGradient(colors: [Color.purple.opacity(0.12), .clear], center: .bottomTrailing, startRadius: 0, endRadius: 400)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct ClarityMark: View {
+    let size: CGFloat
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
+                .fill(Color(red: 0.025, green: 0.05, blue: 0.10))
+            Circle()
+                .stroke(ClarityTheme.brandGradient, lineWidth: max(2, size * 0.075))
+                .padding(size * 0.18)
+            Image(systemName: "play.fill")
+                .font(.system(size: size * 0.29, weight: .bold))
+                .foregroundStyle(ClarityTheme.brandGradient)
+                .offset(x: size * 0.025)
+        }
+        .frame(width: size, height: size)
+        .overlay(RoundedRectangle(cornerRadius: size * 0.27).stroke(Color.cyan.opacity(0.25), lineWidth: 1))
+        .shadow(color: .blue.opacity(0.30), radius: 10)
+    }
+}
+
+private struct ClarityAction: View {
+    let symbol: String
+    let title: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: symbol).font(.title3).foregroundStyle(tint)
+                Text(title).font(.caption.bold()).foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(ClarityTheme.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 
