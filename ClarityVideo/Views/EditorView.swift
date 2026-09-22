@@ -319,6 +319,7 @@ struct AnalysisCard: View {
 
 struct ProcessingView: View {
     @Environment(AppState.self) private var state
+    @State private var showCancelConfirmation = false
 
     var body: some View {
         ZStack {
@@ -344,6 +345,18 @@ struct ProcessingView: View {
         }
         .navigationBarBackButtonHidden()
         .preferredColorScheme(.dark)
+        .confirmationDialog(
+            "Cancel enhancement?",
+            isPresented: $showCancelConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Cancel Enhancement", role: .destructive) {
+                state.cancelExport()
+            }
+            Button("Keep Processing", role: .cancel) {}
+        } message: {
+            Text("The current export will stop. Completed checkpoints are kept when the job supports resumable processing.")
+        }
     }
 
     private func progressHero(_ job: ProcessingJob) -> some View {
@@ -496,7 +509,7 @@ struct ProcessingView: View {
             }
             .buttonStyle(.plain)
 
-            Button(role: .destructive) { state.cancelExport() } label: {
+            Button(role: .destructive) { showCancelConfirmation = true } label: {
                 Label("Cancel", systemImage: "xmark")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(.red)
@@ -803,21 +816,24 @@ struct ResultsView: View {
     }
 
     private var privacyCard: some View {
-        HStack(spacing: 11) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.cyan)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Processed on this iPhone")
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                Text("No upload or cloud processing was used.")
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(ClarityNativeTheme.muted)
+        NativePanel {
+            HStack(spacing: 12) {
+                ClarityIconTile(icon: "lock.shield.fill", size: 42, iconSize: 16)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Processed on this iPhone")
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("No upload or cloud processing was used.")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(ClarityNativeTheme.muted)
+                }
+
+                Spacer()
             }
-            Spacer()
+            .padding(13)
         }
-        .padding(14)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func resultChip(_ text: String) -> some View {
