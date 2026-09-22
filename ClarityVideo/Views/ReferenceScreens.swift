@@ -56,10 +56,11 @@ private struct NativeHeader: View {
                     Button { onBack?() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Back")
                 } else {
-                    Color.clear.frame(width: 36, height: 36)
+                    Color.clear.frame(width: 44, height: 44)
                 }
             }
             Spacer()
@@ -69,13 +70,21 @@ private struct NativeHeader: View {
             Spacer()
             Group {
                 if let trailingIcon {
-                    Button { onTrailing?() } label: {
+                    if let onTrailing {
+                        Button(action: onTrailing) {
+                            Image(systemName: trailingIcon)
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel(trailingIcon == "magnifyingglass" ? "Search" : "Action")
+                    } else {
                         Image(systemName: trailingIcon)
                             .font(.system(size: 17, weight: .semibold))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 44, height: 44)
+                            .accessibilityHidden(true)
                     }
                 } else {
-                    Color.clear.frame(width: 36, height: 36)
+                    Color.clear.frame(width: 44, height: 44)
                 }
             }
         }
@@ -156,13 +165,17 @@ struct ReferenceHomeView: View {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 23, weight: .bold))
                             .foregroundStyle(Color(red: 0.57, green: 0.88, blue: 1))
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Settings")
                     Spacer()
                     Button { showingProjects = true } label: {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(ClarityNativeTheme.brand)
+                            .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel("Recent Projects")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
@@ -268,6 +281,8 @@ struct ReferenceHomeView: View {
                     .overlay(Image(systemName: "plus").font(.system(size: 29, weight: .medium)).foregroundStyle(Color(red: 0.54, green: 0.86, blue: 1)))
                     .shadow(color: .blue.opacity(0.9), radius: 12)
             }
+            .accessibilityLabel("Enhance Video")
+            .accessibilityHint("Import a video to enhance")
             .offset(y: -13)
         }
         .frame(height: 70)
@@ -556,6 +571,9 @@ private struct NativeVideoThumbnail: View {
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(selected ? Color.cyan : Color.white.opacity(0.08), lineWidth: selected ? 2 : 1))
         .task(id: asset.localIdentifier) { await loadImage() }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Video, \(durationText(asset.duration))")
+        .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 
     @MainActor
@@ -736,6 +754,17 @@ struct ReferenceEditorView: View {
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
                 reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
             })
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Before and after comparison")
+            .accessibilityValue("\(Int((reveal * 100).rounded())) percent before")
+            .accessibilityHint("Swipe up or down to move the comparison divider")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: reveal = min(0.95, reveal + 0.10)
+                case .decrement: reveal = max(0.05, reveal - 0.10)
+                @unknown default: break
+                }
+            }
         }
     }
 
@@ -765,8 +794,9 @@ struct ReferenceEditorView: View {
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
             }
+            .accessibilityLabel(isPlaying ? "Pause preview" : "Play preview")
             Text("00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
             Capsule().fill(Color.white.opacity(0.13)).frame(height: 4)
                 .overlay(alignment: .leading) { Capsule().fill(Color.cyan).frame(width: 42, height: 4) }
@@ -913,7 +943,10 @@ private struct NativeValueSlider: View {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .frame(width: 104, alignment: .leading)
-            Slider(value: $value, in: 0...1).tint(.cyan)
+            Slider(value: $value, in: 0...1)
+                .tint(.cyan)
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int((value * 100).rounded())) percent")
             Text("\(Int((value * 100).rounded()))")
                 .font(.caption.monospacedDigit())
                 .frame(width: 30, alignment: .trailing)
