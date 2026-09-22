@@ -151,6 +151,11 @@ final class AppState {
                 throw AppError.importFailedReason("The selected video has invalid dimensions or duration.")
             }
             lastImportedSummary = info.fileName + " " + info.resolutionText + " " + info.durationText
+            if let previous = importedURL, previous != localURL {
+                SecurityScopedFileManager.removeWorkspaceCopyIfOwned(previous)
+            }
+            previewCoordinator.clearCache()
+            comparisonPreview = nil
             importedURL = localURL
             assetInfo = info
             if info.isHDR { configuration.hdrBehavior = .convertToSDR }
@@ -189,7 +194,8 @@ final class AppState {
     }
 
     func cancelComparisonPreview() {
-        previewCoordinator.cancel()
+        previewCoordinator.clearCache()
+        comparisonPreview = nil
         isGeneratingPreview = false
     }
 
@@ -208,6 +214,12 @@ final class AppState {
             errorMessage = "This device did not pass Clarity’s real 4K HEVC hardware encoder validation. Choose H.264 for 4K SDR or use a supported device."
             return
         }
+        // The editor preview is disposable once an export starts. Clearing it
+        // first makes the preflight reflect the export itself rather than stale
+        // preview clips produced while the user tuned settings.
+        previewCoordinator.clearCache()
+        comparisonPreview = nil
+
         do {
             try StorageEstimator.validate(info: assetInfo, configuration: configuration)
         } catch {
@@ -473,6 +485,7 @@ final class AppState {
         if let job = activeJob, job.status == .completed {
             SecurityScopedFileManager.removeWorkspaceCopyIfOwned(job.sourceURL)
         }
+        previewCoordinator.clearCache()
         importedURL = nil
         assetInfo = nil
         comparisonPreview = nil
