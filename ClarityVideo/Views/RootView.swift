@@ -232,7 +232,7 @@ struct OnboardingView: View {
             detail: "Every frame is processed locally. Clarity has no account, cloud upload, credits, or tracking.",
             accent: .green,
             features: [
-                OnboardingFeature(symbol: "iphone", title: "Fully on-device", detail: "Enhancement and export happen on your iPhone or iPad."),
+                OnboardingFeature(symbol: "iphone", title: "Fully on-device", detail: "Enhancement and export happen on your iPhone."),
                 OnboardingFeature(symbol: "wifi.slash", title: "No upload required", detail: "Your source video never needs to leave your device."),
                 OnboardingFeature(symbol: "person.crop.circle.badge.xmark", title: "No account", detail: "Start enhancing immediately without a sign-up or subscription.")
             ]

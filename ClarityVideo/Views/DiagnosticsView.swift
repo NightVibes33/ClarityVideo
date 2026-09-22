@@ -80,17 +80,17 @@ struct DiagnosticsView: View {
                                     Task { await state.prepareModelAndRunSelfTest() }
                                 }
 
-                                divider
+                                if neuralDeviceTestAvailable {
+                                    divider
 
-                                actionButton(
-                                    icon: "brain.head.profile",
-                                    title: state.isPreparingModel ? "Running DLSS 5 test…" : "Run DLSS 5 device test",
-                                    subtitle: neuralDeviceTestAvailable
-                                        ? "Validate the experimental neural upscaler"
-                                        : "DLSS 5 model is not installed in this build",
-                                    enabled: !state.isPreparingModel && neuralDeviceTestAvailable
-                                ) {
-                                    Task { await state.runRecoveredNeuralHeadSelfTest() }
+                                    actionButton(
+                                        icon: "brain.head.profile",
+                                        title: state.isPreparingModel ? "Running neural test…" : "Run experimental neural device test",
+                                        subtitle: "Validate the optional on-device neural renderer",
+                                        enabled: !state.isPreparingModel
+                                    ) {
+                                        Task { await state.runRecoveredNeuralHeadSelfTest() }
+                                    }
                                 }
 
                                 divider
