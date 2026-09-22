@@ -1,0 +1,79 @@
+name: Verify App Store release readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [temp-appstore-ui-final]
+    paths:
+      - 'ClarityVideo/**'
+      - 'ClarityVideo.xcodeproj/**'
+      - '.github/workflows/app-store-readiness.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clarity-app-store-readiness
+  cancel-in-progress: true
+
+jobs:
+  release-build:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+          xcodebuild -version
+
+      - name: Validate App Store metadata inputs
+        run: |
+          set -euo pipefail
+          plutil -lint ClarityVideo/Resources/Info.plist
+          plutil -lint ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
+          test "$(sips -g pixelHeight ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelHeight/ {print $2}')" = "1024"
+          test "$(sips -g hasAlpha ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/hasAlpha/ {print $2}')" = "no"
+          grep -q 'NSPrivacyAccessedAPICategoryDiskSpace' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPrivacyAccessedAPICategoryFileTimestamp' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPrivacyAccessedAPICategoryUserDefaults' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPhotoLibraryUsageDescription' ClarityVideo/Resources/Info.plist
+          grep -q 'NSPhotoLibraryAddUsageDescription' ClarityVideo/Resources/Info.plist
+          grep -q 'NSCameraUsageDescription' ClarityVideo/Resources/Info.plist
+          grep -q 'NSMicrophoneUsageDescription' ClarityVideo/Resources/Info.plist
+
+      - name: Verify on-device privacy claims
+        run: |
+          set -euo pipefail
+          if grep -R --include='*.swift' -E 'URLSession|NWConnection|Firebase|Sentry|Amplitude|Mixpanel' ClarityVideo; then
+            echo "Unexpected networking or analytics API found in app sources."
+            exit 1
+          fi
+          grep -q '<key>NSPrivacyTracking</key>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q '<false/>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q '<key>NSPrivacyCollectedDataTypes</key>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+
+      - name: Build unsigned Release app for device
+        run: |
+          set -euo pipefail
+          DERIVED="$RUNNER_TEMP/AppStoreReadiness"
+          xcodebuild             -project ClarityVideo.xcodeproj             -scheme ClarityVideo             -configuration Release             -sdk iphoneos             -destination 'generic/platform=iOS'             -derivedDataPath "$DERIVED"             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             CODE_SIGN_IDENTITY=''             DEVELOPMENT_TEAM=''             CLARITY_SOURCE_REVISION="$GITHUB_SHA"             clean build
+
+          APP="$(find "$DERIVED/Build/Products" -type d -path '*Release-iphoneos/*.app' -print | head -1)"
+          test -n "$APP"
+          test -f "$APP/PrivacyInfo.xcprivacy"
+          plutil -lint "$APP/PrivacyInfo.xcprivacy"
+
+          PLIST="$APP/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" = "com.nightvibes33.clarityvideo"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" = "1.0.0"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")" == 26.* ]]
+
+          EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
+          file "$APP/$EXECUTABLE_NAME" | grep -q 'Mach-O'
+          lipo -info "$APP/$EXECUTABLE_NAME" | grep -q 'arm64'
