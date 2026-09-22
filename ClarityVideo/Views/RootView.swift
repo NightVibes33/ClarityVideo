@@ -208,7 +208,6 @@ private struct ClarityNoticeOverlay: View {
             .padding(.horizontal, 24)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(.isModal)
     }
 
     private var noticeIcon: String {
