@@ -319,7 +319,7 @@ struct AnalysisCard: View {
 
 struct ProcessingView: View {
     @Environment(AppState.self) private var state
-    @State private var showCancelConfirmation = false
+    @State private var showCancelConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "processing-confirm"
 
     var body: some View {
         ZStack {
@@ -345,17 +345,39 @@ struct ProcessingView: View {
         }
         .navigationBarBackButtonHidden()
         .preferredColorScheme(.dark)
-        .confirmationDialog(
-            "Cancel enhancement?",
-            isPresented: $showCancelConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Cancel Enhancement", role: .destructive) {
-                state.cancelExport()
+        .overlay {
+            if showCancelConfirmation {
+                ZStack {
+                    Color.black.opacity(0.64)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showCancelConfirmation = false
+                            }
+                        }
+
+                    ClarityConfirmationCard(
+                        icon: "xmark.circle.fill",
+                        title: "Cancel enhancement?",
+                        message: "The current export will stop. Completed checkpoints are kept when this job supports resumable processing.",
+                        destructiveTitle: "Cancel Enhancement",
+                        cancelTitle: "Keep Processing",
+                        destructiveAction: {
+                            state.cancelExport()
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showCancelConfirmation = false
+                            }
+                        },
+                        cancelAction: {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showCancelConfirmation = false
+                            }
+                        }
+                    )
+                    .transition(.scale(scale: 0.94).combined(with: .opacity))
+                }
+                .zIndex(100)
             }
-            Button("Keep Processing", role: .cancel) {}
-        } message: {
-            Text("The current export will stop. Completed checkpoints are kept when the job supports resumable processing.")
         }
     }
 
@@ -563,7 +585,7 @@ struct ProcessingView: View {
 struct ResultsView: View {
     @Environment(AppState.self) private var state
     @State private var saving = false
-    @State private var showDeleteConfirmation = false
+    @State private var showDeleteConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "results-confirm"
 
     var body: some View {
         ZStack {
@@ -639,17 +661,39 @@ struct ResultsView: View {
                 }
             }
         }
-        .confirmationDialog(
-            "Delete enhanced video?",
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete Output", role: .destructive) {
-                state.deleteActiveOutput()
+        .overlay {
+            if showDeleteConfirmation {
+                ZStack {
+                    Color.black.opacity(0.64)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showDeleteConfirmation = false
+                            }
+                        }
+
+                    ClarityConfirmationCard(
+                        icon: "trash.fill",
+                        title: "Delete enhanced video?",
+                        message: "This deletes the enhanced export from Clarity. Your original video is not changed.",
+                        destructiveTitle: "Delete Output",
+                        cancelTitle: "Cancel",
+                        destructiveAction: {
+                            state.deleteActiveOutput()
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showDeleteConfirmation = false
+                            }
+                        },
+                        cancelAction: {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                showDeleteConfirmation = false
+                            }
+                        }
+                    )
+                    .transition(.scale(scale: 0.94).combined(with: .opacity))
+                }
+                .zIndex(100)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This deletes the enhanced export from Clarity. Your original video is not changed.")
         }
     }
 
