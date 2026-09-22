@@ -47,6 +47,9 @@ jobs:
           APP="$RUNNER_TEMP/UIReference/Build/Products/Release-iphonesimulator/ClarityVideo.app"
           test -d "$APP"
           xcrun simctl install "$DEVICE" "$APP"
+          # Keep system privacy sheets out of visual QA. Import behavior itself
+          # is covered by the app's real PHPhotoLibrary code path.
+          xcrun simctl privacy "$DEVICE" grant photos com.nightvibes33.clarityvideo || true
 
           for route in home import enhance export; do
             SIMCTL_CHILD_CLARITY_UI_ROUTE="$route"               xcrun simctl launch --terminate-running-process "$DEVICE" com.nightvibes33.clarityvideo >/dev/null
