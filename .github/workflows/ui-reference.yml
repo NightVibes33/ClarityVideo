@@ -83,7 +83,7 @@ jobs:
           # Use a fresh simulator owned by this workflow. Reusing a pre-created
           # hosted-runner device occasionally leaves simctl blocked behind
           # LaunchServices migration and makes screenshot QA fail randomly.
-          read DEVICE_TYPE RUNTIME < <(python3 - <<'PY'
+          python3 - <<'PY' > "$RUNNER_TEMP/clarity-simulator.txt"
           import json, subprocess
 
           runtimes = json.loads(
@@ -114,9 +114,14 @@ jobs:
               (d for d in iphones if d.get("name") in {"iPhone 17 Pro", "iPhone 17"}),
               iphones[0]
           )
-          print(preferred["identifier"], runtime["identifier"])
+          print(preferred["identifier"])
+          print(runtime["identifier"])
           PY
-          )
+
+          DEVICE_TYPE="$(sed -n '1p' "$RUNNER_TEMP/clarity-simulator.txt")"
+          RUNTIME="$(sed -n '2p' "$RUNNER_TEMP/clarity-simulator.txt")"
+          test -n "$DEVICE_TYPE"
+          test -n "$RUNTIME"
 
           DEVICE="$(xcrun simctl create "Clarity-QA-$GITHUB_RUN_ID" "$DEVICE_TYPE" "$RUNTIME")"
           test -n "$DEVICE"
