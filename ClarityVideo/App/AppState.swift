@@ -308,6 +308,9 @@ final class AppState {
                     route = .exportSetup
                 }
             } catch {
+                if let output = activeJob?.outputURL {
+                    try? FileManager.default.removeItem(at: output)
+                }
                 activeJob?.status = .failed
                 activeJob?.errorMessage = error.localizedDescription
                 errorMessage = error.localizedDescription
