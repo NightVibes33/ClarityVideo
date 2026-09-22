@@ -248,20 +248,41 @@ final class CapabilityDetector {
 }
 
 enum StorageEstimator {
+    private static let minimumSafetyMargin: Int64 = 96_000_000
+    private static let minimumWorkingSpace: Int64 = 64_000_000
+
     static func estimatedOutputBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
         Int64(Double(configuration.bitrateMbps) * 1_000_000 / 8 * info.duration)
     }
+
     static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
         let output = estimatedOutputBytes(info: info, configuration: configuration)
-        let temporary = output + (configuration.resolution == .uhd8K ? output / 4 : output / 10)
-        return output + temporary + 1_000_000_000
+        let safety = max(minimumSafetyMargin, min(output / 4, 256_000_000))
+
+        if SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration) {
+            // Peak segmented export storage is the retained segment set + final
+            // assembled movie + at most one active five-second segment + margin.
+            let activeSegmentDuration = min(5, max(0, info.duration))
+            let activeSegment = Int64(
+                Double(configuration.bitrateMbps) * 1_000_000 / 8 * activeSegmentDuration
+            )
+            return output * 2 + activeSegment + safety
+        }
+
+        // Single-pass exports do not need a second full-size copy. Reserve a
+        // bounded writer/processing workspace plus a real safety margin.
+        let working = max(minimumWorkingSpace, min(output / 3, 256_000_000))
+        return output + working + safety
     }
+
     static func validate(info: VideoAssetInfo, configuration: ExportConfiguration) throws {
         let required = requiredBytes(info: info, configuration: configuration)
         let home = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let values = try home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         let available = values.volumeAvailableCapacityForImportantUsage ?? 0
-        guard available >= required else { throw AppError.insufficientStorage(required: required, available: available) }
+        guard available >= required else {
+            throw AppError.insufficientStorage(required: required, available: available)
+        }
     }
 }
 

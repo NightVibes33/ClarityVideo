@@ -557,40 +557,167 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
-                    LabeledContent("Processing", value: "On-device")
-                    LabeledContent("Account", value: "Not required")
-                } header: { Text("About Clarity") } footer: {
-                    Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
-                }
+            ZStack {
+                ClarityNativeTheme.background.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.06), .clear, Color.purple.opacity(0.035)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
-                Section("Your privacy") {
-                    Label("No cloud uploads", systemImage: "icloud.slash")
-                    Label("No analytics or tracking", systemImage: "eye.slash")
-                    Label("No account or cloud credits", systemImage: "person.crop.circle.badge.xmark")
-                }
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 18) {
+                        header
 
-                Section("Help and learning") {
-                    Button {
-                        hasCompletedOnboarding = false
-                        dismiss()
-                    } label: { Label("Replay introduction", systemImage: "play.circle") }
-                    NavigationLink { DiagnosticsView() } label: {
-                        Label("Video engine diagnostics", systemImage: "stethoscope")
+                        settingsSection("ABOUT CLARITY") {
+                            infoRow("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
+                            divider
+                            infoRow("Processing", value: "On-device")
+                            divider
+                            infoRow("Account", value: "Not required")
+                        }
+
+                        settingsSection("YOUR PRIVACY") {
+                            iconRow("icloud.slash.fill", title: "No cloud uploads")
+                            divider
+                            iconRow("eye.slash.fill", title: "No analytics or tracking")
+                            divider
+                            iconRow("person.crop.circle.badge.xmark", title: "No account or cloud credits")
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionLabel("HELP & LEARNING")
+                            NativePanel {
+                                VStack(spacing: 0) {
+                                    Button {
+                                        hasCompletedOnboarding = false
+                                        dismiss()
+                                    } label: {
+                                        actionRow("play.circle.fill", title: "Replay introduction")
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    divider.padding(.leading, 47)
+
+                                    NavigationLink {
+                                        DiagnosticsView()
+                                    } label: {
+                                        actionRow("stethoscope", title: "Video engine diagnostics", showsChevron: true)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 14)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            sectionLabel("GOOD TO KNOW")
+                            NativePanel {
+                                Text("4K and 8K exports use local hardware acceleration. Clarity reserves only the disk space the selected export path actually needs, creates checkpoints for segmented jobs, and never replaces your original video.")
+                                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white.opacity(0.62))
+                                    .lineSpacing(4)
+                                    .padding(16)
+                            }
+                        }
                     }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 28)
                 }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }.padding(.vertical, 4)
-                } header: { Text("Good to know") }
             }
-            .navigationTitle("Settings")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .navigationBarHidden(true)
         }
+        .preferredColorScheme(.dark)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Settings")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            Spacer()
+            Button("Done") { dismiss() }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.cyan)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.06), in: Capsule())
+        }
+        .padding(.top, 10)
+    }
+
+    @ViewBuilder
+    private func settingsSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel(title)
+            NativePanel {
+                VStack(spacing: 0) {
+                    content()
+                }
+                .padding(.horizontal, 14)
+            }
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+            .tracking(1.4)
+            .foregroundStyle(.white.opacity(0.40))
+            .padding(.leading, 3)
+    }
+
+    private func infoRow(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+            Spacer()
+            Text(value)
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.52))
+        }
+        .padding(.vertical, 13)
+    }
+
+    private func iconRow(_ icon: String, title: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.cyan)
+                .frame(width: 30)
+            Text(title)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+            Spacer()
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func actionRow(_ icon: String, title: String, showsChevron: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.cyan)
+                .frame(width: 30)
+            Text(title)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            Spacer()
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white.opacity(0.34))
+            }
+        }
+        .padding(.vertical, 13)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.07))
+            .frame(height: 0.7)
     }
 }

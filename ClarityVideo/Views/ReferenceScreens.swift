@@ -5,10 +5,10 @@ import AVKit
 import UniformTypeIdentifiers
 import UIKit
 
-private enum ClarityNativeTheme {
+enum ClarityNativeTheme {
     static let background = Color(red: 0.005, green: 0.015, blue: 0.030)
-    static let panel = Color(red: 0.025, green: 0.055, blue: 0.095)
-    static let stroke = Color(red: 0.10, green: 0.48, blue: 1.0).opacity(0.45)
+    static let panel = Color(red: 0.018, green: 0.040, blue: 0.070)
+    static let stroke = Color(red: 0.10, green: 0.48, blue: 1.0).opacity(0.22)
     static let muted = Color.white.opacity(0.58)
     static let brand = LinearGradient(
         colors: [Color(red: 0.69, green: 0.42, blue: 1.0), Color(red: 0.16, green: 0.58, blue: 1.0), .cyan],
@@ -24,25 +24,25 @@ private enum ClarityArt {
     static let mountain = UIImage(named: "MountainReference")
 }
 
-private struct NativePanel<Content: View>: View {
+struct NativePanel<Content: View>: View {
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
 
     var body: some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 15, style: .continuous)
                     .fill(ClarityNativeTheme.panel)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(ClarityNativeTheme.stroke, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .stroke(ClarityNativeTheme.stroke, lineWidth: 0.8)
                     )
-                    .shadow(color: .blue.opacity(0.10), radius: 12, y: 7)
+                    .shadow(color: .black.opacity(0.28), radius: 10, y: 6)
             )
     }
 }
 
-private struct NativeHeader: View {
+struct NativeHeader: View {
     let title: String
     var showsBack = true
     var trailingIcon: String? = nil
@@ -226,35 +226,13 @@ struct ReferenceHomeView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingSettings) { SettingsView().preferredColorScheme(.dark) }
-        .sheet(isPresented: $showingProjects) {
-            NavigationStack {
-                List(state.recentJobs) { job in
-                    Button {
-                        if job.status == .paused {
-                            state.resume(job)
-                        } else if job.status == .completed, job.outputURL != nil {
-                            state.activeJob = job
-                            state.route = .results
-                        }
-                        showingProjects = false
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(job.assetInfo.fileName).lineLimit(1)
-                            Text("\(job.configuration.resolution.rawValue) · \(job.configuration.upscaler.rawValue) · \(job.status.rawValue.capitalized)")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .overlay {
-                    if state.recentJobs.isEmpty {
-                        ContentUnavailableView("No recent projects", systemImage: "film")
-                    }
-                }
-                .navigationTitle("Recent Projects")
-                .toolbar { Button("Done") { showingProjects = false } }
-            }
-            .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showingSettings) {
+            SettingsView().preferredColorScheme(.dark)
+        }
+        .fullScreenCover(isPresented: $showingProjects) {
+            ClarityProjectsView()
+                .environment(state)
+                .preferredColorScheme(.dark)
         }
     }
 
@@ -316,6 +294,115 @@ private enum ImportSource: String, CaseIterable, Identifiable {
 private enum ImportFilter: String, CaseIterable, Identifiable {
     case all = "All", videos = "Videos", favorites = "Favorites", recents = "Recents"
     var id: String { rawValue }
+}
+
+struct ClarityProjectsView: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            ClarityNativeTheme.background.ignoresSafeArea()
+            LinearGradient(
+                colors: [Color.blue.opacity(0.07), .clear, Color.purple.opacity(0.04)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Recent Projects")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                    Spacer()
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.cyan)
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 9)
+                        .background(Color.white.opacity(0.06), in: Capsule())
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 18)
+
+                if state.recentJobs.isEmpty {
+                    Spacer()
+                    VStack(spacing: 15) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.10))
+                                .frame(width: 76, height: 76)
+                            Image(systemName: "film.stack.fill")
+                                .font(.system(size: 31, weight: .semibold))
+                                .foregroundStyle(ClarityNativeTheme.brand)
+                        }
+                        Text("No recent projects")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        Text("Your finished and paused enhancements will appear here.")
+                            .font(.system(size: 12, weight: .medium))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(ClarityNativeTheme.muted)
+                            .frame(maxWidth: 260)
+                    }
+                    Spacer()
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 10) {
+                            ForEach(state.recentJobs) { job in
+                                Button {
+                                    if job.status == .paused {
+                                        state.resume(job)
+                                    } else if job.status == .completed, job.outputURL != nil {
+                                        state.activeJob = job
+                                        state.route = .results
+                                    }
+                                    dismiss()
+                                } label: {
+                                    HStack(spacing: 13) {
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(ClarityNativeTheme.card)
+                                            .frame(width: 54, height: 54)
+                                            .overlay(
+                                                Image(systemName: job.status == .paused ? "pause.fill" : "film.fill")
+                                                    .font(.system(size: 20, weight: .semibold))
+                                                    .foregroundStyle(.cyan)
+                                            )
+
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            Text(job.assetInfo.fileName)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundStyle(.white)
+                                                .lineLimit(1)
+                                            Text("\(job.configuration.resolution == .uhd8K ? "8K" : "4K") · \(job.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR") · \(job.status.rawValue.capitalized)")
+                                                .font(.system(size: 10.5, weight: .medium))
+                                                .foregroundStyle(ClarityNativeTheme.muted)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.white.opacity(0.38))
+                                    }
+                                    .padding(13)
+                                }
+                                .buttonStyle(.plain)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(ClarityNativeTheme.panel)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(ClarityNativeTheme.stroke, lineWidth: 0.8)
+                                        )
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct ReferenceImportVideoView: View {

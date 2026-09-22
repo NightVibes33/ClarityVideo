@@ -108,7 +108,6 @@ final class AppState {
         Task {
             defer { isGeneratingPreview = false }
             do {
-                try StorageEstimator.validate(info: assetInfo, configuration: configuration)
                 comparisonPreview = try await previewCoordinator.generate(
                     sourceURL: importedURL, sourceInfo: assetInfo, configuration: configuration,
                     requestedDuration: previewDurationSeconds,
