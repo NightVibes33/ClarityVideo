@@ -417,19 +417,21 @@ struct ReferenceEditorView: View {
                     }
 
                     // Overlay the live numeric values on the reference value positions.
-                    GeometryReader { geometry in
-                        liveValue(
-                            Int((state.configuration.denoise * 100).rounded()),
-                            x: 0.945, y: 0.842, geometry: geometry
-                        )
-                        liveValue(
-                            Int((state.configuration.detailRecovery * 100).rounded()),
-                            x: 0.945, y: 0.889, geometry: geometry
-                        )
-                        liveValue(
-                            Int((state.configuration.sharpening * 100).rounded()),
-                            x: 0.945, y: 0.936, geometry: geometry
-                        )
+                    if state.importedURL != nil {
+                        GeometryReader { geometry in
+                            liveValue(
+                                Int((state.configuration.denoise * 100).rounded()),
+                                x: 0.945, y: 0.842, geometry: geometry
+                            )
+                            liveValue(
+                                Int((state.configuration.detailRecovery * 100).rounded()),
+                                x: 0.945, y: 0.889, geometry: geometry
+                            )
+                            liveValue(
+                                Int((state.configuration.sharpening * 100).rounded()),
+                                x: 0.945, y: 0.936, geometry: geometry
+                            )
+                        }
                     }
                 }
                 .containerRelativeFrame(.vertical)
