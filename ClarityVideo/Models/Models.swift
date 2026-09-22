@@ -38,6 +38,7 @@ enum EnhancementMode: String, Codable, CaseIterable, Identifiable, Sendable {
     case quality = "Quality"
     case restore = "Restore Old Video"
     case anime = "Anime & Game"
+    case dlss5 = "DLSS 5 (experimental)"
     var id: String { rawValue }
 }
 
@@ -85,6 +86,10 @@ extension ExportConfiguration {
             denoise = temporalDenoiseAvailable ? 0.10 : 0
             detailRecovery = 0.70
             sharpening = 0.35
+        case .dlss5:
+            denoise = 0
+            detailRecovery = 0.25
+            sharpening = 0.10
         }
     }
 }

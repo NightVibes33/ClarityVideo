@@ -39,6 +39,19 @@ final class AIAssetReaderWriterPipeline {
         let naturalSize = try await track.load(.naturalSize)
         let sourceWidth = Int(abs(naturalSize.width))
         let sourceHeight = Int(abs(naturalSize.height))
+        let wantsNeuralRenderer = job.configuration.mode == .dlss5
+        if wantsNeuralRenderer && job.assetInfo.isHDR {
+            throw AppError.unsupported("The experimental neural renderer currently accepts SDR video only.")
+        }
+        let neuralRenderer: IOSNeuralHeadService?
+        if wantsNeuralRenderer {
+            guard let url = IOSNeuralHeadService.bundledModelURL() else {
+                throw AppError.exportFailed("DLSS 5 model is not installed in this build.")
+            }
+            neuralRenderer = try IOSNeuralHeadService(modelURL: url)
+        } else {
+            neuralRenderer = nil
+        }
         let probe = AppleFrameProcessorService.probe()
         var planningCapabilities = DeviceEnhancementCapabilities()
         planningCapabilities.fullSuperResolutionAvailable = probe.fullSupported
@@ -170,6 +183,7 @@ final class AIAssetReaderWriterPipeline {
         result.outputCodec = selectedCodec + (useNativeEnhancement
             ? (plan.requiresFinalResize ? " (spatial upscale)" : " (on-device enhancement)")
             : " (Apple AI upscale)")
+        if wantsNeuralRenderer { result.outputCodec += " + recovered DLSS 5 neural rendering" }
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
         writerInput.transform = try await track.load(.preferredTransform)
@@ -263,25 +277,46 @@ final class AIAssetReaderWriterPipeline {
             } else {
                 enhancementSource = sourceBuffer
             }
+            let preparedSource: CVPixelBuffer
+            if let neuralRenderer {
+                let neuralFrame = try await neuralRenderer.render(source: enhancementSource, frameNumber: frameIndex)
+                if sourcePixelFormat == kCVPixelFormatType_32BGRA || useNativeEnhancement {
+                    preparedSource = neuralFrame
+                } else {
+                    var converted: CVPixelBuffer?
+                    let status = CVPixelBufferCreate(
+                        kCFAllocatorDefault, sourceWidth, sourceHeight, sourcePixelFormat,
+                        [kCVPixelBufferIOSurfacePropertiesKey as String: [String: String]()] as CFDictionary,
+                        &converted
+                    )
+                    guard status == kCVReturnSuccess, let converted else {
+                        throw AppleFrameProcessorError.pixelBufferCreation(status)
+                    }
+                    ciContext.render(CIImage(cvPixelBuffer: neuralFrame), to: converted)
+                    preparedSource = converted
+                }
+            } else {
+                preparedSource = enhancementSource
+            }
             let aiBuffer: CVPixelBuffer
             if useNativeEnhancement || appleSRFallback {
-                aiBuffer = enhancementSource
+                aiBuffer = preparedSource
             } else {
                 do {
                     if let tiled {
                         let canvas = writesTiledFramesDirectly ? try makeWriterBuffer(adaptor: adaptor) : nil
                         aiBuffer = try await tiled.process(
-                            frame: enhancementSource, presentationTime: timestamp, canvas: canvas,
+                            frame: preparedSource, presentationTime: timestamp, canvas: canvas,
                             detailRecovery: writesTiledFramesDirectly ? job.configuration.detailRecovery : 0,
                             sharpening: writesTiledFramesDirectly ? job.configuration.sharpening : 0
                         )
                     } else if useLowLatency {
                         aiBuffer = try await processor.processInActiveLowLatencySession(
-                            source: enhancementSource, presentationTime: timestamp
+                            source: preparedSource, presentationTime: timestamp
                         )
                     } else {
                         aiBuffer = try await processor.processInActiveSession(
-                            source: enhancementSource, presentationTime: timestamp,
+                            source: preparedSource, presentationTime: timestamp,
                             sequential: frameIndex > 0 && !isSceneCut
                         )
                     }

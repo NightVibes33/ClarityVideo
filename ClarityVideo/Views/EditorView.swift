@@ -127,6 +127,9 @@ struct EditorView: View {
                     Text("Balanced").tag(EnhancementMode.fast)
                     Text("Quality").tag(EnhancementMode.quality)
                     Text("Ultra").tag(EnhancementMode.restore)
+                    if IOSNeuralHeadService.bundledModelURL() != nil {
+                        Text("DLSS 5").tag(EnhancementMode.dlss5)
+                    }
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: state.configuration.mode) { _, mode in
@@ -259,6 +262,7 @@ struct EditorView: View {
         case .quality: "Quality"
         case .restore: "Restore"
         case .anime: "Anime"
+        case .dlss5: "DLSS 5"
         }
     }
 
@@ -268,6 +272,7 @@ struct EditorView: View {
         case .quality: "Best supported detail and clarity for most videos."
         case .restore: "Stronger cleanup for old, compressed, or noisy footage."
         case .anime: "Crisp edges and controlled sharpening for animation and gameplay."
+        case .dlss5: "Recovered neural renderer followed by Apple Super Resolution. Experimental and slower."
         }
     }
 

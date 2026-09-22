@@ -1,0 +1,53 @@
+DLSSMac experimental research preview, September 2026.
+
+Derived from MLX-DLSS, Copyright 2026 MLX-DLSS contributors (Apache-2.0).
+Native inference, model extraction and reference implementation retain their
+upstream license. Modifications include M5 FP8/NAX kernels, packed game-frame
+processing, temporal integration, buffered presentation and local video studio.
+Modified upstream Swift files are marked; new files are DLSSMac additions.
+
+MLX-DLSS: https://github.com/iamwavecut/MLX-DLSS
+Base revision: 771ccb3b3bc84477c99452b63b16cb724319a338
+MLX Swift: 0.31.6 (MIT); bundled MLX C++: 0.31.1 (MIT).
+MLX Metal language-version selection is modified by patches/mlx-metal41.patch.
+NAX kernel provenance: licenses/MLX-NAX.txt.
+
+ReShade 6.8.0: https://github.com/crosire/reshade (BSD-3-Clause).
+Dear ImGui headers are distributed under MIT; see licenses/ImGui.txt.
+Streamline 1.1.1 API headers: Copyright 2022 NVIDIA CORPORATION (MIT).
+The application bundle includes converted NVIDIA DLSS Neural Rendering model
+weights. These weights remain NVIDIA material and are not covered by this
+project's Apache-2.0 source-code license. No original NVIDIA DLL or CUDA kernel
+binary is included. Converted weight files are not committed to the source tree.
+
+d3dmetal-native: https://github.com/utmapp/d3dmetal-native
+Base revision: f0dd1fafded509c9a949535c773fdc4e3ab07a71 (MIT).
+Modified src/dmn_share_metal.mm supports explicit per-allocation sharing.
+Vendored Wine DirectX headers retain LGPL-2.1-or-later notices; MinGW headers
+retain their original notices. See licenses/LGPL-2.1.txt and source headers.
+
+OpenCV 5.0.0 and KleidiCV 26.03: Apache-2.0; Carotene: BSD-3-Clause.
+The native executable statically links the listed OpenCV libraries.
+Swift Numerics and Argument Parser are Apache-2.0.
+Full applicable license texts are included in licenses/ and native/NOTICE.
+
+Research inspiration and credits:
+https://github.com/danielblnc/DLSS-NR-on-AMD
+https://github.com/RedDukeDev/dlss5-image-enhancer-zluda
+This is a community implementation, not an NVIDIA, Apple or GameHub product.
+
+Windows binaries link LLVM/MinGW runtime components. See licenses/llvm-mingw/
+for LLVM exceptions and MinGW/winpthreads runtime notices.
+
+The desktop app embeds Python 3.14.6 (PSF license), NumPy 2.5.3 (BSD and
+bundled dependency notices), and safetensors 0.8.0 (Apache-2.0). It is frozen with
+PyInstaller 6.22.2 (GPL with the bootloader exception permitting bundled apps).
+Complete runtime notices are copied into the app's Resources/licenses/desktop.
+
+Video tools: FFmpeg 7.1.1 (LGPL-2.1-or-later), built without GPL/nonfree features;
+dav1d 1.5.4 (BSD-2-Clause), distributed as a separate dynamic library.
+This software is based in part on the work of the Independent JPEG Group.
+FFmpeg's IJG-derived files are unmodified. See licenses/ffmpeg and the
+corresponding sources in ThirdPartySources/FFmpeg inside the main release ZIP.
+FFmpeg: https://ffmpeg.org/
+dav1d: https://code.videolan.org/videolan/dav1d

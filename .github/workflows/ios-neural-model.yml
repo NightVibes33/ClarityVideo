@@ -1,0 +1,41 @@
+name: Convert recovered neural model for iOS
+on:
+  workflow_dispatch:
+  push:
+    branches: [neural-ios-port]
+permissions:
+  contents: read
+jobs:
+  convert:
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+      - name: Build iPhone port source
+        run: |
+          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
+      - name: Install model conversion dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/port-venv"
+          "$RUNNER_TEMP/port-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/port-venv/bin/python" -m pip install 'torch>=2.1' 'coremltools>=9' 'safetensors>=0.4' numpy
+      - name: Extract recovered model weights and convert for iOS
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 'https://github.com/Mappsnet7/DLSSMac/releases/download/v0.1.6/DLSSMac-0.1.6-macos.zip' -o "$RUNNER_TEMP/dlssmac.zip"
+          unzip -p "$RUNNER_TEMP/dlssmac.zip" 'DLSSMac.app/Contents/Resources/models/NeuralRendering.dlssmodel/weights.safetensors' > "$RUNNER_TEMP/weights.safetensors"
+          PYTHONPATH=PortTools "$RUNNER_TEMP/port-venv/bin/python" PortTools/convert_model_for_ios.py \
+            "$RUNNER_TEMP/weights.safetensors" artifacts/DLSSNeuralHead128.mlpackage
+          test -s artifacts/DLSSNeuralHead128.mlpackage/Manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dlss-neural-head-ios26
+          path: artifacts/DLSSNeuralHead128.mlpackage
+          retention-days: 7
