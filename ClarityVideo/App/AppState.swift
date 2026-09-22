@@ -15,6 +15,9 @@ private enum ConfigurationDefaultsStore {
             return ExportConfiguration()
         }
         configuration.clampBitrateToSupportedRange()
+        // Older builds exposed an HDR preservation switch before that export path
+        // was implemented. Migrate the saved choice to the supported SDR route.
+        configuration.hdrBehavior = .convertToSDR
         return configuration
     }
 
@@ -305,6 +308,14 @@ final class AppState {
         // Clamp legacy/recent-job settings so older 160–220 Mbps presets cannot
         // resurrect multi-gigabyte scratch-space requirements on short exports.
         configuration.clampBitrateToSupportedRange()
+        if configuration.upscaler == .dlss5 && IOSNeuralHeadService.bundledModelURL() == nil {
+            errorMessage = "The experimental neural model is not installed in this build. Choose Apple SR."
+            return
+        }
+        if assetInfo.isHDR && configuration.resolution == .uhd8K {
+            errorMessage = "8K HDR-to-SDR export is unavailable. Choose 4K."
+            return
+        }
         if configuration.resolution == .uhd8K && !capabilities.supports8KHEVCEncode {
             errorMessage = "This device did not pass Clarity’s real 8K hardware encoder validation."
             return
