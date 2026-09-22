@@ -284,13 +284,7 @@ struct HomeView: View {
 }
 
 private enum ReferenceArtwork {
-    // The mountains are taken from the supplied design, keeping the artwork
-    // identical while the controls remain accessible native SwiftUI views.
-    static let mountain: UIImage? = {
-        guard let image = UIImage(named: "ReferenceArtwork")?.cgImage,
-              let crop = image.cropping(to: CGRect(x: 205, y: 177, width: 820, height: 158)) else { return nil }
-        return UIImage(cgImage: crop)
-    }()
+    static let mountain = UIImage(named: "MountainReference")
 }
 
 private enum ClarityTheme {
