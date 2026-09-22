@@ -2818,15 +2818,12 @@ struct ReferenceExportView: View {
                     }
                 }
 
-                nativeToggle(
-                    "Preserve HDR when available",
-                    isOn: Binding(
-                        get: { state.configuration.hdrBehavior == .preserve },
-                        set: {
-                            state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR
-                        }
-                    )
-                )
+                if state.assetInfo?.isHDR == true {
+                    Text("HDR sources are converted to SDR for 4K export. HDR preservation and 8K HDR export are not available yet.")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 nativeToggle(
                     "Save to Photos when finished",
