@@ -25,7 +25,18 @@ final class RecoveredNeuralIntegrationTests: XCTestCase {
         ])
     }
 
+    func testRecoveredModelLoadsWithExpectedIOSInterface() throws {
+        let modelURL = try XCTUnwrap(
+            IOSNeuralHeadService.bundledModelURL(),
+            "Converted recovered model must be bundled for this integration run."
+        )
+        _ = try IOSNeuralHeadService(modelURL: modelURL)
+    }
+
     func testRecoveredModelProcessesARealPixelBuffer() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("Full recovered-model prediction is device-only; simulator compile/load and I/O contract are validated separately.")
+#else
         guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
             throw XCTSkip("The optional recovered model is not bundled with this build.")
         }
@@ -60,5 +71,6 @@ final class RecoveredNeuralIntegrationTests: XCTestCase {
         let bytes = try XCTUnwrap(CVPixelBufferGetBaseAddress(output)?.assumingMemoryBound(to: UInt8.self))
         XCTAssertEqual(bytes[3], 255)
         XCTAssertGreaterThan(bytes[2], 0)
+#endif
     }
 }
