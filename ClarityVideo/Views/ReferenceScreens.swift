@@ -848,22 +848,19 @@ struct ReferenceEditorView: View {
                     .font(.caption.bold())
                     .padding(.horizontal, 9).padding(.vertical, 6)
                     .background(.black.opacity(0.58), in: Capsule())
-                    .padding(10)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .position(x: 52, y: geometry.size.height - 24)
 
                 Text("After")
                     .font(.caption.bold())
                     .padding(.horizontal, 12).padding(.vertical, 6)
                     .background(Color.cyan.opacity(0.9), in: Capsule())
-                    .padding(10)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .position(x: geometry.size.width - 48, y: geometry.size.height - 24)
 
                 Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
                     .font(.caption.bold())
                     .padding(.horizontal, 7).padding(.vertical, 5)
                     .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 6))
-                    .padding(10)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .position(x: geometry.size.width - 28, y: 24)
 
                 if state.isGeneratingPreview {
                     VStack(spacing: 7) {

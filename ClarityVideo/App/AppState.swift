@@ -35,7 +35,7 @@ final class AppState {
     var outputBytesSoFar: Int64 = 0
     var isGeneratingPreview = false
     var isPreparingModel = false
-    var saveToPhotosAfterExport = false
+    var saveToPhotosAfterExport = true
     var saveToFilesAfterExport = false
     var pendingFilesExportURL: URL?
     private var pauseRequested = false
