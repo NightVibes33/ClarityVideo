@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: neural-ios-port-${{ github.workflow }}
+  group: neural-ios-port-v2-${{ github.workflow }}
   cancel-in-progress: true
 jobs:
   convert:
@@ -27,19 +27,71 @@ jobs:
         run: |
           xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo \
             -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
+      - name: Restore converted neural model cache
+        id: neural-model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/DLSSNeuralHead128.mlpackage
+          key: dlss-neural-head-ios26-v016-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('PortTools/convert_model_for_ios.py', 'PortTools/mlxdlss/**/*.py') }}
+      - name: Reuse latest compatible converted model
+        id: prior-neural-model
+        if: steps.neural-model-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          for attempt in $(seq 1 90); do
+            while read -r PREVIOUS_RUN PREVIOUS_SHA; do
+              [ -n "$PREVIOUS_RUN" ] || continue
+              git fetch --no-tags --depth=1 origin "$PREVIOUS_SHA" >/dev/null 2>&1 || continue
+              if ! git diff --quiet "$PREVIOUS_SHA" HEAD -- PortTools/convert_model_for_ios.py PortTools/mlxdlss; then
+                continue
+              fi
+              rm -rf "$RUNNER_TEMP/prior-neural-model"
+              mkdir -p "$RUNNER_TEMP/prior-neural-model"
+              if ! gh run download "$PREVIOUS_RUN" --name dlss-neural-head-ios26 --dir "$RUNNER_TEMP/prior-neural-model"; then
+                continue
+              fi
+              PACKAGE="$(find "$RUNNER_TEMP/prior-neural-model" -type d -name 'DLSSNeuralHead128.mlpackage' -print -quit)"
+              if [ -n "$PACKAGE" ] && [ -s "$PACKAGE/Manifest.json" ]; then
+                rm -rf artifacts/DLSSNeuralHead128.mlpackage
+                cp -R "$PACKAGE" artifacts/DLSSNeuralHead128.mlpackage
+                echo "reused=true" >> "$GITHUB_OUTPUT"
+                echo "Reused Core ML package from compatible run $PREVIOUS_RUN ($PREVIOUS_SHA)"
+                exit 0
+              fi
+            done < <(
+              gh run list --workflow ios-neural-model.yml --branch neural-ios-port --status success --limit 10 \
+                --json databaseId,headSha --jq '.[] | "\(.databaseId) \(.headSha)"' || true
+            )
+            echo "No compatible completed model artifact yet (attempt $attempt/90)."
+            sleep 30
+          done
+          echo "reused=false" >> "$GITHUB_OUTPUT"
       - name: Install model conversion dependencies
+        if: steps.neural-model-cache.outputs.cache-hit != 'true' && steps.prior-neural-model.outputs.reused != 'true'
         run: |
           python -m venv "$RUNNER_TEMP/port-venv"
           "$RUNNER_TEMP/port-venv/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/port-venv/bin/python" -m pip install 'torch==2.6.0' 'coremltools==9.0' 'safetensors>=0.4' numpy
       - name: Extract recovered model weights and convert for iOS
+        if: steps.neural-model-cache.outputs.cache-hit != 'true' && steps.prior-neural-model.outputs.reused != 'true'
         run: |
           set -euo pipefail
           curl -fLsS --retry 3 'https://github.com/Mappsnet7/DLSSMac/releases/download/v0.1.6/DLSSMac-0.1.6-macos.zip' -o "$RUNNER_TEMP/dlssmac.zip"
           unzip -p "$RUNNER_TEMP/dlssmac.zip" 'DLSSMac.app/Contents/Resources/models/NeuralRendering.dlssmodel/weights.safetensors' > "$RUNNER_TEMP/weights.safetensors"
           PYTHONPATH=PortTools "$RUNNER_TEMP/port-venv/bin/python" PortTools/convert_model_for_ios.py \
             "$RUNNER_TEMP/weights.safetensors" artifacts/DLSSNeuralHead128.mlpackage
+      - name: Validate converted neural model artifact
+        run: |
           test -s artifacts/DLSSNeuralHead128.mlpackage/Manifest.json
+      - name: Save converted neural model cache
+        if: steps.neural-model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/DLSSNeuralHead128.mlpackage
+          key: dlss-neural-head-ios26-v016-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('PortTools/convert_model_for_ios.py', 'PortTools/mlxdlss/**/*.py') }}
       - name: Bundle model and validate iOS simulator Core ML load
         run: |
           set -euo pipefail

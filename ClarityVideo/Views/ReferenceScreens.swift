@@ -363,18 +363,53 @@ struct ReferenceEditorView: View {
                 isPlaying.toggle()
             }
 
-            // Target resolution.
-            ExactHotspot(rect: CGRect(x: 0.39, y: 0.585, width: 0.27, height: 0.060)) {
-                state.configuration.resolution = .uhd4K
-            }
-            ExactHotspot(rect: CGRect(x: 0.67, y: 0.585, width: 0.30, height: 0.060)) {
-                state.configuration.resolution = .uhd8K
+            // Target resolution is an explicit choice independent of engine/preset.
+            GeometryReader { geometry in
+                HStack(spacing: 4) {
+                    ForEach([OutputResolution.uhd4K, .uhd8K]) { resolution in
+                        Button {
+                            state.configuration.resolution = resolution
+                        } label: {
+                            Text(resolution == .uhd4K ? "4K" : "8K")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 7)
+                                .background(
+                                    state.configuration.resolution == resolution
+                                        ? AnyShapeStyle(
+                                            LinearGradient(
+                                                colors: [.purple, .blue, .cyan],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(4)
+                .frame(
+                    width: geometry.size.width * 0.935,
+                    height: geometry.size.height * 0.060
+                )
+                .background(
+                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    in: RoundedRectangle(cornerRadius: 10)
+                )
+                .position(
+                    x: geometry.size.width * 0.502,
+                    y: geometry.size.height * 0.615
+                )
             }
 
-            // Enhancement mode.
+            // Quality preset is independent from the selected AI upscaler.
             ExactHotspot(rect: CGRect(x: 0.035, y: 0.690, width: 0.31, height: 0.060)) {
                 state.configuration.applyPreset(
-                    .fast,
+                    .balanced,
                     temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
                 )
             }
@@ -385,20 +420,88 @@ struct ReferenceEditorView: View {
                 )
             }
             ExactHotspot(rect: CGRect(x: 0.67, y: 0.690, width: 0.30, height: 0.060)) {
-                let mode: EnhancementMode =
-                    IOSNeuralHeadService.bundledModelURL() != nil ? .dlss5 : .restore
                 state.configuration.applyPreset(
-                    mode,
+                    .ultra,
                     temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
                 )
             }
 
-            // AI Super Resolution toggle.
-            ExactHotspot(rect: CGRect(x: 0.82, y: 0.760, width: 0.18, height: 0.060)) {
-                let enabled = state.configuration.mode != .fast
-                state.configuration.applyPreset(
-                    enabled ? .fast : .quality,
-                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+            // Replace the old single AI toggle row with a real engine selector.
+            GeometryReader { geometry in
+                HStack(spacing: 4) {
+                    Text("AI Upscaler")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .frame(width: geometry.size.width * 0.24, alignment: .leading)
+
+                    Button {
+                        state.configuration.upscaler = .appleSR
+                    } label: {
+                        Text("Apple SR")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                state.configuration.upscaler == .appleSR
+                                    ? AnyShapeStyle(
+                                        LinearGradient(
+                                            colors: [.purple, .blue, .cyan],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    : AnyShapeStyle(Color.white.opacity(0.06)),
+                                in: RoundedRectangle(cornerRadius: 8)
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        guard IOSNeuralHeadService.bundledModelURL() != nil else {
+                            state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
+                            return
+                        }
+                        state.configuration.upscaler = .dlss5
+                    } label: {
+                        VStack(spacing: 0) {
+                            Text("DLSS 5")
+                                .font(.system(size: 9.5, weight: .semibold))
+                            Text("Experimental")
+                                .font(.system(size: 6.5, weight: .medium))
+                                .opacity(0.72)
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 3)
+                        .background(
+                            state.configuration.upscaler == .dlss5
+                                ? AnyShapeStyle(
+                                    LinearGradient(
+                                        colors: [.purple, .blue, .cyan],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                : AnyShapeStyle(Color.white.opacity(0.06)),
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(IOSNeuralHeadService.bundledModelURL() == nil ? 0.45 : 1)
+                }
+                .padding(.horizontal, geometry.size.width * 0.035)
+                .frame(
+                    width: geometry.size.width * 0.94,
+                    height: geometry.size.height * 0.060
+                )
+                .background(
+                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    in: RoundedRectangle(cornerRadius: 10)
+                )
+                .position(
+                    x: geometry.size.width * 0.50,
+                    y: geometry.size.height * 0.785
                 )
             }
 
@@ -517,9 +620,12 @@ struct ReferenceExportView: View {
                         Text(info.fileName.isEmpty ? "My Video" : info.fileName)
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
-                        Text("\(info.durationText) · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.codec.rawValue)")
+                        Text("\(info.durationText) · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.72))
+                        Text("\(state.configuration.qualityPreset.rawValue) · \(state.configuration.codec.rawValue)")
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.58))
                         Text("~ " + ByteCountFormatter.string(
                             fromByteCount: StorageEstimator.estimatedOutputBytes(
                                 info: info,

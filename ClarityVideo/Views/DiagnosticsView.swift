@@ -42,6 +42,13 @@ struct DiagnosticsView: View {
                 Button { Task { await state.prepareModelAndRunSelfTest() } } label: {
                     Label(state.isPreparingModel ? "Preparing and testing..." : "Prepare model and run one-frame AI test", systemImage: "sparkles.tv")
                 }.disabled(state.isPreparingModel || !state.capabilities.fullSuperResolutionAvailable)
+                Button { Task { await state.runRecoveredNeuralHeadSelfTest() } } label: {
+                    Label(
+                        state.isPreparingModel ? "Running recovered neural head..." : "Run recovered neural head device test",
+                        systemImage: "brain.head.profile"
+                    )
+                }
+                .disabled(state.isPreparingModel || IOSNeuralHeadService.bundledModelURL() == nil)
                 if let still = state.diagnosticStillURL {
                     ShareLink(item: still) { Label("Export enhanced test still", systemImage: "photo") }
                 }

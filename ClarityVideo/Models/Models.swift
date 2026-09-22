@@ -33,12 +33,16 @@ enum OutputResolution: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum EnhancementMode: String, Codable, CaseIterable, Identifiable, Sendable {
-    case fast = "Fast"
+enum QualityPreset: String, Codable, CaseIterable, Identifiable, Sendable {
+    case balanced = "Balanced"
     case quality = "Quality"
-    case restore = "Restore Old Video"
-    case anime = "Anime & Game"
-    case dlss5 = "DLSS 5 (experimental)"
+    case ultra = "Ultra"
+    var id: String { rawValue }
+}
+
+enum UpscalerEngine: String, Codable, CaseIterable, Identifiable, Sendable {
+    case appleSR = "Apple SR"
+    case dlss5 = "DLSS 5 (Experimental)"
     var id: String { rawValue }
 }
 
@@ -56,7 +60,8 @@ enum HDRBehavior: String, Codable, CaseIterable, Identifiable, Sendable {
 
 struct ExportConfiguration: Codable, Equatable, Sendable {
     var resolution: OutputResolution = .uhd4K
-    var mode: EnhancementMode = .quality
+    var upscaler: UpscalerEngine = .appleSR
+    var qualityPreset: QualityPreset = .quality
     var denoise = 0.2
     var detailRecovery = 0.5
     var sharpening = 0.15
@@ -64,13 +69,66 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
     var codec: OutputCodec = .hevc
     var hdrBehavior: HDRBehavior = .preserve
     var preserveFrameRate = true
+
+    private enum CodingKeys: String, CodingKey {
+        case resolution, upscaler, qualityPreset
+        case denoise, detailRecovery, sharpening, bitrateMbps
+        case codec, hdrBehavior, preserveFrameRate
+        // Legacy pre-engine-separation key.
+        case mode
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        resolution = try values.decodeIfPresent(OutputResolution.self, forKey: .resolution) ?? .uhd4K
+        denoise = try values.decodeIfPresent(Double.self, forKey: .denoise) ?? 0.2
+        detailRecovery = try values.decodeIfPresent(Double.self, forKey: .detailRecovery) ?? 0.5
+        sharpening = try values.decodeIfPresent(Double.self, forKey: .sharpening) ?? 0.15
+        bitrateMbps = try values.decodeIfPresent(Int.self, forKey: .bitrateMbps) ?? 55
+        codec = try values.decodeIfPresent(OutputCodec.self, forKey: .codec) ?? .hevc
+        hdrBehavior = try values.decodeIfPresent(HDRBehavior.self, forKey: .hdrBehavior) ?? .preserve
+        preserveFrameRate = try values.decodeIfPresent(Bool.self, forKey: .preserveFrameRate) ?? true
+
+        let legacyMode = try values.decodeIfPresent(String.self, forKey: .mode)
+        qualityPreset = try values.decodeIfPresent(QualityPreset.self, forKey: .qualityPreset)
+            ?? Self.migratedPreset(from: legacyMode)
+        upscaler = try values.decodeIfPresent(UpscalerEngine.self, forKey: .upscaler)
+            ?? (legacyMode == "DLSS 5 (experimental)" ? .dlss5 : .appleSR)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(resolution, forKey: .resolution)
+        try values.encode(upscaler, forKey: .upscaler)
+        try values.encode(qualityPreset, forKey: .qualityPreset)
+        try values.encode(denoise, forKey: .denoise)
+        try values.encode(detailRecovery, forKey: .detailRecovery)
+        try values.encode(sharpening, forKey: .sharpening)
+        try values.encode(bitrateMbps, forKey: .bitrateMbps)
+        try values.encode(codec, forKey: .codec)
+        try values.encode(hdrBehavior, forKey: .hdrBehavior)
+        try values.encode(preserveFrameRate, forKey: .preserveFrameRate)
+    }
+
+    private static func migratedPreset(from legacyMode: String?) -> QualityPreset {
+        switch legacyMode {
+        case "Fast":
+            .balanced
+        case "Restore Old Video", "Anime & Game", "DLSS 5 (experimental)":
+            .ultra
+        default:
+            .quality
+        }
+    }
 }
 
 extension ExportConfiguration {
-    mutating func applyPreset(_ mode: EnhancementMode, temporalDenoiseAvailable: Bool) {
-        self.mode = mode
-        switch mode {
-        case .fast:
+    mutating func applyPreset(_ preset: QualityPreset, temporalDenoiseAvailable: Bool) {
+        qualityPreset = preset
+        switch preset {
+        case .balanced:
             denoise = temporalDenoiseAvailable ? 0.08 : 0
             detailRecovery = 0.25
             sharpening = 0.10
@@ -78,18 +136,10 @@ extension ExportConfiguration {
             denoise = temporalDenoiseAvailable ? 0.20 : 0
             detailRecovery = 0.50
             sharpening = 0.15
-        case .restore:
-            denoise = temporalDenoiseAvailable ? 0.65 : 0
-            detailRecovery = 0.55
-            sharpening = 0.10
-        case .anime:
-            denoise = temporalDenoiseAvailable ? 0.10 : 0
+        case .ultra:
+            denoise = temporalDenoiseAvailable ? 0.35 : 0
             detailRecovery = 0.70
-            sharpening = 0.35
-        case .dlss5:
-            denoise = 0
-            detailRecovery = 0.25
-            sharpening = 0.10
+            sharpening = 0.25
         }
     }
 }
@@ -159,7 +209,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
         expectedSegmentCount: Int, lastPresentationSeconds: Double = 0,
         osBuild: String = ProcessInfo.processInfo.operatingSystemVersionString,
         appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
-        pipelineVersion: Int = 2,
+        pipelineVersion: Int = 3,
         updatedAt: Date = Date()
     ) {
         self.jobID = jobID
@@ -181,7 +231,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
             && expectedSegmentCount == segmentCount
             && osBuild == ProcessInfo.processInfo.operatingSystemVersionString
             && appBuild == (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")
-            && pipelineVersion == 2
+            && pipelineVersion == 3
             && completedSegments.allSatisfy { index in
                 guard let url = completedSegmentFiles[String(index)] else { return false }
                 return FileManager.default.fileExists(atPath: url.path)
