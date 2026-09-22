@@ -763,6 +763,120 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         header
 
+                        settingsSection("About Clarity") {
+                            infoRow(
+                                icon: "info.circle.fill",
+                                title: "Version",
+                                value: appVersion
+                            )
+                            divider
+                            infoRow(
+                                icon: "cpu.fill",
+                                title: "Processing",
+                                value: "On-device"
+                            )
+                            divider
+                            infoRow(
+                                icon: "person.fill",
+                                title: "Account",
+                                value: "Not required"
+                            )
+                        }
+
+                        Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .lineSpacing(4)
+                            .padding(.horizontal, 10)
+
+                        settingsSection("Your privacy") {
+                            featureRow(icon: "icloud.slash.fill", title: "No cloud uploads")
+                            divider
+                            featureRow(icon: "eye.slash.fill", title: "No analytics or tracking")
+                            divider
+                            featureRow(icon: "person.crop.circle.badge.xmark", title: "No account or cloud credits")
+                        }
+
+                        settingsSection("Help and learning") {
+                            Button {
+                                hasCompletedOnboarding = false
+                                dismiss()
+                            } label: {
+                                actionRow(icon: "play.circle.fill", title: "Replay introduction")
+                            }
+                            .buttonStyle(.plain)
+
+                            divider.padding(.leading, 62)
+
+                            NavigationLink {
+                                DiagnosticsView()
+                            } label: {
+                                actionRow(
+                                    icon: "stethoscope",
+                                    title: "Video engine diagnostics",
+                                    showsChevron: true
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Good to know")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.68))
+                                .padding(.leading, 8)
+
+                            NativePanel {
+                                HStack(alignment: .top, spacing: 16) {
+                                    ClarityIconTile(icon: "lightbulb.fill", size: 56, iconSize: 22)
+
+                                    Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
+                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.62))
+                                        .lineSpacing(4)
+
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(16)
+                            }
+                        }
+
+                        NativePanel {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Label("Free storage", systemImage: "externaldrive.fill")
+                                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Text(freeStorageText)
+                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.cyan.opacity(0.80))
+                                }
+                                .padding(.vertical, 13)
+
+                                divider
+
+                                Button {
+                                    state.clearProcessingCache()
+                                } label: {
+                                    HStack {
+                                        Label("Clear processing cache", systemImage: "trash.fill")
+                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                            .foregroundStyle(.red)
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 13)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 15)
+                        }
+
+                        Text("Advanced defaults")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.68))
+                            .padding(.leading, 8)
+
                         settingsSection("Enhancement defaults") {
                             VStack(alignment: .leading, spacing: 10) {
                                 settingTitle("Target Resolution")
@@ -915,115 +1029,6 @@ struct SettingsView: View {
                                     set: { state.saveToFilesAfterExport = $0 }
                                 )
                             )
-                        }
-
-                        settingsSection("About Clarity") {
-                            infoRow(
-                                icon: "info.circle.fill",
-                                title: "Version",
-                                value: appVersion
-                            )
-                            divider
-                            infoRow(
-                                icon: "cpu.fill",
-                                title: "Processing",
-                                value: "On-device"
-                            )
-                            divider
-                            infoRow(
-                                icon: "person.fill",
-                                title: "Account",
-                                value: "Not required"
-                            )
-                        }
-
-                        Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.58))
-                            .lineSpacing(4)
-                            .padding(.horizontal, 10)
-
-                        settingsSection("Your privacy") {
-                            featureRow(icon: "icloud.slash.fill", title: "No cloud uploads")
-                            divider
-                            featureRow(icon: "eye.slash.fill", title: "No analytics or tracking")
-                            divider
-                            featureRow(icon: "person.crop.circle.badge.xmark", title: "No account or cloud credits")
-                        }
-
-                        settingsSection("Help and learning") {
-                            Button {
-                                hasCompletedOnboarding = false
-                                dismiss()
-                            } label: {
-                                actionRow(icon: "play.circle.fill", title: "Replay introduction")
-                            }
-                            .buttonStyle(.plain)
-
-                            divider.padding(.leading, 62)
-
-                            NavigationLink {
-                                DiagnosticsView()
-                            } label: {
-                                actionRow(
-                                    icon: "stethoscope",
-                                    title: "Video engine diagnostics",
-                                    showsChevron: true
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Good to know")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.68))
-                                .padding(.leading, 8)
-
-                            NativePanel {
-                                HStack(alignment: .top, spacing: 16) {
-                                    ClarityIconTile(icon: "lightbulb.fill", size: 56, iconSize: 22)
-
-                                    Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                                        .foregroundStyle(.white.opacity(0.62))
-                                        .lineSpacing(4)
-
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(16)
-                            }
-                        }
-
-                        NativePanel {
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Label("Free storage", systemImage: "externaldrive.fill")
-                                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                    Spacer()
-                                    Text(freeStorageText)
-                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.cyan.opacity(0.80))
-                                }
-                                .padding(.vertical, 13)
-
-                                divider
-
-                                Button {
-                                    state.clearProcessingCache()
-                                } label: {
-                                    HStack {
-                                        Label("Clear processing cache", systemImage: "trash.fill")
-                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                            .foregroundStyle(.red)
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 13)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal, 15)
                         }
 
                         Text("Processing stays on this iPhone unless you explicitly share an exported file.")
