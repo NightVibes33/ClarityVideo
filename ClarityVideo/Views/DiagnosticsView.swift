@@ -6,6 +6,7 @@ struct DiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exportURL: URL?
     @State private var isRunning = false
+    @State private var showsCompactHeader = false
 
     var body: some View {
         ZStack {
@@ -187,6 +188,36 @@ struct DiagnosticsView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 4)
                 .padding(.bottom, 28)
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y > 88
+            } action: { _, scrolled in
+                withAnimation(.easeOut(duration: 0.16)) {
+                    showsCompactHeader = scrolled
+                }
+            }
+        }
+        .overlay(alignment: .top) {
+            if showsCompactHeader {
+                NativeHeader(
+                    title: "Diagnostics",
+                    circularBack: true,
+                    onBack: { dismiss() }
+                )
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
+                .background(
+                    Rectangle()
+                        .fill(ClarityNativeTheme.background.opacity(0.90))
+                        .background(.ultraThinMaterial)
+                        .overlay(alignment: .bottom) {
+                            Rectangle()
+                                .fill(Color.cyan.opacity(0.10))
+                                .frame(height: 0.7)
+                        }
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .zIndex(20)
             }
         }
         .navigationBarHidden(true)
