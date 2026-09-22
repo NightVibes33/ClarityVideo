@@ -564,7 +564,7 @@ struct ResultsView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
-                    NativeHeader(title: "Complete", onBack: { state.route = .home })
+                    NativeHeader(title: "Complete", onBack: { state.leaveCompletedResult() })
                         .padding(.horizontal, 2)
 
                     if let job = state.activeJob, let url = job.outputURL {
@@ -581,7 +581,7 @@ struct ResultsView: View {
                         privacyCard
 
                         Button {
-                            state.route = .home
+                            state.leaveCompletedResult(startAnother: true)
                         } label: {
                             Label("Enhance Another Video", systemImage: "plus")
                                 .font(.system(size: 13.5, weight: .bold, design: .rounded))
