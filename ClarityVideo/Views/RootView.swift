@@ -77,6 +77,16 @@ struct RootView: View {
                     OnboardingView { }
                 case "import":
                     ReferenceImportSnapshotView()
+                case "storage":
+                    ClarityStorageDetailSheet(
+                        breakdown: StorageEstimateBreakdown(
+                            finalOutputBytes: 95_000_000,
+                            workingBytes: 95_000_000,
+                            safetyBytes: 96_000_000,
+                            usesCheckpoints: false
+                        ),
+                        availableBytes: 583_200_000
+                    )
                 default:
                     appNavigation
                 }
