@@ -3,6 +3,7 @@ import AVKit
 import UIKit
 
 struct RootView: View {
+    @Environment(AppState.self) private var state
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = false
 
     var body: some View {
@@ -427,7 +428,6 @@ struct OnboardingPageView: View {
 }
 
 struct SettingsView: View {
-    @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = true
     @State private var showsCompactHeader = false
