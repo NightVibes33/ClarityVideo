@@ -684,6 +684,160 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         header
 
+                        settingsSection("Enhancement defaults") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Target Resolution")
+                                SettingsChoiceRow(
+                                    options: state.capabilities.supports8KHEVCEncode
+                                        ? ["4K", "8K"]
+                                        : ["4K"],
+                                    selected: state.configuration.resolution == .uhd8K ? "8K" : "4K"
+                                ) { value in
+                                    state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
+                                    if state.configuration.resolution == .uhd8K {
+                                        state.configuration.codec = .hevc
+                                    }
+                                    state.configuration.clampBitrateToSupportedRange()
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("AI Upscaler")
+                                SettingsChoiceRow(
+                                    options: IOSNeuralHeadService.bundledModelURL() == nil
+                                        ? ["Apple SR"]
+                                        : ["Apple SR", "DLSS 5"],
+                                    selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+                                ) { value in
+                                    state.configuration.upscaler = value == "DLSS 5" ? .dlss5 : .appleSR
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Enhancement Mode")
+                                SettingsChoiceRow(
+                                    options: QualityPreset.allCases.map(\.rawValue),
+                                    selected: state.configuration.qualityPreset.rawValue
+                                ) { value in
+                                    guard let preset = QualityPreset(rawValue: value) else { return }
+                                    state.configuration.applyPreset(
+                                        preset,
+                                        temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                                    )
+                                }
+                            }
+                            .padding(.vertical, 13)
+                        }
+
+                        settingsSection("Fine tune defaults") {
+                            settingsSlider(
+                                title: "Denoise",
+                                value: Binding(
+                                    get: { state.configuration.denoise },
+                                    set: { state.configuration.denoise = $0 }
+                                ),
+                                enabled: state.capabilities.temporalNoiseFilteringAvailable
+                            )
+
+                            divider
+
+                            settingsSlider(
+                                title: "Detail Recovery",
+                                value: Binding(
+                                    get: { state.configuration.detailRecovery },
+                                    set: { state.configuration.detailRecovery = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsSlider(
+                                title: "Sharpen",
+                                value: Binding(
+                                    get: { state.configuration.sharpening },
+                                    set: { state.configuration.sharpening = $0 }
+                                )
+                            )
+                        }
+
+                        settingsSection("Export defaults") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Format")
+                                SettingsChoiceRow(
+                                    options: state.configuration.resolution == .uhd8K
+                                        ? ["HEVC"]
+                                        : ["HEVC", "H.264"],
+                                    selected: state.configuration.codec == .hevc ? "HEVC" : "H.264"
+                                ) { value in
+                                    state.configuration.codec = value == "H.264" ? .h264 : .hevc
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    settingTitle("Output Quality")
+                                    Spacer()
+                                    Text("\(state.configuration.bitrateMbps) Mbps")
+                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.cyan.opacity(0.78))
+                                }
+
+                                SettingsChoiceRow(
+                                    options: ["Standard", "High", "Maximum"],
+                                    selected: bitrateQualityLabel
+                                ) { value in
+                                    let index = ["Standard", "High", "Maximum"].firstIndex(of: value) ?? 1
+                                    let values = state.configuration.exportBitrateOptionsMbps
+                                    if values.indices.contains(index) {
+                                        state.configuration.bitrateMbps = values[index]
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            settingsToggle(
+                                icon: "gauge.with.dots.needle.50percent",
+                                title: "Preserve source frame rate",
+                                isOn: Binding(
+                                    get: { state.configuration.preserveFrameRate },
+                                    set: { state.configuration.preserveFrameRate = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsToggle(
+                                icon: "photo.on.rectangle.angled",
+                                title: "Save to Photos after export",
+                                isOn: Binding(
+                                    get: { state.saveToPhotosAfterExport },
+                                    set: { state.saveToPhotosAfterExport = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsToggle(
+                                icon: "folder.fill",
+                                title: "Open Files export after completion",
+                                isOn: Binding(
+                                    get: { state.saveToFilesAfterExport },
+                                    set: { state.saveToFilesAfterExport = $0 }
+                                )
+                            )
+                        }
+
                         settingsSection("About Clarity") {
                             infoRow(
                                 icon: "info.circle.fill",
@@ -849,6 +1003,69 @@ struct SettingsView: View {
                 .padding(.horizontal, 15)
             }
         }
+    }
+
+    private func settingTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.72))
+    }
+
+    private func settingsSlider(
+        title: String,
+        value: Binding<Double>,
+        enabled: Bool = true
+    ) -> some View {
+        VStack(spacing: 7) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(enabled ? .white : .white.opacity(0.38))
+
+                Spacer()
+
+                Text("\(Int((value.wrappedValue * 100).rounded()))")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(enabled ? .cyan.opacity(0.78) : .white.opacity(0.28))
+            }
+
+            Slider(value: value, in: 0...1)
+                .tint(.cyan)
+                .disabled(!enabled)
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func settingsToggle(
+        icon: String,
+        title: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 13) {
+            ClarityIconTile(icon: icon, size: 40, iconSize: 16)
+
+            Text(title)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(.cyan)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var bitrateQualityLabel: String {
+        let values = state.configuration.exportBitrateOptionsMbps
+        guard let index = values.enumerated().min(by: {
+            abs($0.element - state.configuration.bitrateMbps)
+                < abs($1.element - state.configuration.bitrateMbps)
+        })?.offset else {
+            return "High"
+        }
+        return ["Standard", "High", "Maximum"][min(index, 2)]
     }
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
