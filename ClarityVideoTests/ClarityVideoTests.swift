@@ -58,6 +58,31 @@ final class ClarityVideoTests: XCTestCase {
         XCTAssertLessThan(required, 400_000_000)
     }
 
+
+    func testShort4KStorageBudgetTracksOutputInsteadOfGigabytes() {
+        let info = VideoAssetInfo(
+            fileName: "short.mov",
+            encodedWidth: 1920,
+            encodedHeight: 1080,
+            displayWidth: 1920,
+            displayHeight: 1080,
+            frameRate: 30,
+            codec: "hvc1",
+            isHDR: false,
+            duration: 19,
+            estimatedSourceBytes: 25_000_000
+        )
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd4K
+        configuration.bitrateMbps = 40
+
+        let output = StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration)
+        let required = StorageEstimator.requiredBytes(info: info, configuration: configuration)
+
+        XCTAssertEqual(output, 95_000_000)
+        XCTAssertLessThan(required, 300_000_000)
+    }
+
     func testPortraitDetectionUsesDisplayDimensions() {
         let info = VideoAssetInfo(fileName: "portrait.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1080, displayHeight: 1920, frameRate: 30, codec: "hvc1", isHDR: true, duration: 5, estimatedSourceBytes: 1)
         XCTAssertTrue(info.isPortrait)
