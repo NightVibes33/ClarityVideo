@@ -337,16 +337,16 @@ final class AppState {
 
     func runRecoveredNeuralHeadSelfTest() async {
 #if targetEnvironment(simulator)
-        diagnosticStatus = "Recovered neural inference must be validated on a physical iPhone."
+        diagnosticStatus = "DLSS 5 neural inference must be validated on a physical iPhone."
         return
 #else
         guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
-            diagnosticStatus = "Recovered neural model is not bundled in this build."
+            diagnosticStatus = "DLSS 5 neural model is not bundled in this build."
             return
         }
 
         isPreparingModel = true
-        diagnosticStatus = "Loading recovered neural model..."
+        diagnosticStatus = "Loading DLSS 5 neural model..."
         defer { isPreparingModel = false }
 
         do {
@@ -396,7 +396,7 @@ final class AppState {
             let seconds = Double(components.seconds)
                 + Double(components.attoseconds) / 1_000_000_000_000_000_000
             diagnosticStatus = String(
-                format: "Recovered neural head passed: 128x128 tile in %.3f s (%.2f tiles/s)",
+                format: "DLSS 5 neural test passed: 128x128 tile in %.3f s (%.2f tiles/s)",
                 seconds,
                 1 / max(seconds, 0.000_001)
             )
@@ -406,7 +406,7 @@ final class AppState {
                 lastSuccessfulSelfTest: lastSuccessfulSelfTest
             )
         } catch {
-            diagnosticStatus = "Recovered neural head failed: " + error.localizedDescription
+            diagnosticStatus = "DLSS 5 neural test failed: " + error.localizedDescription
             errorMessage = error.localizedDescription
         }
 #endif
