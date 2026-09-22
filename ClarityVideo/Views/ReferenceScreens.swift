@@ -2321,6 +2321,7 @@ private struct NativeValueSlider: View {
 struct ReferenceExportView: View {
     @Environment(AppState.self) private var state
     @State private var qualityIndex = 1
+    @State private var showingStorageDetails = false
 
     var body: some View {
         ZStack {
@@ -2383,6 +2384,17 @@ struct ReferenceExportView: View {
         .onAppear {
             state.configuration.clampBitrateToSupportedRange()
             qualityIndex = closestQualityIndex()
+        }
+        .sheet(isPresented: $showingStorageDetails) {
+            if let info = state.assetInfo {
+                ClarityStorageDetailSheet(
+                    breakdown: StorageEstimator.breakdown(
+                        info: info,
+                        configuration: state.configuration
+                    ),
+                    availableBytes: try? StorageEstimator.availableBytes()
+                )
+            }
         }
     }
 
@@ -2449,46 +2461,58 @@ struct ReferenceExportView: View {
         let available = try? StorageEstimator.availableBytes()
         let enough = available.map { $0 >= required } ?? true
 
-        return HStack(spacing: 12) {
-            Circle()
-                .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: enough ? "checkmark" : "exclamationmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
-                )
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Temporary export storage")
-                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.62))
-
-                Text(storageText(required: required, available: available))
-                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-
-            Spacer()
-        }
-        .padding(13)
-        .background(
-            RoundedRectangle(cornerRadius: 17, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            (enough ? Color.green : Color.orange).opacity(0.16),
-                            Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
+        return Button {
+            showingStorageDetails = true
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: enough ? "checkmark" : "exclamationmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
                     )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .stroke((enough ? Color.green : Color.orange).opacity(0.48), lineWidth: 0.8)
-                )
-        )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Temporary export storage")
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+
+                    Text(storageText(required: required, available: available))
+                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.50))
+            }
+            .padding(13)
+            .background(
+                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                (enough ? Color.green : Color.orange).opacity(0.16),
+                                Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .stroke((enough ? Color.green : Color.orange).opacity(0.48), lineWidth: 0.8)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Temporary export storage")
+        .accessibilityValue(storageText(required: required, available: available))
+        .accessibilityHint("Shows how the storage estimate is calculated")
     }
 
     private var exportSettings: some View {
