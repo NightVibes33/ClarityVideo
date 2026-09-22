@@ -209,7 +209,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
         expectedSegmentCount: Int, lastPresentationSeconds: Double = 0,
         osBuild: String = ProcessInfo.processInfo.operatingSystemVersionString,
         appBuild: String = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
-        pipelineVersion: Int = 3,
+        pipelineVersion: Int = 4,
         updatedAt: Date = Date()
     ) {
         self.jobID = jobID
@@ -231,7 +231,7 @@ struct ProcessingCheckpoint: Codable, Sendable {
             && expectedSegmentCount == segmentCount
             && osBuild == ProcessInfo.processInfo.operatingSystemVersionString
             && appBuild == (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")
-            && pipelineVersion == 3
+            && pipelineVersion == 4
             && completedSegments.allSatisfy { index in
                 guard let url = completedSegmentFiles[String(index)] else { return false }
                 return FileManager.default.fileExists(atPath: url.path)
