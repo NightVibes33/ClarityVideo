@@ -224,6 +224,23 @@ extension ClarityVideoTests {
         XCTAssertEqual(configuration.upscaler, .dlss5)
     }
 
+    func testAllResolutionAndUpscalerCombinationsAreIndependent() {
+        for resolution in [OutputResolution.uhd4K, .uhd8K] {
+            for upscaler in [UpscalerEngine.appleSR, .dlss5] {
+                var configuration = ExportConfiguration()
+                configuration.resolution = resolution
+                configuration.upscaler = upscaler
+                configuration.applyPreset(
+                    .ultra,
+                    temporalDenoiseAvailable: true
+                )
+                XCTAssertEqual(configuration.resolution, resolution)
+                XCTAssertEqual(configuration.upscaler, upscaler)
+                XCTAssertEqual(configuration.qualityPreset, .ultra)
+            }
+        }
+    }
+
     func testLegacyDLSSModeMigratesToDLSSUpscalerAndUltraPreset() throws {
         let json = """
         {
