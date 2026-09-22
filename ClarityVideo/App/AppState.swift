@@ -88,9 +88,6 @@ final class AppState {
 
 #if targetEnvironment(simulator)
         let isUISnapshot = ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1"
-#else
-        let isUISnapshot = false
-#endif
 
         if isUISnapshot {
             configuration = ExportConfiguration()
@@ -163,6 +160,9 @@ final class AppState {
                 }
             }
         }
+#else
+        let isUISnapshot = false
+#endif
 
         // An interrupted import that was never turned into a resumable job has
         // no reason to survive the next launch. Keep only sources required by
@@ -178,6 +178,7 @@ final class AppState {
             capabilities = snapshot.capabilities
             lastSuccessfulSelfTest = snapshot.lastSuccessfulSelfTest
         }
+#if targetEnvironment(simulator)
         if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
             switch snapshotRoute {
             case "home": route = .home
@@ -189,6 +190,7 @@ final class AppState {
             default: break
             }
         }
+#endif
         if !isUISnapshot {
             Task { await refreshCapabilities() }
         }
