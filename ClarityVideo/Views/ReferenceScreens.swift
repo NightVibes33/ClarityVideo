@@ -608,6 +608,7 @@ struct ReferenceEditorView: View {
     @State private var afterPlayer: AVPlayer?
     @State private var reveal = 0.5
     @State private var isPlaying = false
+    @State private var previewRefreshTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -671,10 +672,16 @@ struct ReferenceEditorView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { configurePlayersAndPreview() }
-        .onChange(of: state.comparisonPreview?.enhancedURL) { _, url in
-            if let url { afterPlayer = AVPlayer(url: url) }
+        .onChange(of: state.comparisonPreview?.id) { _, _ in
+            configurePlayersAndPreview()
         }
-        .onDisappear { pausePlayers() }
+        .onChange(of: state.configuration) { _, _ in
+            scheduleRealPreviewRefresh()
+        }
+        .onDisappear {
+            previewRefreshTask?.cancel()
+            pausePlayers()
+        }
     }
 
     private var comparisonCard: some View {
@@ -746,11 +753,14 @@ struct ReferenceEditorView: View {
     private var playbackBar: some View {
         HStack(spacing: 12) {
             Button {
-                isPlaying.toggle()
                 if isPlaying {
-                    beforePlayer?.play(); afterPlayer?.play()
-                } else {
                     pausePlayers()
+                } else {
+                    beforePlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                    afterPlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                    beforePlayer?.play()
+                    afterPlayer?.play()
+                    isPlaying = true
                 }
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
@@ -760,7 +770,9 @@ struct ReferenceEditorView: View {
             Text("00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
             Capsule().fill(Color.white.opacity(0.13)).frame(height: 4)
                 .overlay(alignment: .leading) { Capsule().fill(Color.cyan).frame(width: 42, height: 4) }
-            Text(state.assetInfo?.durationText ?? "00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
+            Text(state.comparisonPreview.map { durationLabel($0.selectedDurationSeconds) } ?? state.assetInfo?.durationText ?? "00:00")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.66))
         }
         .foregroundStyle(.white)
     }
@@ -811,25 +823,57 @@ struct ReferenceEditorView: View {
     }
 
     private func configurePlayersAndPreview() {
-        if beforePlayer == nil, let url = state.importedURL { beforePlayer = AVPlayer(url: url) }
-        if let url = state.comparisonPreview?.enhancedURL {
-            afterPlayer = AVPlayer(url: url)
-        } else if state.importedURL != nil && !state.isGeneratingPreview {
-            state.generateComparisonPreview()
+        pausePlayers()
+
+        if let preview = state.comparisonPreview {
+            beforePlayer = AVPlayer(url: preview.sourceURL)
+            afterPlayer = AVPlayer(url: preview.enhancedURL)
+            return
+        }
+
+        if let source = state.importedURL {
+            beforePlayer = AVPlayer(url: source)
+            afterPlayer = nil
+            if !state.isGeneratingPreview {
+                state.generateComparisonPreview()
+            }
+        } else {
+            beforePlayer = nil
+            afterPlayer = nil
         }
     }
 
     private func regeneratePreview() {
+        scheduleRealPreviewRefresh(immediate: true)
+    }
+
+    private func scheduleRealPreviewRefresh(immediate: Bool = false) {
+        guard state.importedURL != nil else { return }
+
+        previewRefreshTask?.cancel()
+        state.cancelComparisonPreview()
+        state.comparisonPreview = nil
         afterPlayer?.pause()
         afterPlayer = nil
-        state.cancelComparisonPreview()
-        state.generateComparisonPreview()
+
+        previewRefreshTask = Task { @MainActor in
+            if !immediate {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            guard !Task.isCancelled else { return }
+            state.generateComparisonPreview()
+        }
     }
 
     private func pausePlayers() {
         beforePlayer?.pause()
         afterPlayer?.pause()
         isPlaying = false
+    }
+
+    private func durationLabel(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }
 
