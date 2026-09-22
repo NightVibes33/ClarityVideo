@@ -148,6 +148,14 @@ final class AppState {
             errorMessage = "This device did not pass Clarity’s real 4K HEVC hardware encoder validation. Choose H.264 for 4K SDR or use a supported device."
             return
         }
+        do {
+            try StorageEstimator.validate(info: assetInfo, configuration: configuration)
+        } catch {
+            // Fail before changing routes so a storage issue stays on the export
+            // screen instead of flashing the processing UI and then bouncing back.
+            errorMessage = error.localizedDescription
+            return
+        }
         let output = TemporaryFileManager.outputURL(for: configuration.resolution)
         var job = ProcessingJob(sourceURL: importedURL, assetInfo: assetInfo, configuration: configuration)
         job.outputURL = output
@@ -162,7 +170,6 @@ final class AppState {
         Task {
             defer { backgroundExecution.end() }
             do {
-                try StorageEstimator.validate(info: assetInfo, configuration: configuration)
                 if configuration.codec == .h264 && (configuration.resolution == .uhd8K || assetInfo.isHDR) {
                     throw AppError.unsupported("H.264 is available only for 4K SDR exports. Choose HEVC for 8K or HDR sources.")
                 }
