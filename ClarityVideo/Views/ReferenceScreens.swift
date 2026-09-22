@@ -936,7 +936,6 @@ struct ReferenceEditorView: View {
             selected: state.configuration.resolution == .uhd4K ? "4K" : "8K"
         ) { value in
             state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
-            regeneratePreview()
         }
     }
 
@@ -947,7 +946,6 @@ struct ReferenceEditorView: View {
         ) { value in
             guard let preset = QualityPreset(rawValue: value) else { return }
             state.configuration.applyPreset(preset, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
-            regeneratePreview()
         }
     }
 
@@ -965,7 +963,6 @@ struct ReferenceEditorView: View {
             } else {
                 state.configuration.upscaler = .appleSR
             }
-            regeneratePreview()
         }
     }
 
@@ -994,10 +991,6 @@ struct ReferenceEditorView: View {
             beforePlayer = nil
             afterPlayer = nil
         }
-    }
-
-    private func regeneratePreview() {
-        scheduleRealPreviewRefresh(immediate: true)
     }
 
     private func scheduleRealPreviewRefresh(immediate: Bool = false) {
