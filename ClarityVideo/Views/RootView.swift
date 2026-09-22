@@ -65,6 +65,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
+#if targetEnvironment(simulator)
             if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
                 switch snapshotRoute {
                 case "settings", "settings-advanced", "settings-confirm":
@@ -76,11 +77,7 @@ struct RootView: View {
                 case "onboarding":
                     OnboardingView { }
                 case "import":
-#if targetEnvironment(simulator)
                     ReferenceImportSnapshotView()
-#else
-                    appNavigation
-#endif
                 case "storage":
                     ClarityStorageDetailSheet(
                         breakdown: StorageEstimateBreakdown(
@@ -103,6 +100,17 @@ struct RootView: View {
                     }
                 }
             }
+#else
+            if hasCompletedOnboarding {
+                appNavigation
+            } else {
+                OnboardingView {
+                    withAnimation(.easeInOut(duration: 0.24)) {
+                        hasCompletedOnboarding = true
+                    }
+                }
+            }
+#endif
         }
         .tint(.cyan)
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
