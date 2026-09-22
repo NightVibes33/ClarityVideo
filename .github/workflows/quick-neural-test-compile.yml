@@ -30,3 +30,12 @@ jobs:
           test -n "$DEVICE"
           xcodebuild build-for-testing -project ClarityVideo.xcodeproj -scheme ClarityVideo \
             -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO
+      - name: Run core configuration and planner tests
+        run: |
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcodebuild test-without-building -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO \
+            -only-testing:ClarityVideoTests/ClarityVideoTests
