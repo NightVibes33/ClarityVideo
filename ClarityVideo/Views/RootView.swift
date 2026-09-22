@@ -757,6 +757,7 @@ struct SettingsView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = true
+    @State private var showsCompactHeader = false
 
     var body: some View {
         NavigationStack {
@@ -1058,10 +1059,52 @@ struct SettingsView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 28)
                 }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentOffset.y > 92
+                } action: { _, scrolled in
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        showsCompactHeader = scrolled
+                    }
+                }
+            }
+            .overlay(alignment: .top) {
+                if showsCompactHeader {
+                    compactHeader
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .zIndex(20)
+                }
             }
             .navigationBarHidden(true)
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var compactHeader: some View {
+        HStack {
+            Color.clear.frame(width: 78, height: 44)
+
+            Spacer()
+
+            Text("Settings")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            ClarityPillButton(title: "Done") { dismiss() }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .background(
+            Rectangle()
+                .fill(ClarityNativeTheme.background.opacity(0.90))
+                .background(.ultraThinMaterial)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.cyan.opacity(0.10))
+                        .frame(height: 0.7)
+                }
+        )
     }
 
     private var header: some View {
