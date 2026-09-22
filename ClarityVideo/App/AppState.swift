@@ -235,7 +235,11 @@ final class AppState {
             importStatus = nil
         }
         do {
-            let localURL = try SecurityScopedFileManager.copyToWorkspace(url)
+            // File-provider downloads and large local copies can take seconds.
+            // Keep that work off the main actor so the import screen remains responsive.
+            let localURL = try await Task.detached(priority: .userInitiated) {
+                try SecurityScopedFileManager.copyToWorkspace(url)
+            }.value
             copiedURL = localURL
             if url.standardizedFileURL.path.hasPrefix(FileManager.default.temporaryDirectory.standardizedFileURL.path) {
                 try? FileManager.default.removeItem(at: url)
