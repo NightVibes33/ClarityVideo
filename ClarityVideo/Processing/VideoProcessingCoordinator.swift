@@ -29,13 +29,25 @@ final class VideoProcessingCoordinator {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
+#if targetEnvironment(simulator)
                 if job.configuration.upscaler == .dlss5 { throw error }
-                // An advertised scaler can still reject a particular source or require
-                // a model download. Keep the export usable and label the actual route.
+                // Simulator builds cannot execute Apple's device SR pipeline. Keep
+                // the spatial path available only for simulator integration fixtures.
                 if let output = job.outputURL { try? FileManager.default.removeItem(at: output) }
                 progress(0)
+#else
+                // A selected AI upscaler must never silently become a conventional
+                // resize on device. Surface the real SR failure to the user.
+                throw error
+#endif
             }
         }
+
+#if !targetEnvironment(simulator)
+        throw AppError.unsupported(
+            "The selected AI upscaler has no supported super-resolution route for this source and output on this device."
+        )
+#endif
 
         let asset = AVURLAsset(url: job.sourceURL)
         guard let sourceTrack = try await asset.loadTracks(withMediaType: .video).first else { throw AppError.noVideoTrack }
