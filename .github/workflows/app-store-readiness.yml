@@ -79,6 +79,21 @@ jobs:
           file "$EXECUTABLE" | grep -q 'Mach-O'
           lipo -info "$EXECUTABLE" | grep -q 'arm64'
 
+          python3 - "$PLIST" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], "rb") as handle:
+              plist = plistlib.load(handle)
+          if plist.get("UIDeviceFamily") != [1]:
+              raise SystemExit(f"Expected iPhone-only UIDeviceFamily [1], got {plist.get('UIDeviceFamily')!r}")
+          if plist.get("UISupportedInterfaceOrientations") != ["UIInterfaceOrientationPortrait"]:
+              raise SystemExit("App Store candidate must remain portrait-only.")
+          PY
+
+          # The recovered third-party neural weights remain a separate experimental
+          # build and are never part of the public App Store candidate.
+          test ! -e "$APP/DLSSNeuralHead128.mlmodelc"
+          test ! -e "$APP/DLSSNeuralHead128.mlpackage"
+
           # Visual-QA routes and simulator fixture data must never ship in the
           # App Store device binary.
           if strings "$EXECUTABLE" | grep -E 'CLARITY_UI_SNAPSHOT|CLARITY_UI_ROUTE|Clarity-UI-source\.mov|Clarity-UI-output\.mov'; then

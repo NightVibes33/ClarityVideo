@@ -110,8 +110,14 @@ jobs:
           if not iphones:
               raise SystemExit("No iPhone simulator device type")
 
+          preferred_names = [
+              "iPhone 17 Pro Max",
+              "iPhone 16 Pro Max",
+              "iPhone 17 Pro",
+              "iPhone 17",
+          ]
           preferred = next(
-              (d for d in iphones if d.get("name") in {"iPhone 17 Pro", "iPhone 17"}),
+              (d for name in preferred_names for d in iphones if d.get("name") == name),
               iphones[0]
           )
           print(preferred["identifier"])
@@ -218,6 +224,11 @@ jobs:
           test -s artifacts/ui-reference/diagnostics-actions.png
           test -s artifacts/ui-reference/diagnostics-confirm.png
           test -s artifacts/ui-reference/projects.png
+
+          # App Store screenshots cannot contain alpha/transparency.
+          for image in artifacts/ui-reference/*.png; do
+            test "$(sips -g hasAlpha "$image" | awk '/hasAlpha/ {print $2}')" = "no"
+          done
 
       - uses: actions/upload-artifact@v4
         with:

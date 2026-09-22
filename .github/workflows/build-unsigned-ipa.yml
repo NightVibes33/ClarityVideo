@@ -2,7 +2,7 @@ name: Build Unsigned iOS 26 IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, temp-appstore-ui-final]
 permissions:
   contents: read
 concurrency:
@@ -100,6 +100,12 @@ jobs:
           lipo -info "$EXECUTABLE" | grep -q 'arm64'
           ! file "$EXECUTABLE" | grep -qi simulator
           ! find "$APP" -name embedded.mobileprovision | grep -q .
+          test ! -e "$APP/DLSSNeuralHead128.mlmodelc"
+          test ! -e "$APP/DLSSNeuralHead128.mlpackage"
+          if strings "$EXECUTABLE" | grep -E 'CLARITY_UI_SNAPSHOT|CLARITY_UI_ROUTE|Clarity-UI-source\.mov|Clarity-UI-output\.mov'; then
+            echo "Simulator visual-QA fixture leaked into the device candidate."
+            exit 1
+          fi
       - name: Package and validate IPA
         shell: bash
         run: |
