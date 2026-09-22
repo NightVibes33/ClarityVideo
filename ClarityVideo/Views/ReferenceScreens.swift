@@ -31,22 +31,7 @@ private enum ReferenceTheme {
 }
 
 private enum ReferenceArt {
-    static let mountain: UIImage? = {
-        if let clean = UIImage(named: "MountainReference") { return clean }
-        // Temporary compatibility fallback for branches built before the
-        // standalone mountain asset lands. This crops artwork only; UI remains native.
-        guard let image = UIImage(named: "ReferenceArtwork")?.cgImage else { return nil }
-        let width = CGFloat(image.width)
-        let height = CGFloat(image.height)
-        let rect = CGRect(
-            x: width * 0.16,
-            y: height * 0.135,
-            width: width * 0.68,
-            height: height * 0.145
-        ).integral
-        guard let crop = image.cropping(to: rect) else { return nil }
-        return UIImage(cgImage: crop)
-    }()
+    static let mountain = UIImage(named: "MountainReference")
 }
 
 private struct ReferenceBackground: View {
