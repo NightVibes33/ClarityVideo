@@ -613,6 +613,8 @@ private struct NativeSnapshotVideoThumbnail: View {
                 Image(uiImage: mountain)
                     .resizable()
                     .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
             } else {
                 LinearGradient(
                     colors: [item.accent.opacity(0.70), Color.black.opacity(0.88)],
@@ -621,7 +623,7 @@ private struct NativeSnapshotVideoThumbnail: View {
                 )
                 .overlay(
                     Image(systemName: item.symbol)
-                        .font(.system(size: 32, weight: .semibold))
+                        .font(.system(size: 28, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.72))
                 )
             }
@@ -643,7 +645,7 @@ private struct NativeSnapshotVideoThumbnail: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .aspectRatio(1.05, contentMode: .fit)
+        .frame(height: 92)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(
@@ -665,14 +667,16 @@ private struct NativeVideoThumbnail: View {
         ZStack(alignment: .bottomTrailing) {
             Group {
                 if let image {
-                    Image(uiImage: image).resizable().scaledToFill()
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
                 } else {
                     Rectangle().fill(Color.white.opacity(0.06))
                         .overlay(ProgressView().tint(.cyan))
                 }
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(1.05, contentMode: .fit)
+            .frame(height: 92)
             .clipped()
 
             Text(durationText(asset.duration))
