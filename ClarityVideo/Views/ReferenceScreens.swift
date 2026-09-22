@@ -5,106 +5,138 @@ import AVKit
 import UniformTypeIdentifiers
 import UIKit
 
-// The supplied ClarityVideo reference is already bundled as ReferenceArtwork.
-// These four crops are taken directly from that exact artwork. The visible
-// chrome therefore comes from the reference pixels instead of an approximation.
-// Functional SwiftUI hit targets and dynamic video/data overlays sit on top.
-private enum ExactReferenceScreen {
-    case home
-    case importVideo
-    case enhance
-    case export
+private enum ClarityNativeTheme {
+    static let background = Color(red: 0.005, green: 0.015, blue: 0.030)
+    static let panel = Color(red: 0.025, green: 0.055, blue: 0.095)
+    static let stroke = Color(red: 0.10, green: 0.48, blue: 1.0).opacity(0.45)
+    static let muted = Color.white.opacity(0.58)
+    static let brand = LinearGradient(
+        colors: [Color(red: 0.69, green: 0.42, blue: 1.0), Color(red: 0.16, green: 0.58, blue: 1.0), .cyan],
+        startPoint: .leading, endPoint: .trailing
+    )
+    static let card = LinearGradient(
+        colors: [Color(red: 0.02, green: 0.17, blue: 0.36), Color(red: 0.03, green: 0.10, blue: 0.22)],
+        startPoint: .leading, endPoint: .trailing
+    )
+}
 
-    var crop: CGRect {
-        switch self {
-        case .home:
-            CGRect(x: 28, y: 498, width: 263, height: 676)
-        case .importVideo:
-            CGRect(x: 319, y: 498, width: 271, height: 676)
-        case .enhance:
-            CGRect(x: 615, y: 498, width: 270, height: 676)
-        case .export:
-            CGRect(x: 913, y: 498, width: 273, height: 676)
-        }
-    }
-
-    var image: UIImage? {
-        guard let source = UIImage(named: "ReferenceArtwork")?.cgImage,
-              let cropped = source.cropping(to: crop) else { return nil }
+private enum ReferenceArtworkCrop {
+    static var mountain: UIImage? {
+        guard let source = UIImage(named: "ReferenceArtwork")?.cgImage else { return nil }
+        let w = CGFloat(source.width), h = CGFloat(source.height)
+        let rect = CGRect(x: w * 0.18, y: h * 0.12, width: w * 0.64, height: h * 0.20).integral
+        guard let cropped = source.cropping(to: rect) else { return nil }
         return UIImage(cgImage: cropped)
     }
 }
 
-private struct ExactReferenceBackground: View {
-    let screen: ExactReferenceScreen
+private struct NativePanel<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
 
     var body: some View {
-        GeometryReader { geometry in
-            if let image = screen.image {
-                Image(uiImage: image)
-                    .resizable()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-            } else {
-                Color(red: 0.006, green: 0.014, blue: 0.028)
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
+        content
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(ClarityNativeTheme.panel)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(ClarityNativeTheme.stroke, lineWidth: 1)
+                    )
+                    .shadow(color: .blue.opacity(0.10), radius: 12, y: 7)
+            )
     }
 }
 
-private struct ExactHotspot: View {
-    let rect: CGRect
+private struct NativeHeader: View {
+    let title: String
+    var showsBack = true
+    var trailingIcon: String? = nil
+    var onBack: (() -> Void)? = nil
+    var onTrailing: (() -> Void)? = nil
+
+    var body: some View {
+        HStack {
+            Group {
+                if showsBack {
+                    Button { onBack?() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                } else {
+                    Color.clear.frame(width: 36, height: 36)
+                }
+            }
+            Spacer()
+            Text(title)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+            Spacer()
+            Group {
+                if let trailingIcon {
+                    Button { onTrailing?() } label: {
+                        Image(systemName: trailingIcon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 36, height: 36)
+                    }
+                } else {
+                    Color.clear.frame(width: 36, height: 36)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+    }
+}
+
+private struct NativeWordmark: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("Clarity").foregroundStyle(.white)
+            Text("Video").foregroundStyle(ClarityNativeTheme.brand)
+        }
+        .font(.system(size: 30, weight: .bold, design: .rounded))
+    }
+}
+
+private struct NativeActionCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
     let action: () -> Void
 
     var body: some View {
-        GeometryReader { geometry in
-            Button(action: action) {
-                Color.clear
-                    .contentShape(Rectangle())
+        Button(action: action) {
+            HStack(spacing: 15) {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(LinearGradient(colors: [.blue.opacity(0.95), .indigo.opacity(0.9)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 58, height: 58)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 25, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.42, green: 0.90, blue: 1.0))
+                    )
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text(subtitle)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                }
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .frame(
-                width: rect.width * geometry.size.width,
-                height: rect.height * geometry.size.height
-            )
-            .position(
-                x: (rect.midX) * geometry.size.width,
-                y: (rect.midY) * geometry.size.height
-            )
-            .accessibilityHidden(true)
+            .padding(15)
         }
-    }
-}
-
-private struct ExactDragHotspot: View {
-    let rect: CGRect
-    let onChange: (Double) -> Void
-
-    var body: some View {
-        GeometryReader { geometry in
-            Color.clear
-                .contentShape(Rectangle())
-                .frame(
-                    width: rect.width * geometry.size.width,
-                    height: rect.height * geometry.size.height
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(ClarityNativeTheme.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.blue.opacity(0.55), lineWidth: 1)
                 )
-                .position(
-                    x: rect.midX * geometry.size.width,
-                    y: rect.midY * geometry.size.height
-                )
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let width = max(1, rect.width * geometry.size.width)
-                            let left = rect.minX * geometry.size.width
-                            let normalized = (value.location.x - left) / width
-                            onChange(max(0, min(1, normalized)))
-                        }
-                )
-                .accessibilityHidden(true)
-        }
+        )
     }
 }
 
@@ -115,68 +147,89 @@ struct ReferenceHomeView: View {
 
     var body: some View {
         ZStack {
-            ExactReferenceBackground(screen: .home)
+            ClarityNativeTheme.background.ignoresSafeArea()
+            LinearGradient(colors: [Color.blue.opacity(0.08), .clear, Color.purple.opacity(0.05)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
 
-            // Gear.
-            ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.18, height: 0.095)) {
-                showingSettings = true
-            }
+            VStack(spacing: 0) {
+                HStack {
+                    Button { showingSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 23, weight: .bold))
+                            .foregroundStyle(Color(red: 0.57, green: 0.88, blue: 1))
+                    }
+                    Spacer()
+                    Button { showingProjects = true } label: {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundStyle(ClarityNativeTheme.brand)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
 
-            // Crown / projects.
-            ExactHotspot(rect: CGRect(x: 0.82, y: 0.045, width: 0.18, height: 0.095)) {
-                showingProjects = true
-            }
+                NativeWordmark().padding(.top, 12)
+                Text("Sharper.  Clearer.  Better.")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .tracking(1.1)
+                    .foregroundStyle(.white.opacity(0.56))
+                    .padding(.top, 5)
 
-            // Main cards.
-            ExactHotspot(rect: CGRect(x: 0.03, y: 0.225, width: 0.94, height: 0.115)) {
-                state.route = .importVideo
-            }
-            ExactHotspot(rect: CGRect(x: 0.03, y: 0.355, width: 0.94, height: 0.115)) {
-                showingProjects = true
-            }
-            ExactHotspot(rect: CGRect(x: 0.03, y: 0.485, width: 0.94, height: 0.115)) {
-                showingSettings = true
-            }
+                VStack(spacing: 12) {
+                    NativeActionCard(icon: "video.fill", title: "Enhance Video", subtitle: "Import from Photos, Files or Camera") {
+                        state.route = .importVideo
+                    }
+                    NativeActionCard(icon: "clock.fill", title: "Recent Projects", subtitle: "Continue your work") {
+                        showingProjects = true
+                    }
+                    NativeActionCard(icon: "gearshape.fill", title: "Settings", subtitle: "Quality, export and advanced options") {
+                        showingSettings = true
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
 
-            // Bottom nav.
-            ExactHotspot(rect: CGRect(x: 0.00, y: 0.925, width: 0.20, height: 0.075)) {}
-            ExactHotspot(rect: CGRect(x: 0.20, y: 0.925, width: 0.20, height: 0.075)) {
-                showingProjects = true
-            }
-            ExactHotspot(rect: CGRect(x: 0.40, y: 0.905, width: 0.20, height: 0.095)) {
-                state.route = .importVideo
-            }
-            ExactHotspot(rect: CGRect(x: 0.60, y: 0.925, width: 0.20, height: 0.075)) {
-                state.showDiagnostics = true
-            }
-            ExactHotspot(rect: CGRect(x: 0.80, y: 0.925, width: 0.20, height: 0.075)) {
-                showingSettings = true
+                Spacer(minLength: 16)
+
+                ZStack(alignment: .bottom) {
+                    if let mountain = ReferenceArtworkCrop.mountain {
+                        Image(uiImage: mountain).resizable().scaledToFill()
+                    } else {
+                        LinearGradient(colors: [.indigo, .black], startPoint: .top, endPoint: .bottom)
+                            .overlay(Image(systemName: "mountain.2.fill").font(.system(size: 70)).foregroundStyle(.white.opacity(0.18)))
+                    }
+                    LinearGradient(colors: [.clear, ClarityNativeTheme.background.opacity(0.98)], startPoint: .top, endPoint: .bottom)
+                    Text("TURN GOOD FOOTAGE\nINTO GREAT MEMORIES.")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .tracking(3.2)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .padding(.bottom, 18)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 225)
+                .clipped()
             }
         }
-        .navigationBarHidden(true)
-        .statusBarHidden(true)
+        .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingSettings) {
-            SettingsView().preferredColorScheme(.dark)
-        }
+        .sheet(isPresented: $showingSettings) { SettingsView().preferredColorScheme(.dark) }
         .sheet(isPresented: $showingProjects) {
             NavigationStack {
                 List(state.recentJobs) { job in
                     Button {
                         if job.status == .paused {
                             state.resume(job)
-                        } else if job.status == .completed && job.outputURL != nil {
+                        } else if job.status == .completed, job.outputURL != nil {
                             state.activeJob = job
                             state.route = .results
                         }
                         showingProjects = false
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(job.assetInfo.fileName)
-                                .lineLimit(1)
-                            Text("\(job.configuration.resolution.rawValue) · \(job.status.rawValue.capitalized)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            Text(job.assetInfo.fileName).lineLimit(1)
+                            Text("\(job.configuration.resolution.rawValue) · \(job.configuration.upscaler.rawValue) · \(job.status.rawValue.capitalized)")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -186,36 +239,195 @@ struct ReferenceHomeView: View {
                     }
                 }
                 .navigationTitle("Recent Projects")
-                .toolbar {
-                    Button("Done") { showingProjects = false }
-                }
+                .toolbar { Button("Done") { showingProjects = false } }
             }
             .preferredColorScheme(.dark)
         }
     }
+
+    private var homeTabBar: some View {
+        ZStack {
+            Rectangle().fill(ClarityNativeTheme.background.opacity(0.97))
+                .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
+
+            HStack {
+                tab(icon: "house.fill", title: "Home", selected: true) {}
+                tab(icon: "folder.fill", title: "Projects") { showingProjects = true }
+                Spacer().frame(width: 78)
+                tab(icon: "bolt.fill", title: "Tools") { state.showDiagnostics = true }
+                tab(icon: "gearshape.fill", title: "Settings") { showingSettings = true }
+            }
+            .padding(.horizontal, 13)
+
+            Button { state.route = .importVideo } label: {
+                Circle()
+                    .fill(Color(red: 0.04, green: 0.22, blue: 0.58))
+                    .frame(width: 62, height: 62)
+                    .overlay(Circle().stroke(Color.cyan.opacity(0.9), lineWidth: 2))
+                    .overlay(Image(systemName: "plus").font(.system(size: 29, weight: .medium)).foregroundStyle(Color(red: 0.54, green: 0.86, blue: 1)))
+                    .shadow(color: .blue.opacity(0.9), radius: 12)
+            }
+            .offset(y: -13)
+        }
+        .frame(height: 70)
+    }
+
+    private func tab(icon: String, title: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 17, weight: .semibold))
+                Text(title).font(.system(size: 9, weight: .medium))
+            }
+            .foregroundStyle(selected ? Color.cyan : Color.white.opacity(0.55))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private enum ImportSource: String, CaseIterable, Identifiable {
+    case photos = "Photos", files = "Files", camera = "Camera"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .photos: "photo.on.rectangle"
+        case .files: "doc.fill"
+        case .camera: "camera.fill"
+        }
+    }
+}
+
+private enum ImportFilter: String, CaseIterable, Identifiable {
+    case all = "All", videos = "Videos", favorites = "Favorites", recents = "Recents"
+    var id: String { rawValue }
 }
 
 struct ReferenceImportVideoView: View {
     @Environment(AppState.self) private var state
+    @State private var source: ImportSource = .photos
+    @State private var filter: ImportFilter = .all
     @State private var assets: [PHAsset] = []
-    @State private var thumbnails: [String: UIImage] = [:]
-    @State private var selected: PHAsset?
+    @State private var selectedAsset: PHAsset?
     @State private var showingFiles = false
     @State private var showingCamera = false
-    @State private var filter: Filter = .all
-    @State private var photoAccessResolved = false
-    @State private var photoAccessDenied = false
+    @State private var authorizationDenied = false
 
-    enum Filter: String, CaseIterable, Identifiable {
-        case all = "All"
-        case videos = "Videos"
-        case favorites = "Favorites"
-        case recents = "Recents"
-        var id: String { rawValue }
+    private let grid = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6)
+    ]
+
+    var body: some View {
+        ZStack {
+            ClarityNativeTheme.background.ignoresSafeArea()
+            VStack(spacing: 12) {
+                NativeHeader(title: "Import Video", onBack: { state.route = .home })
+                    .padding(.horizontal, 14)
+
+                sourceSelector.padding(.horizontal, 16)
+                filterSelector.padding(.horizontal, 16)
+
+                if authorizationDenied {
+                    Spacer()
+                    ContentUnavailableView(
+                        "Photos Access Needed",
+                        systemImage: "photo.badge.exclamationmark",
+                        description: Text("Allow Photos access in Settings, or choose Files or Camera.")
+                    )
+                    Spacer()
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        LazyVGrid(columns: grid, spacing: 6) {
+                            ForEach(filteredAssets, id: \.localIdentifier) { asset in
+                                Button { selectedAsset = asset } label: {
+                                    NativeVideoThumbnail(asset: asset, selected: selectedAsset?.localIdentifier == asset.localIdentifier)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { selectionFooter }
+        .preferredColorScheme(.dark)
+        .task { await loadPhotoAssets() }
+        .onChange(of: source) { _, newValue in
+            if newValue == .files { showingFiles = true }
+            if newValue == .camera { showingCamera = true }
+        }
+        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.movie]) { result in
+            source = .photos
+            switch result {
+            case .success(let url): Task { await state.importVideo(from: url, sourceLabel: "Files video") }
+            case .failure(let error): state.errorMessage = error.localizedDescription
+            }
+        }
+        .sheet(isPresented: $showingCamera, onDismiss: { source = .photos }) {
+            NativeVideoCameraPicker { url in
+                showingCamera = false
+                Task { await state.importVideo(from: url, sourceLabel: "Camera video") }
+            } onCancel: {
+                showingCamera = false
+            }
+            .ignoresSafeArea()
+        }
+        .overlay {
+            if state.isImporting {
+                ZStack {
+                    Color.black.opacity(0.62).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView().controlSize(.large).tint(.cyan)
+                        Text(state.importStatus ?? "Importing video…").font(.subheadline.bold())
+                    }
+                    .padding(24)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+                }
+            }
+        }
     }
 
-    private var isSnapshotMode: Bool {
-        ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] != nil
+    private var sourceSelector: some View {
+        HStack(spacing: 7) {
+            ForEach(ImportSource.allCases) { item in
+                Button { source = item } label: {
+                    Label(item.rawValue, systemImage: item.icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            item == source ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.07)),
+                            in: RoundedRectangle(cornerRadius: 10)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(5)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))
+    }
+
+    private var filterSelector: some View {
+        HStack(spacing: 6) {
+            ForEach(ImportFilter.allCases) { item in
+                Button { filter = item } label: {
+                    Text(item.rawValue)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            item == filter ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var filteredAssets: [PHAsset] {
@@ -230,946 +442,622 @@ struct ReferenceImportVideoView: View {
         }
     }
 
-    var body: some View {
-        ZStack {
-            ExactReferenceBackground(screen: .importVideo)
-
-            // Back.
-            ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.14, height: 0.075)) {
-                state.route = .home
-            }
-
-            // Source controls retain the exact reference chrome.
-            ExactHotspot(rect: CGRect(x: 0.04, y: 0.115, width: 0.32, height: 0.065)) {
-                Task { await loadAssets() }
-            }
-            ExactHotspot(rect: CGRect(x: 0.37, y: 0.115, width: 0.30, height: 0.065)) {
-                showingFiles = true
-            }
-            ExactHotspot(rect: CGRect(x: 0.69, y: 0.115, width: 0.29, height: 0.065)) {
-                showingCamera = true
-            }
-
-            if !isSnapshotMode {
-                liveFilterRow
-                liveVideoGrid
-
-                if let selected {
-                    selectedSummary(selected)
-                }
-            }
-
-            // Continue imports the exact video selected in the live grid.
-            ExactHotspot(rect: CGRect(x: 0.05, y: 0.895, width: 0.90, height: 0.075)) {
-                guard let selected else {
-                    state.errorMessage = "Select a video to continue."
-                    return
-                }
-                Task { await importAsset(selected) }
-            }
-        }
-        .navigationBarHidden(true)
-        .statusBarHidden(true)
-        .preferredColorScheme(.dark)
-        .task {
-            guard !isSnapshotMode else { return }
-            await loadAssets()
-        }
-        .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
-            switch result {
-            case .success(let url):
-                Task { await state.importVideo(from: url, sourceLabel: "Files video") }
-            case .failure(let error):
-                state.errorMessage = error.localizedDescription
-            }
-        }
-        .sheet(isPresented: $showingCamera) {
-            ExactReferenceCameraPicker { url in
-                showingCamera = false
-                Task { await state.importVideo(from: url, sourceLabel: "Camera video") }
-            } onCancel: {
-                showingCamera = false
-            }
-            .ignoresSafeArea()
-        }
-        .overlay {
-            if state.isImporting {
-                ZStack {
-                    Color.black.opacity(0.63).ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        ProgressView().controlSize(.large).tint(.cyan)
-                        Text(state.importStatus ?? "Importing video…")
-                            .font(.subheadline.bold())
-                    }
-                    .padding(26)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
-                }
-            }
-        }
-    }
-
-    private var liveFilterRow: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 5) {
-                ForEach(Filter.allCases) { item in
-                    Button(item.rawValue) {
-                        filter = item
-                        if selected.map({ filteredAssets.contains($0) }) == false {
-                            selected = nil
+    private var selectionFooter: some View {
+        VStack(spacing: 10) {
+            if let selectedAsset {
+                NativePanel {
+                    HStack(spacing: 11) {
+                        NativeVideoThumbnail(asset: selectedAsset, selected: false)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("1 Video Selected").font(.subheadline.bold())
+                            Text(durationText(selectedAsset.duration))
+                                .font(.caption).foregroundStyle(ClarityNativeTheme.muted)
                         }
+                        Spacer()
                     }
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(filter == item ? .white : .white.opacity(0.58))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background(
-                        filter == item
-                            ? AnyShapeStyle(
-                                LinearGradient(
-                                    colors: [.purple, .blue, .cyan],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            : AnyShapeStyle(Color.white.opacity(0.06)),
-                        in: Capsule()
-                    )
-                    .accessibilityAddTraits(filter == item ? .isSelected : [])
+                    .padding(11)
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 4)
-            .frame(
-                width: geometry.size.width * 0.94,
-                height: geometry.size.height * 0.052
-            )
-            .background(
-                Color(red: 0.012, green: 0.028, blue: 0.050).opacity(0.98),
-                in: RoundedRectangle(cornerRadius: 10)
-            )
-            .position(
-                x: geometry.size.width * 0.50,
-                y: geometry.size.height * 0.210
-            )
+
+            Button {
+                guard let selectedAsset else { return }
+                Task {
+                    do {
+                        let url = try await NativePhotoAssetResolver.videoURL(for: selectedAsset)
+                        await state.importVideo(from: url, sourceLabel: "Photos video")
+                    } catch {
+                        state.errorMessage = error.localizedDescription
+                    }
+                }
+            } label: {
+                HStack {
+                    Spacer()
+                    Text("Continue")
+                    Image(systemName: "arrow.right")
+                    Spacer()
+                }
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(.vertical, 15)
+                .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
+                .opacity(selectedAsset == nil ? 0.45 : 1)
+            }
+            .buttonStyle(.plain)
+            .disabled(selectedAsset == nil || state.isImporting)
+            .padding(.horizontal, 16)
         }
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(ClarityNativeTheme.background.opacity(0.98))
     }
 
-    private var liveVideoGrid: some View {
-        GeometryReader { geometry in
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(red: 0.008, green: 0.020, blue: 0.038).opacity(0.995))
-
-                if photoAccessDenied {
-                    VStack(spacing: 8) {
-                        Image(systemName: "photo.badge.exclamationmark")
-                            .font(.title2)
-                            .foregroundStyle(.cyan)
-                        Text("Photos access is off")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Use Files or Camera, or allow Photos access in Settings.")
-                            .font(.system(size: 9.5))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
-                } else if photoAccessResolved && filteredAssets.isEmpty {
-                    ContentUnavailableView("No Videos", systemImage: "video.slash")
-                        .scaleEffect(0.75)
-                } else {
-                    ScrollView(showsIndicators: false) {
-                        LazyVGrid(
-                            columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3),
-                            spacing: 6
-                        ) {
-                            ForEach(filteredAssets, id: \.localIdentifier) { asset in
-                                ExactReferencePhotoCell(
-                                    asset: asset,
-                                    image: thumbnails[asset.localIdentifier],
-                                    selected: selected?.localIdentifier == asset.localIdentifier
-                                )
-                                .onTapGesture {
-                                    selected = asset
-                                }
-                                .task {
-                                    await loadThumbnail(for: asset)
-                                }
-                            }
-                        }
-                        .padding(5)
-                    }
-                }
-            }
-            .frame(
-                width: geometry.size.width * 0.94,
-                height: geometry.size.height * 0.515
-            )
-            .position(
-                x: geometry.size.width * 0.50,
-                y: geometry.size.height * 0.505
-            )
-        }
-    }
-
-    private func selectedSummary(_ asset: PHAsset) -> some View {
-        GeometryReader { geometry in
-            HStack(spacing: 9) {
-                Group {
-                    if let image = thumbnails[asset.localIdentifier] {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Color.white.opacity(0.07)
-                    }
-                }
-                .frame(
-                    width: geometry.size.width * 0.13,
-                    height: geometry.size.width * 0.13
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("1 Video Selected")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("\(duration(asset.duration)) · \(asset.pixelWidth)×\(asset.pixelHeight)")
-                        .font(.system(size: 8.5, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.56))
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 8)
-            .frame(
-                width: geometry.size.width * 0.94,
-                height: geometry.size.height * 0.085
-            )
-            .background(
-                Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
-                in: RoundedRectangle(cornerRadius: 11)
-            )
-            .position(
-                x: geometry.size.width * 0.50,
-                y: geometry.size.height * 0.815
-            )
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func loadAssets() async {
+    @MainActor
+    private func loadPhotoAssets() async {
         let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
-        photoAccessResolved = true
         guard status == .authorized || status == .limited else {
-            photoAccessDenied = true
-            assets = []
-            selected = nil
+            authorizationDenied = true
             return
         }
-
-        photoAccessDenied = false
+        authorizationDenied = false
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        options.fetchLimit = 90
         let result = PHAsset.fetchAssets(with: .video, options: options)
-        var values: [PHAsset] = []
-        result.enumerateObjects { asset, _, _ in values.append(asset) }
-        assets = values
-        if let selected, !values.contains(where: { $0.localIdentifier == selected.localIdentifier }) {
-            self.selected = nil
-        }
+        var loaded: [PHAsset] = []
+        result.enumerateObjects { asset, _, _ in loaded.append(asset) }
+        assets = loaded
     }
 
-    private func loadThumbnail(for asset: PHAsset) async {
-        guard thumbnails[asset.localIdentifier] == nil else { return }
-
-        let manager = PHCachingImageManager()
-        let image = await withCheckedContinuation { continuation in
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .opportunistic
-            options.resizeMode = .fast
-            options.isNetworkAccessAllowed = true
-            var resumed = false
-
-            manager.requestImage(
-                for: asset,
-                targetSize: CGSize(width: 360, height: 240),
-                contentMode: .aspectFill,
-                options: options
-            ) { image, info in
-                let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-                let cancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
-                let requestError = info?[PHImageErrorKey] as? Error
-                if (!degraded || cancelled || requestError != nil) && !resumed {
-                    resumed = true
-                    continuation.resume(returning: image)
-                }
-            }
-        }
-
-        if let image {
-            thumbnails[asset.localIdentifier] = image
-        }
-    }
-
-    private func importAsset(_ asset: PHAsset) async {
-        state.isImporting = true
-        state.importStatus = "Preparing selected video…"
-
-        do {
-            let url = try await ExactReferencePhotoAssetResolver.videoURL(for: asset)
-            await state.importVideo(from: url, sourceLabel: "Photos video")
-        } catch {
-            state.isImporting = false
-            state.importStatus = nil
-            state.errorMessage = error.localizedDescription
-        }
-    }
-
-    private func duration(_ seconds: Double) -> String {
-        String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+    private func durationText(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 
-private struct ExactReferencePhotoCell: View {
+private struct NativeVideoThumbnail: View {
     let asset: PHAsset
-    let image: UIImage?
     let selected: Bool
+    @State private var image: UIImage?
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
                 if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
+                    Image(uiImage: image).resizable().scaledToFill()
                 } else {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.055))
+                    Rectangle().fill(Color.white.opacity(0.06))
                         .overlay(ProgressView().tint(.cyan))
                 }
             }
-            .aspectRatio(1.25, contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1.05, contentMode: .fit)
             .clipped()
 
-            Text(String(format: "%d:%02d", Int(asset.duration) / 60, Int(asset.duration) % 60))
-                .font(.system(size: 8, weight: .bold))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
+            Text(durationText(asset.duration))
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
                 .background(.black.opacity(0.72), in: Capsule())
-                .padding(4)
+                .padding(5)
 
             if selected {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.cyan)
-                    .background(Circle().fill(.black))
+                    .font(.system(size: 20))
+                    .foregroundStyle(.cyan, .blue)
                     .padding(5)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(selected ? Color.cyan : Color.white.opacity(0.05), lineWidth: selected ? 2 : 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Video \(String(format: "%d minutes %d seconds", Int(asset.duration) / 60, Int(asset.duration) % 60))")
-        .accessibilityValue(selected ? "Selected" : "Not selected")
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(selected ? Color.cyan : Color.white.opacity(0.08), lineWidth: selected ? 2 : 1))
+        .task(id: asset.localIdentifier) { await loadImage() }
+    }
+
+    @MainActor
+    private func loadImage() async {
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.resizeMode = .fast
+        options.isNetworkAccessAllowed = true
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: CGSize(width: 360, height: 360),
+            contentMode: .aspectFill,
+            options: options
+        ) { result, _ in
+            if let result { image = result }
+        }
+    }
+
+    private func durationText(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 
-private enum ExactReferencePhotoAssetResolver {
+private enum NativePhotoAssetResolver {
     static func videoURL(for asset: PHAsset) async throws -> URL {
-        let avAsset: AVAsset = try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { continuation in
             let options = PHVideoRequestOptions()
             options.version = .current
             options.deliveryMode = .highQualityFormat
             options.isNetworkAccessAllowed = true
-
             PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
                 if let error = info?[PHImageErrorKey] as? Error {
                     continuation.resume(throwing: error)
                     return
                 }
-                guard let avAsset else {
-                    continuation.resume(
-                        throwing: AppError.importFailedReason("Photos could not prepare this video.")
-                    )
+                guard let urlAsset = avAsset as? AVURLAsset else {
+                    continuation.resume(throwing: AppError.importFailedReason("Photos could not provide a local video file."))
                     return
                 }
-                continuation.resume(returning: avAsset)
+                continuation.resume(returning: urlAsset.url)
             }
         }
-
-        if let urlAsset = avAsset as? AVURLAsset {
-            return urlAsset.url
-        }
-
-        let temporaryURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Clarity-Photos-" + UUID().uuidString)
-            .appendingPathExtension("mov")
-        try? FileManager.default.removeItem(at: temporaryURL)
-
-        guard let session = AVAssetExportSession(asset: avAsset, presetName: AVAssetExportPresetPassthrough) else {
-            throw AppError.importFailedReason("Photos returned a composed video that could not be exported.")
-        }
-        try await session.export(to: temporaryURL, as: .mov)
-        return temporaryURL
     }
 }
 
 struct ReferenceEditorView: View {
     @Environment(AppState.self) private var state
-    @State private var sourcePlayer: AVPlayer?
+    @State private var beforePlayer: AVPlayer?
+    @State private var afterPlayer: AVPlayer?
+    @State private var reveal = 0.5
     @State private var isPlaying = false
 
     var body: some View {
         ZStack {
-            ExactReferenceBackground(screen: .enhance)
+            ClarityNativeTheme.background.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    NativeHeader(title: "Enhance", onBack: { state.route = .importVideo })
+                    comparisonCard.frame(height: 250)
+                    playbackBar
 
-            // Back.
-            ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.14, height: 0.075)) {
-                sourcePlayer?.pause()
-                state.route = .importVideo
-            }
+                    NativePanel {
+                        VStack(alignment: .leading, spacing: 17) {
+                            Text("Enhancement Settings")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
 
-            // Real imported video is rendered in the exact reference preview
-            // rectangle. With no imported asset, the reference pixels remain
-            // completely unobscured for snapshot verification.
-            GeometryReader { geometry in
-                if let sourcePlayer {
-                    VideoPlayer(player: sourcePlayer)
-                        .allowsHitTesting(false)
-                        .frame(
-                            width: 0.935 * geometry.size.width,
-                            height: 0.305 * geometry.size.height
-                        )
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .position(
-                            x: 0.502 * geometry.size.width,
-                            y: 0.265 * geometry.size.height
-                        )
+                            settingLabel("Target Resolution")
+                            resolutionControl
 
-                    Rectangle()
-                        .fill(Color.white)
-                        .frame(
-                            width: max(1.5, geometry.size.width * 0.006),
-                            height: geometry.size.height * 0.305
-                        )
-                        .position(
-                            x: geometry.size.width * 0.548,
-                            y: geometry.size.height * 0.265
-                        )
-                        .allowsHitTesting(false)
+                            settingLabel("Enhancement Mode")
+                            qualityControl
 
-                    Circle()
-                        .fill(Color.white)
-                        .frame(
-                            width: geometry.size.width * 0.105,
-                            height: geometry.size.width * 0.105
-                        )
-                        .overlay(
-                            Image(systemName: "chevron.left.2")
-                                .font(.system(size: 10, weight: .black))
-                                .foregroundStyle(Color.black)
-                                .rotationEffect(.degrees(180))
-                        )
-                        .position(
-                            x: geometry.size.width * 0.548,
-                            y: geometry.size.height * 0.265
-                        )
-                        .allowsHitTesting(false)
-                }
-            }
+                            settingLabel("AI Upscaler")
+                            upscalerControl
 
-            // Play / pause.
-            ExactHotspot(rect: CGRect(x: 0.035, y: 0.425, width: 0.13, height: 0.075)) {
-                guard let sourcePlayer else { return }
-                if isPlaying {
-                    sourcePlayer.pause()
-                } else {
-                    sourcePlayer.play()
-                }
-                isPlaying.toggle()
-            }
-
-            // Target resolution is an explicit choice independent of engine/preset.
-            GeometryReader { geometry in
-                HStack(spacing: 4) {
-                    ForEach([OutputResolution.uhd4K, .uhd8K]) { resolution in
-                        Button {
-                            state.configuration.resolution = resolution
-                        } label: {
-                            Text(resolution == .uhd4K ? "4K" : "8K")
-                                .font(.system(size: 10.5, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 7)
-                                .background(
-                                    state.configuration.resolution == resolution
-                                        ? AnyShapeStyle(
-                                            LinearGradient(
-                                                colors: [.purple, .blue, .cyan],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
-                                        : AnyShapeStyle(Color.white.opacity(0.06)),
-                                    in: RoundedRectangle(cornerRadius: 8)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(4)
-                .frame(
-                    width: geometry.size.width * 0.935,
-                    height: geometry.size.height * 0.060
-                )
-                .background(
-                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
-                    in: RoundedRectangle(cornerRadius: 10)
-                )
-                .position(
-                    x: geometry.size.width * 0.502,
-                    y: geometry.size.height * 0.615
-                )
-            }
-
-            // Quality preset is independent from the selected AI upscaler.
-            GeometryReader { geometry in
-                HStack(spacing: 4) {
-                    ForEach(QualityPreset.allCases) { preset in
-                        Button {
-                            state.configuration.applyPreset(
-                                preset,
-                                temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                            NativeValueSlider(
+                                title: "Denoise",
+                                value: Binding(get: { state.configuration.denoise }, set: { state.configuration.denoise = $0 })
                             )
-                        } label: {
-                            Text(preset.rawValue)
-                                .font(.system(size: 9.5, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                                .background(
-                                    state.configuration.qualityPreset == preset
-                                        ? AnyShapeStyle(
-                                            LinearGradient(
-                                                colors: [.purple, .blue, .cyan],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
-                                        : AnyShapeStyle(Color.white.opacity(0.06)),
-                                    in: RoundedRectangle(cornerRadius: 8)
-                                )
+                            NativeValueSlider(
+                                title: "Detail Recovery",
+                                value: Binding(get: { state.configuration.detailRecovery }, set: { state.configuration.detailRecovery = $0 })
+                            )
+                            NativeValueSlider(
+                                title: "Sharpen",
+                                value: Binding(get: { state.configuration.sharpening }, set: { state.configuration.sharpening = $0 })
+                            )
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("(preset.rawValue) quality preset")
-                        .accessibilityAddTraits(
-                            state.configuration.qualityPreset == preset ? .isSelected : []
-                        )
+                        .padding(14)
                     }
-                }
-                .padding(4)
-                .frame(
-                    width: geometry.size.width * 0.935,
-                    height: geometry.size.height * 0.060
-                )
-                .background(
-                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
-                    in: RoundedRectangle(cornerRadius: 10)
-                )
-                .position(
-                    x: geometry.size.width * 0.502,
-                    y: geometry.size.height * 0.720
-                )
-            }
-
-            // Replace the old single AI toggle row with a real engine selector.
-            GeometryReader { geometry in
-                HStack(spacing: 4) {
-                    Text("AI Upscaler")
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.72))
-                        .frame(width: geometry.size.width * 0.24, alignment: .leading)
 
                     Button {
-                        state.configuration.upscaler = .appleSR
-                    } label: {
-                        Text("Apple SR")
-                            .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
-                            .background(
-                                state.configuration.upscaler == .appleSR
-                                    ? AnyShapeStyle(
-                                        LinearGradient(
-                                            colors: [.purple, .blue, .cyan],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    : AnyShapeStyle(Color.white.opacity(0.06)),
-                                in: RoundedRectangle(cornerRadius: 8)
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        guard IOSNeuralHeadService.bundledModelURL() != nil else {
-                            state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
-                            return
-                        }
-                        state.configuration.upscaler = .dlss5
-                    } label: {
-                        VStack(spacing: 0) {
-                            Text("DLSS 5")
-                                .font(.system(size: 9.5, weight: .semibold))
-                            Text("Experimental")
-                                .font(.system(size: 6.5, weight: .medium))
-                                .opacity(0.72)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 3)
-                        .background(
-                            state.configuration.upscaler == .dlss5
-                                ? AnyShapeStyle(
-                                    LinearGradient(
-                                        colors: [.purple, .blue, .cyan],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                : AnyShapeStyle(Color.white.opacity(0.06)),
-                            in: RoundedRectangle(cornerRadius: 8)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .opacity(IOSNeuralHeadService.bundledModelURL() == nil ? 0.45 : 1)
-                }
-                .padding(.horizontal, geometry.size.width * 0.035)
-                .frame(
-                    width: geometry.size.width * 0.94,
-                    height: geometry.size.height * 0.060
-                )
-                .background(
-                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
-                    in: RoundedRectangle(cornerRadius: 10)
-                )
-                .position(
-                    x: geometry.size.width * 0.50,
-                    y: geometry.size.height * 0.785
-                )
-            }
-
-            // Real parameter drags mapped to the exact slider tracks.
-            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.818, width: 0.40, height: 0.050)) {
-                state.configuration.denoise = $0
-            }
-            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.865, width: 0.40, height: 0.050)) {
-                state.configuration.detailRecovery = $0
-            }
-            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.912, width: 0.40, height: 0.050)) {
-                state.configuration.sharpening = $0
-            }
-
-            if state.importedURL != nil {
-                GeometryReader { geometry in
-                    liveValue(
-                        Int((state.configuration.denoise * 100).rounded()),
-                        x: 0.945, y: 0.842, geometry: geometry
-                    )
-                    liveValue(
-                        Int((state.configuration.detailRecovery * 100).rounded()),
-                        x: 0.945, y: 0.889, geometry: geometry
-                    )
-                    liveValue(
-                        Int((state.configuration.sharpening * 100).rounded()),
-                        x: 0.945, y: 0.936, geometry: geometry
-                    )
-                }
-            }
-        }
-        .navigationBarHidden(true)
-        .statusBarHidden(true)
-        .preferredColorScheme(.dark)
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    // The reference has no visible export CTA on this viewport.
-                    // Preserve that exact appearance while keeping navigation real:
-                    // swipe upward anywhere to continue to Export.
-                    if value.translation.height < -80 {
-                        sourcePlayer?.pause()
+                        pausePlayers()
                         state.route = .exportSetup
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Continue")
+                            Image(systemName: "arrow.right")
+                            Spacer()
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 15)
+                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
                     }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 12)
                 }
-        )
-        .accessibilityAction(named: "Continue to Export") {
-            sourcePlayer?.pause()
-            state.route = .exportSetup
-        }
-        .onAppear {
-            if sourcePlayer == nil, let url = state.importedURL {
-                sourcePlayer = AVPlayer(url: url)
+                .padding(.horizontal, 16)
             }
         }
-        .onDisappear {
-            sourcePlayer?.pause()
+        .preferredColorScheme(.dark)
+        .onAppear { configurePlayersAndPreview() }
+        .onChange(of: state.comparisonPreview?.enhancedURL) { _, url in
+            if let url { afterPlayer = AVPlayer(url: url) }
+        }
+        .onDisappear { pausePlayers() }
+    }
+
+    private var comparisonCard: some View {
+        GeometryReader { geometry in
+            let split = geometry.size.width * reveal
+            ZStack(alignment: .leading) {
+                comparisonLayer(player: afterPlayer ?? beforePlayer)
+                comparisonLayer(player: beforePlayer)
+                    .mask(alignment: .leading) { Rectangle().frame(width: max(1, split)) }
+
+                Rectangle().fill(.white).frame(width: 2).offset(x: split - 1)
+                Circle()
+                    .fill(.white)
+                    .frame(width: 30, height: 30)
+                    .overlay(Image(systemName: "arrow.left.and.right").font(.system(size: 12, weight: .bold)).foregroundStyle(.black))
+                    .offset(x: split - 15, y: geometry.size.height / 2 - 15)
+
+                Text("Before")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 9).padding(.vertical, 6)
+                    .background(.black.opacity(0.58), in: Capsule())
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+
+                Text("After")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Color.cyan.opacity(0.9), in: Capsule())
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+
+                Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 7).padding(.vertical, 5)
+                    .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 6))
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+                if state.isGeneratingPreview {
+                    VStack(spacing: 7) {
+                        ProgressView(value: state.previewProgress).tint(.cyan)
+                        Text("Generating real AI preview…").font(.caption.bold())
+                    }
+                    .padding(12)
+                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.09), lineWidth: 1))
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
+            })
         }
     }
 
     @ViewBuilder
-    private func liveValue(
-        _ value: Int,
-        x: CGFloat,
-        y: CGFloat,
-        geometry: GeometryProxy
-    ) -> some View {
-        Text("\(value)")
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 3)
-            .background(Color(red: 0.020, green: 0.035, blue: 0.060))
-            .position(
-                x: x * geometry.size.width,
-                y: y * geometry.size.height
-            )
-            .allowsHitTesting(false)
+    private func comparisonLayer(player: AVPlayer?) -> some View {
+        if let player {
+            VideoPlayer(player: player).allowsHitTesting(false)
+        } else if let mountain = ReferenceArtworkCrop.mountain {
+            Image(uiImage: mountain).resizable().scaledToFill()
+        } else {
+            Rectangle().fill(Color.indigo.opacity(0.35))
+        }
+    }
+
+    private var playbackBar: some View {
+        HStack(spacing: 12) {
+            Button {
+                isPlaying.toggle()
+                if isPlaying {
+                    beforePlayer?.play(); afterPlayer?.play()
+                } else {
+                    pausePlayers()
+                }
+            } label: {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(width: 34, height: 34)
+            }
+            Text("00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
+            Capsule().fill(Color.white.opacity(0.13)).frame(height: 4)
+                .overlay(alignment: .leading) { Capsule().fill(Color.cyan).frame(width: 42, height: 4) }
+            Text(state.assetInfo?.durationText ?? "00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
+        }
+        .foregroundStyle(.white)
+    }
+
+    private var resolutionControl: some View {
+        NativeChoiceRow(
+            options: ["4K", "8K"],
+            selected: state.configuration.resolution == .uhd4K ? "4K" : "8K"
+        ) { value in
+            state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
+            regeneratePreview()
+        }
+    }
+
+    private var qualityControl: some View {
+        NativeChoiceRow(
+            options: QualityPreset.allCases.map(\.rawValue),
+            selected: state.configuration.qualityPreset.rawValue
+        ) { value in
+            guard let preset = QualityPreset(rawValue: value) else { return }
+            state.configuration.applyPreset(preset, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
+            regeneratePreview()
+        }
+    }
+
+    private var upscalerControl: some View {
+        NativeChoiceRow(
+            options: ["Apple SR", "DLSS 5"],
+            selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+        ) { value in
+            if value == "DLSS 5" {
+                guard IOSNeuralHeadService.bundledModelURL() != nil else {
+                    state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
+                    return
+                }
+                state.configuration.upscaler = .dlss5
+            } else {
+                state.configuration.upscaler = .appleSR
+            }
+            regeneratePreview()
+        }
+    }
+
+    private func settingLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.72))
+    }
+
+    private func configurePlayersAndPreview() {
+        if beforePlayer == nil, let url = state.importedURL { beforePlayer = AVPlayer(url: url) }
+        if let url = state.comparisonPreview?.enhancedURL {
+            afterPlayer = AVPlayer(url: url)
+        } else if state.importedURL != nil && !state.isGeneratingPreview {
+            state.generateComparisonPreview()
+        }
+    }
+
+    private func regeneratePreview() {
+        afterPlayer?.pause()
+        afterPlayer = nil
+        state.cancelComparisonPreview()
+        state.generateComparisonPreview()
+    }
+
+    private func pausePlayers() {
+        beforePlayer?.pause()
+        afterPlayer?.pause()
+        isPlaying = false
+    }
+}
+
+private struct NativeChoiceRow: View {
+    let options: [String]
+    let selected: String
+    let select: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.self) { option in
+                Button { select(option) } label: {
+                    Text(option)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            option == selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
+                            in: RoundedRectangle(cornerRadius: 9)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 11))
+    }
+}
+
+private struct NativeValueSlider: View {
+    let title: String
+    @Binding var value: Double
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 104, alignment: .leading)
+            Slider(value: $value, in: 0...1).tint(.cyan)
+            Text("\(Int((value * 100).rounded()))")
+                .font(.caption.monospacedDigit())
+                .frame(width: 30, alignment: .trailing)
+                .foregroundStyle(.white.opacity(0.72))
+        }
     }
 }
 
 struct ReferenceExportView: View {
     @Environment(AppState.self) private var state
-    @State private var quality = 1
+    @State private var qualityIndex = 1
 
     var body: some View {
         ZStack {
-            ExactReferenceBackground(screen: .export)
+            ClarityNativeTheme.background.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    NativeHeader(title: "Export", trailingIcon: "magnifyingglass", onBack: { state.route = .editor })
+                    videoSummary
+                    exportSettings
 
-            // Back.
-            ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.14, height: 0.075)) {
-                state.route = .editor
+                    Button { state.beginExport() } label: {
+                        HStack {
+                            Spacer()
+                            Text("Start Export")
+                            Spacer()
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 16)
+                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("Processing will continue in the background.\nYou’ll be notified when it’s done.")
+                        .font(.system(size: 10, weight: .medium))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white.opacity(0.45))
+
+                    NativePanel {
+                        HStack(spacing: 12) {
+                            RoundedRectangle(cornerRadius: 11)
+                                .fill(Color.blue.opacity(0.13))
+                                .frame(width: 44, height: 44)
+                                .overlay(Image(systemName: "camera.aperture").font(.title2).foregroundStyle(.blue))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("AI Powered. On Device.").font(.subheadline.bold())
+                                Text("Your privacy stays with you.").font(.caption).foregroundStyle(ClarityNativeTheme.muted)
+                            }
+                            Spacer()
+                        }
+                        .padding(13)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
             }
+        }
+        .preferredColorScheme(.dark)
+        .onAppear { qualityIndex = closestQualityIndex() }
+    }
 
-            // Dynamic metadata covers the reference sample text while preserving
-            // the exact card and thumbnail chrome.
-            GeometryReader { geometry in
-                if let info = state.assetInfo {
-                    let x = geometry.size.width * 0.47
-                    let top = geometry.size.height * 0.145
+    private var videoSummary: some View {
+        NativePanel {
+            HStack(spacing: 12) {
+                Group {
+                    if let mountain = ReferenceArtworkCrop.mountain {
+                        Image(uiImage: mountain).resizable().scaledToFill()
+                    } else {
+                        Rectangle().fill(.indigo.opacity(0.3))
+                    }
+                }
+                .frame(width: 82, height: 74)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                    Rectangle()
-                        .fill(Color(red: 0.025, green: 0.045, blue: 0.070))
-                        .frame(
-                            width: geometry.size.width * 0.48,
-                            height: geometry.size.height * 0.115
-                        )
-                        .position(
-                            x: geometry.size.width * 0.73,
-                            y: top + geometry.size.height * 0.035
-                        )
-                        .allowsHitTesting(false)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(info.fileName.isEmpty ? "My Video" : info.fileName)
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                        Text("\(info.durationText) · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.72))
-                        Text("\(state.configuration.qualityPreset.rawValue) · \(state.configuration.codec.rawValue)")
-                            .font(.system(size: 9.5, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.58))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(state.assetInfo?.fileName ?? "My Video")
+                        .font(.subheadline.bold()).lineLimit(1)
+                    Text("\(state.assetInfo?.durationText ?? "00:00") · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
+                        .font(.caption).foregroundStyle(.white.opacity(0.62))
+                    if let info = state.assetInfo {
                         Text("~ " + ByteCountFormatter.string(
-                            fromByteCount: StorageEstimator.estimatedOutputBytes(
-                                info: info,
-                                configuration: state.configuration
-                            ),
+                            fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration),
                             countStyle: .file
                         ) + " estimated")
-                            .font(.system(size: 9.5, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.58))
+                            .font(.caption).foregroundStyle(.white.opacity(0.48))
                     }
-                    .frame(width: geometry.size.width * 0.47, alignment: .leading)
-                    .position(
-                        x: x + geometry.size.width * 0.235,
-                        y: geometry.size.height * 0.177
-                    )
-                    .allowsHitTesting(false)
                 }
+                Spacer()
             }
+            .padding(13)
+        }
+    }
 
-            // Format row.
-            ExactHotspot(rect: CGRect(x: 0.08, y: 0.365, width: 0.49, height: 0.060)) {
-                state.configuration.codec = .hevc
-            }
-            ExactHotspot(rect: CGRect(x: 0.58, y: 0.365, width: 0.34, height: 0.060)) {
-                state.errorMessage = "ProRes is not enabled in this processing backend yet."
-            }
+    private var exportSettings: some View {
+        NativePanel {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Export Settings").font(.headline)
+                Divider().overlay(Color.white.opacity(0.07))
 
-            // Quality row with live selection feedback.
-            GeometryReader { geometry in
+                settingLabel("Format")
                 HStack(spacing: 4) {
-                    ForEach(Array(["Standard", "High", "Maximum"].enumerated()), id: .offset) { index, title in
-                        Button {
-                            setQuality(index)
-                        } label: {
-                            Text(title)
-                                .font(.system(size: 9.5, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                                .background(
-                                    quality == index
-                                        ? AnyShapeStyle(
-                                            LinearGradient(
-                                                colors: [.purple, .blue, .cyan],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
-                                        : AnyShapeStyle(Color.white.opacity(0.06)),
-                                    in: RoundedRectangle(cornerRadius: 8)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("(title) export quality")
-                        .accessibilityAddTraits(quality == index ? .isSelected : [])
+                    exportChoice("HEVC (H.265)", selected: state.configuration.codec == .hevc) {
+                        state.configuration.codec = .hevc
+                    }
+                    exportChoice("ProRes", selected: false, enabled: false) {
+                        state.errorMessage = "ProRes is not enabled in this processing backend yet."
                     }
                 }
-                .padding(4)
-                .frame(
-                    width: geometry.size.width * 0.88,
-                    height: geometry.size.height * 0.055
+
+                settingLabel("Quality")
+                HStack(spacing: 4) {
+                    ForEach(0..<3, id: \.self) { index in
+                        let labels = ["Standard", "High", "Maximum"]
+                        exportChoice(labels[index], selected: index == qualityIndex) { setQuality(index) }
+                    }
+                }
+
+                nativeToggle(
+                    "Preserve HDR (when available)",
+                    isOn: Binding(
+                        get: { state.configuration.hdrBehavior == .preserve },
+                        set: { state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR }
+                    )
                 )
+                nativeToggle(
+                    "Save to Photos",
+                    isOn: Binding(
+                        get: { state.saveToPhotosAfterExport },
+                        set: { state.saveToPhotosAfterExport = $0 }
+                    )
+                )
+                nativeToggle(
+                    "Also Save to Files",
+                    isOn: Binding(
+                        get: { state.saveToFilesAfterExport },
+                        set: { state.saveToFilesAfterExport = $0 }
+                    )
+                )
+            }
+            .padding(14)
+        }
+    }
+
+    private func settingLabel(_ text: String) -> some View {
+        Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.74))
+    }
+
+    private func exportChoice(_ title: String, selected: Bool, enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(enabled ? .white : .white.opacity(0.42))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
                 .background(
-                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
                     in: RoundedRectangle(cornerRadius: 9)
                 )
-                .position(
-                    x: geometry.size.width * 0.51,
-                    y: geometry.size.height * 0.4825
-                )
-            }
-
-            // Live toggles over the exact reference positions.
-            GeometryReader { geometry in
-                referenceToggle(
-                    isOn: state.configuration.hdrBehavior == .preserve,
-                    label: "Preserve HDR",
-                    geometry: geometry,
-                    y: 0.565
-                ) {
-                    guard state.assetInfo?.isHDR == true else { return }
-                    if state.configuration.hdrBehavior == .preserve {
-                        state.configuration.hdrBehavior = .convertToSDR
-                    } else {
-                        state.errorMessage = "Verified HDR preservation is not available yet for this AI path. Clarity will not silently strip HDR metadata."
-                    }
-                }
-
-                referenceToggle(
-                    isOn: state.saveToPhotosAfterExport,
-                    label: "Save to Photos",
-                    geometry: geometry,
-                    y: 0.620
-                ) {
-                    state.saveToPhotosAfterExport.toggle()
-                }
-
-                referenceToggle(
-                    isOn: state.saveToFilesAfterExport,
-                    label: "Also Save to Files",
-                    geometry: geometry,
-                    y: 0.675
-                ) {
-                    state.saveToFilesAfterExport.toggle()
-                }
-            }
-
-            // Start Export.
-            ExactHotspot(rect: CGRect(x: 0.055, y: 0.690, width: 0.89, height: 0.085)) {
-                state.beginExport()
-            }
-        }
-        .navigationBarHidden(true)
-        .statusBarHidden(true)
-        .preferredColorScheme(.dark)
-        .onAppear {
-            quality = closestQualityIndex()
-        }
-    }
-
-    @ViewBuilder
-    private func referenceToggle(
-        isOn: Bool,
-        label: String,
-        geometry: GeometryProxy,
-        y: CGFloat,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Capsule()
-                .fill(
-                    isOn
-                        ? AnyShapeStyle(
-                            LinearGradient(
-                                colors: [.purple, .blue, .cyan],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        : AnyShapeStyle(Color.white.opacity(0.16))
-                )
-                .frame(
-                    width: geometry.size.width * 0.105,
-                    height: geometry.size.height * 0.027
-                )
-                .overlay(alignment: isOn ? .trailing : .leading) {
-                    Circle()
-                        .fill(.white)
-                        .padding(2)
-                }
         }
         .buttonStyle(.plain)
-        .position(
-            x: geometry.size.width * 0.90,
-            y: geometry.size.height * y
-        )
-        .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "On" : "Off")
+        .disabled(!enabled)
     }
 
-    private func setQuality(_ value: Int) {
-        quality = value
-        let values = state.configuration.resolution == .uhd8K
-            ? [100, 160, 220]
-            : [35, 65, 100]
-        state.configuration.bitrateMbps = values[value]
+    private func nativeToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(title, isOn: isOn)
+            .font(.system(size: 12, weight: .medium))
+            .tint(.cyan)
+    }
+
+    private func setQuality(_ index: Int) {
+        qualityIndex = index
+        let values = state.configuration.resolution == .uhd8K ? [100, 160, 220] : [35, 65, 100]
+        state.configuration.bitrateMbps = values[index]
     }
 
     private func closestQualityIndex() -> Int {
-        let values = state.configuration.resolution == .uhd8K
-            ? [100, 160, 220]
-            : [35, 65, 100]
+        let values = state.configuration.resolution == .uhd8K ? [100, 160, 220] : [35, 65, 100]
         return values.enumerated().min {
-            abs($0.element - state.configuration.bitrateMbps) <
-            abs($1.element - state.configuration.bitrateMbps)
+            abs($0.element - state.configuration.bitrateMbps) < abs($1.element - state.configuration.bitrateMbps)
         }?.offset ?? 1
     }
 }
 
-private struct ExactReferenceCameraPicker: UIViewControllerRepresentable {
+private struct NativeVideoCameraPicker: UIViewControllerRepresentable {
     let onResult: @MainActor (URL) -> Void
     let onCancel: @MainActor () -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onResult: onResult, onCancel: onCancel)
-    }
+    func makeCoordinator() -> Coordinator { Coordinator(onResult: onResult, onCancel: onCancel) }
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -1186,10 +1074,7 @@ private struct ExactReferenceCameraPicker: UIViewControllerRepresentable {
         let onResult: @MainActor (URL) -> Void
         let onCancel: @MainActor () -> Void
 
-        init(
-            onResult: @escaping @MainActor (URL) -> Void,
-            onCancel: @escaping @MainActor () -> Void
-        ) {
+        init(onResult: @escaping @MainActor (URL) -> Void, onCancel: @escaping @MainActor () -> Void) {
             self.onResult = onResult
             self.onCancel = onCancel
         }
