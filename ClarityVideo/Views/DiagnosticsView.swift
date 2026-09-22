@@ -75,7 +75,7 @@ struct DiagnosticsView: View {
                                     icon: "brain.head.profile",
                                     title: state.isPreparingModel ? "Running DLSS 5 test…" : "Run DLSS 5 device test",
                                     subtitle: "Validate the experimental neural upscaler",
-                                    enabled: !state.isPreparingModel && IOSNeuralHeadService.bundledModelURL() != nil
+                                    enabled: !state.isPreparingModel && neuralDeviceTestAvailable
                                 ) {
                                     Task { await state.runRecoveredNeuralHeadSelfTest() }
                                 }
@@ -200,6 +200,15 @@ struct DiagnosticsView: View {
             await state.refreshCapabilities()
 #endif
         }
+    }
+
+    private var neuralDeviceTestAvailable: Bool {
+#if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1" {
+            return true
+        }
+#endif
+        return IOSNeuralHeadService.bundledModelURL() != nil
     }
 
     private var hero: some View {
