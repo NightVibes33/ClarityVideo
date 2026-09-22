@@ -49,10 +49,11 @@ struct ExportSetupView: View {
                                 state.configuration.bitrateMbps = (state.configuration.resolution == .uhd8K ? [100, 160, 220] : [35, 65, 100])[value]
                             }
                         }
-                        Toggle("Convert HDR to SDR", isOn: Binding(
-                            get: { state.configuration.hdrBehavior == .convertToSDR },
-                            set: { state.configuration.hdrBehavior = $0 ? .convertToSDR : .preserve }
-                        )).disabled(state.assetInfo?.isHDR != true)
+                        if state.assetInfo?.isHDR == true {
+                            Text("HDR will be converted to SDR for supported 4K exports.")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.65))
+                        }
                         Toggle("Save to Photos when finished", isOn: $state.saveToPhotosAfterExport)
                     }
                     .font(.subheadline)
