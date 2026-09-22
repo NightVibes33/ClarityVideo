@@ -168,7 +168,7 @@ struct ClarityPillButton: View {
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(red: 0.48, green: 0.88, blue: 1.0))
                 .padding(.horizontal, 20)
-                .padding(.vertical, 11)
+                .padding(.vertical, 9)
                 .background(
                     Capsule()
                         .fill(
@@ -719,7 +719,7 @@ struct ClarityProjectsView: View {
                         VStack(spacing: 18) {
                             Spacer()
 
-                            ClarityIconTile(icon: "film.fill", size: 96, iconSize: 40)
+                            ClarityIconTile(icon: "film.fill", size: 106, iconSize: 40)
 
                             Text("No recent projects")
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
