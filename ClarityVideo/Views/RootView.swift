@@ -236,7 +236,7 @@ struct HomeView: View {
 
     private var mountainPanel: some View {
         ZStack(alignment: .bottom) {
-            if let mountain = ReferenceArtwork.mountain {
+            if let mountain = ClarityMountainArt.mountain {
                 Image(uiImage: mountain).resizable().scaledToFill().frame(height: 255).clipped()
             }
             LinearGradient(colors: [.clear, .black.opacity(0.78)], startPoint: .center, endPoint: .bottom)
@@ -283,7 +283,7 @@ struct HomeView: View {
     }
 }
 
-private enum ReferenceArtwork {
+private enum ClarityMountainArt {
     static let mountain = UIImage(named: "MountainReference")
 }
 
