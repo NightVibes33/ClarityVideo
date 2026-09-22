@@ -1,0 +1,45 @@
+name: Verify Clarity core routing
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [neural-ios-port]
+    paths:
+      - 'ClarityVideo/App/**'
+      - 'ClarityVideo/Models/**'
+      - 'ClarityVideo/Processing/**'
+      - 'ClarityVideo/Services/**'
+      - 'ClarityVideoTests/ClarityVideoTests.swift'
+      - '.github/workflows/ios-core-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clarity-core-routing
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+
+      - name: Run core routing and configuration tests
+        run: |
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+          test -n "$DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcodebuild test -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO \
+            -only-testing:ClarityVideoTests/ClarityVideoTests
