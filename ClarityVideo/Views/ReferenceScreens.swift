@@ -92,7 +92,17 @@ struct ClarityIconTile: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    : AnyShapeStyle(ClarityNativeTheme.brand)
+                    : AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.02, green: 0.55, blue: 1.0),
+                                Color(red: 0.12, green: 0.32, blue: 0.95),
+                                Color(red: 0.48, green: 0.16, blue: 0.95)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .frame(width: size, height: size)
             .overlay(
@@ -373,7 +383,7 @@ private struct NativeActionCard: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(ClarityNativeTheme.card)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(ClarityNativeTheme.border, lineWidth: 1)
                 )
                 .shadow(color: Color.blue.opacity(0.18), radius: 18, y: 8)
@@ -547,11 +557,28 @@ struct ReferenceHomeView: View {
 
     private var homeTabBar: some View {
         ZStack {
-            Rectangle()
-                .fill(ClarityNativeTheme.background.opacity(0.98))
-                .overlay(alignment: .top) {
-                    Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.7)
-                }
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.005, green: 0.025, blue: 0.065).opacity(0.99),
+                            ClarityNativeTheme.background.opacity(0.99)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.blue.opacity(0.28), Color.purple.opacity(0.18)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 0.8
+                        )
+                )
 
             HStack(spacing: 0) {
                 tab(icon: "house.fill", title: "Home", selected: true) {}
@@ -588,7 +615,8 @@ struct ReferenceHomeView: View {
             .accessibilityLabel("Enhance Video")
             .offset(y: -15)
         }
-        .frame(height: 78)
+        .frame(height: 82)
+        .padding(.horizontal, 1)
     }
 
     private func tab(
