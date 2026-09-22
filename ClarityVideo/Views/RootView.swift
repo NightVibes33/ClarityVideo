@@ -1105,7 +1105,7 @@ struct SettingsView: View {
         value: Binding<Double>,
         enabled: Bool = true
     ) -> some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 9) {
             HStack {
                 Text(title)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
@@ -1115,12 +1115,56 @@ struct SettingsView: View {
 
                 Text("\(Int((value.wrappedValue * 100).rounded()))")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(enabled ? .cyan.opacity(0.78) : .white.opacity(0.28))
+                    .foregroundStyle(enabled ? .cyan.opacity(0.82) : .white.opacity(0.28))
             }
 
-            Slider(value: value, in: 0...1)
-                .tint(.cyan)
-                .disabled(!enabled)
+            GeometryReader { geometry in
+                let width = max(1, geometry.size.width)
+                let clamped = max(0, min(1, value.wrappedValue))
+                let thumbX = max(9, min(width - 9, width * clamped))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.09))
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(ClarityNativeTheme.brand)
+                        .frame(width: max(5, width * clamped), height: 5)
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
+                        .shadow(color: Color.cyan.opacity(0.30), radius: 5)
+                        .position(x: thumbX, y: 13)
+                }
+                .frame(height: 26)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            guard enabled else { return }
+                            value.wrappedValue = max(0, min(1, drag.location.x / width))
+                        }
+                )
+                .accessibilityElement()
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
+                .accessibilityAdjustableAction { direction in
+                    guard enabled else { return }
+                    switch direction {
+                    case .increment:
+                        value.wrappedValue = min(1, value.wrappedValue + 0.05)
+                    case .decrement:
+                        value.wrappedValue = max(0, value.wrappedValue - 0.05)
+                    @unknown default:
+                        break
+                    }
+                }
+            }
+            .frame(height: 26)
+            .opacity(enabled ? 1 : 0.38)
         }
         .padding(.vertical, 12)
     }
@@ -1139,9 +1183,39 @@ struct SettingsView: View {
 
             Spacer()
 
-            Toggle("", isOn: isOn)
-                .labelsHidden()
-                .tint(.cyan)
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isOn.wrappedValue.toggle()
+                }
+            } label: {
+                ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                    Capsule()
+                        .fill(
+                            isOn.wrappedValue
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.10))
+                        )
+                        .frame(width: 48, height: 28)
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    isOn.wrappedValue
+                                        ? Color.cyan.opacity(0.40)
+                                        : Color.white.opacity(0.08),
+                                    lineWidth: 0.8
+                                )
+                        )
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 22, height: 22)
+                        .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
+                        .padding(3)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
         }
         .padding(.vertical, 10)
     }
