@@ -78,7 +78,7 @@ def e4m3_round_trip(value: torch.Tensor) -> torch.Tensor:
     CPU and CUDA use PyTorch's float8 conversion; tracing (Core ML export) and
     devices without float8 support (MPS) use an exact bit-level equivalent.
     """
-    if torch.jit.is_tracing():
+    if torch.jit.is_tracing() or torch.compiler.is_compiling():
         magnitude = torch.minimum(value.abs(), torch.full_like(value, 448.0))
         normal_floor = torch.full_like(magnitude, 2**-6)
         exponent = torch.floor(torch.log2(torch.maximum(magnitude, normal_floor)))
