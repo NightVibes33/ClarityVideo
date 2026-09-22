@@ -1515,7 +1515,7 @@ struct ReferenceEditorView: View {
             ClarityScreenBackdrop()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 11) {
+                VStack(spacing: 9) {
                     NativeHeader(title: "Enhance", onBack: { state.route = .importVideo })
 
                     previewShell
@@ -1523,7 +1523,7 @@ struct ReferenceEditorView: View {
                     storageStatusCard
 
                     NativePanel {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 8) {
                             settingRow(title: "Target Resolution") {
                                 resolutionControl
                             }
@@ -1562,7 +1562,7 @@ struct ReferenceEditorView: View {
                                 )
                             )
                         }
-                        .padding(15)
+                        .padding(13)
                     }
 
                     Button {
@@ -1576,7 +1576,7 @@ struct ReferenceEditorView: View {
                         .font(.system(size: 19, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 17)
+                        .padding(.vertical, 15)
                         .background(
                             ClarityNativeTheme.brand,
                             in: RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -1584,7 +1584,7 @@ struct ReferenceEditorView: View {
                         .shadow(color: Color.blue.opacity(0.30), radius: 16, y: 8)
                     }
                     .buttonStyle(.plain)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -1607,11 +1607,11 @@ struct ReferenceEditorView: View {
     private var previewShell: some View {
         VStack(spacing: 0) {
             comparisonCanvas
-                .frame(height: 220)
+                .frame(height: 205)
 
             playbackBar
                 .padding(.horizontal, 12)
-                .frame(height: 50)
+                .frame(height: 46)
                 .background(Color.black.opacity(0.28))
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -1651,14 +1651,21 @@ struct ReferenceEditorView: View {
                     )
                     .offset(x: split - 19, y: geometry.size.height / 2 - 19)
 
-                Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(12)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.74), in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    Spacer()
+                }
+                .padding(.top, 10)
+                .padding(.trailing, 12)
+                .allowsHitTesting(false)
 
                 if state.isGeneratingPreview {
                     VStack(spacing: 9) {
@@ -1771,26 +1778,30 @@ struct ReferenceEditorView: View {
         return HStack(spacing: 13) {
             Circle()
                 .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .overlay(
                     Image(systemName: enough ? "checkmark" : "exclamationmark")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(.white)
                 )
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Estimated temporary storage")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.66))
 
                 Text(storageDetail(required: estimate.required, available: estimate.available))
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white.opacity(0.52))
         }
-        .padding(14)
+        .padding(11)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
@@ -1843,9 +1854,11 @@ struct ReferenceEditorView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Text(title)
-                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.80))
-                .frame(width: 118, alignment: .leading)
+                .frame(width: 126, alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
 
             content()
         }
@@ -1957,10 +1970,10 @@ private struct NativeChoiceRow: View {
             ForEach(options, id: \.self) { option in
                 Button { select(option) } label: {
                     Text(option)
-                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .padding(.vertical, 8)
                         .background(
                             option == selected
                                 ? AnyShapeStyle(ClarityNativeTheme.brand)
@@ -2017,9 +2030,9 @@ private struct NativeValueSlider: View {
                         .frame(width: 16, height: 16)
                         .overlay(Circle().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
                         .shadow(color: .cyan.opacity(0.32), radius: 5)
-                        .position(x: thumbX, y: 19)
+                        .position(x: thumbX, y: 17)
                 }
-                .frame(height: 38)
+                .frame(height: 34)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
@@ -2038,14 +2051,14 @@ private struct NativeValueSlider: View {
                     }
                 }
             }
-            .frame(height: 38)
+            .frame(height: 34)
 
             Text("\(Int((value * 100).rounded()))")
                 .font(.caption.monospacedDigit())
                 .frame(width: 30, alignment: .trailing)
                 .foregroundStyle(.white.opacity(0.72))
         }
-        .frame(minHeight: 40)
+        .frame(minHeight: 36)
     }
 }
 

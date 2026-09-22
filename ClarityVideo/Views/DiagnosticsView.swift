@@ -13,7 +13,7 @@ struct DiagnosticsView: View {
             ClarityScreenBackdrop()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
+                VStack(spacing: 10) {
                     NativeHeader(title: "Diagnostics", circularBack: true, onBack: { dismiss() })
 
                     hero
@@ -32,16 +32,16 @@ struct DiagnosticsView: View {
                             DiagnosticRow("Main10", state.capabilities.supportsMain10 ? "Passed" : "Unavailable")
                             DiagnosticRow("Model state", state.capabilities.modelReadiness.rawValue)
                         }
-                        .padding(.horizontal, 15)
+                        .padding(.horizontal, 13)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text("Actions")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
                         Text("Run diagnostic tests to verify capabilities and performance.")
-                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
                             .foregroundStyle(ClarityNativeTheme.muted)
 
                         NativePanel {
@@ -130,7 +130,7 @@ struct DiagnosticsView: View {
                                     exportReport()
                                 }
                             }
-                            .padding(.horizontal, 14)
+                            .padding(.horizontal, 12)
                         }
                     }
 
@@ -243,17 +243,17 @@ struct DiagnosticsView: View {
     }
 
     private var hero: some View {
-        HStack(spacing: 14) {
-            ClarityIconTile(icon: "waveform.path.ecg", size: 60, iconSize: 28)
+        HStack(spacing: 12) {
+            ClarityIconTile(icon: "waveform.path.ecg", size: 48, iconSize: 22)
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("Video Engine Diagnostics")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(size: 18.5, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
                 Text("Hardware.  Performance.  Clarity.")
-                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                    .tracking(1.4)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .tracking(1.2)
                     .foregroundStyle(.white.opacity(0.56))
             }
 
@@ -280,7 +280,7 @@ struct DiagnosticsView: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                         .foregroundStyle(
                             enabled
                                 ? (destructive ? Color.red : Color.white)
@@ -288,7 +288,7 @@ struct DiagnosticsView: View {
                         )
 
                     Text(subtitle)
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(enabled ? 0.52 : 0.25))
                         .lineLimit(2)
                 }
@@ -299,7 +299,7 @@ struct DiagnosticsView: View {
                     .font(.caption.bold())
                     .foregroundStyle(.white.opacity(enabled ? 0.34 : 0.14))
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 5)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -311,7 +311,7 @@ struct DiagnosticsView: View {
         badgeText: String?,
         destructive: Bool
     ) -> some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
             .fill(
                 destructive
                     ? AnyShapeStyle(
@@ -332,9 +332,9 @@ struct DiagnosticsView: View {
                         )
                     )
             )
-            .frame(width: 44, height: 44)
+            .frame(width: 36, height: 36)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(
                         destructive ? Color.red.opacity(0.42) : Color.cyan.opacity(0.38),
                         lineWidth: 0.8
@@ -343,7 +343,7 @@ struct DiagnosticsView: View {
             .overlay {
                 if let badgeText {
                     Text(badgeText)
-                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [Color.white, Color.cyan.opacity(0.82)],
@@ -353,7 +353,7 @@ struct DiagnosticsView: View {
                         )
                 } else if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(destructive ? Color.white : Color(red: 0.66, green: 0.92, blue: 1.0))
                 }
             }
@@ -383,7 +383,7 @@ struct DiagnosticsView: View {
         Rectangle()
             .fill(Color.white.opacity(0.07))
             .frame(height: 0.7)
-            .padding(.leading, 58)
+            .padding(.leading, 48)
     }
 
     private func availability(_ value: Bool) -> String {
@@ -461,19 +461,19 @@ struct DiagnosticRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(label)
-                .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.58))
                 .multilineTextAlignment(.trailing)
                 .lineLimit(2)
                 .minimumScaleFactor(0.72)
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 5.5)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color.white.opacity(0.06))

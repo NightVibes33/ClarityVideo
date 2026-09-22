@@ -765,7 +765,7 @@ struct SettingsView: View {
                 ClarityScreenBackdrop()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 15) {
                         header
 
                         settingsSection("About Clarity") {
@@ -789,10 +789,10 @@ struct SettingsView: View {
                         }
 
                         Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.58))
-                            .lineSpacing(4)
-                            .padding(.horizontal, 10)
+                            .lineSpacing(2)
+                            .padding(.horizontal, 8)
 
                         settingsSection("Your privacy") {
                             featureRow(icon: "icloud.slash.fill", title: "No cloud uploads")
@@ -827,22 +827,22 @@ struct SettingsView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Good to know")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .font(.system(size: 19, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.68))
                                 .padding(.leading, 8)
 
                             NativePanel {
                                 HStack(alignment: .top, spacing: 16) {
-                                    ClarityIconTile(icon: "lightbulb.fill", size: 56, iconSize: 22)
+                                    ClarityIconTile(icon: "lightbulb.fill", size: 48, iconSize: 19)
 
                                     Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
                                         .foregroundStyle(.white.opacity(0.62))
-                                        .lineSpacing(4)
+                                        .lineSpacing(2)
 
                                     Spacer(minLength: 0)
                                 }
-                                .padding(16)
+                                .padding(13)
                             }
                         }
 
@@ -1056,8 +1056,8 @@ struct SettingsView: View {
                             .padding(.bottom, 12)
                     }
                     .padding(.horizontal, 18)
-                    .padding(.top, 10)
-                    .padding(.bottom, 28)
+                    .padding(.top, 8)
+                    .padding(.bottom, 22)
                 }
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y > 92
@@ -1110,7 +1110,7 @@ struct SettingsView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Settings")
-                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: 38, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer(minLength: 12)
@@ -1124,9 +1124,9 @@ struct SettingsView: View {
         _ title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 19, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.68))
                 .padding(.leading, 8)
 
@@ -1246,32 +1246,32 @@ struct SettingsView: View {
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.58))
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private func featureRow(icon: String, title: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private func actionRow(
@@ -1280,10 +1280,10 @@ struct SettingsView: View {
         showsChevron: Bool = false
     ) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
 
             Text(title)
-                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
@@ -1294,7 +1294,7 @@ struct SettingsView: View {
                     .foregroundStyle(.white.opacity(0.40))
             }
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private var divider: some View {
