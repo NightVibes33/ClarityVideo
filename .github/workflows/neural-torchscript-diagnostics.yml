@@ -1,0 +1,90 @@
+name: Diagnose raw TorchScript Core ML conversion
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [neural-torchscript-diagnostics]
+    paths:
+      - '.github/workflows/neural-torchscript-diagnostics.yml'
+      - 'PortTools/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neural-torchscript-diagnostics
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install conversion tooling
+        run: |
+          python -m venv "$RUNNER_TEMP/ts-venv"
+          "$RUNNER_TEMP/ts-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/ts-venv/bin/python" -m pip install 'torch==2.6.0' 'coremltools==9.0' 'safetensors>=0.4' numpy
+      - name: Convert recovered model with raw TorchScript
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 3 'https://github.com/Mappsnet7/DLSSMac/releases/download/v0.1.6/DLSSMac-0.1.6-macos.zip' -o "$RUNNER_TEMP/dlssmac.zip"
+          unzip -p "$RUNNER_TEMP/dlssmac.zip" 'DLSSMac.app/Contents/Resources/models/NeuralRendering.dlssmodel/weights.safetensors' > "$RUNNER_TEMP/weights.safetensors"
+          PYTHONPATH=PortTools "$RUNNER_TEMP/ts-venv/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          import coremltools as ct
+          import numpy as np
+          import torch
+          from torch import nn
+          from mlxdlss import model as recovered
+
+          class NCHWHead(nn.Module):
+              def __init__(self, network):
+                  super().__init__()
+                  self.network = network
+              def forward(self, value):
+                  return self.network(value.permute(0,2,3,1)).permute(0,3,1,2)
+
+          weights=Path(os.environ['RUNNER_TEMP'])/'weights.safetensors'
+          example=torch.zeros((1,16,128,128),dtype=torch.float32)
+          network=NCHWHead(recovered.load_model(weights)).eval()
+
+          with torch.inference_mode():
+              traced=torch.jit.trace(network,example,strict=True,check_trace=False)
+
+          nodes=list(traced.inlined_graph.nodes())
+          ints=[n for n in nodes if n.kind()=='aten::Int']
+          print('RAW_TRACE_NODES',len(nodes),flush=True)
+          print('RAW_TRACE_ATEN_INT',len(ints),flush=True)
+
+          converted=ct.convert(
+              traced,
+              convert_to='mlprogram',
+              minimum_deployment_target=ct.target.iOS26,
+              compute_precision=ct.transform.FP16ComputePrecision(
+                  op_selector=lambda op: op.op_type not in {'reduce_mean','reduce_sum','softmax'}
+              ),
+              skip_model_load=True,
+              inputs=[ct.TensorType(name='color',shape=example.shape,dtype=np.float32)],
+              outputs=[ct.TensorType(name='restored',dtype=np.float32)],
+          )
+
+          spec=converted.get_spec()
+          print('CONVERTED_INPUTS',[(x.name,list(x.type.multiArrayType.shape)) for x in spec.description.input],flush=True)
+          print('CONVERTED_OUTPUTS',[(x.name,list(x.type.multiArrayType.shape)) for x in spec.description.output],flush=True)
+          out=Path('artifacts/RawTorchScriptDLSS128.mlpackage')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          converted.save(out)
+          print('RAW_TORCHSCRIPT_COREML_SUCCESS',out,flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: raw-torchscript-coreml-diagnostic
+          path: artifacts/RawTorchScriptDLSS128.mlpackage
+          retention-days: 2
