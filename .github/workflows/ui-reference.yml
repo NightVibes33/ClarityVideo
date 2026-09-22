@@ -185,10 +185,20 @@ jobs:
                   time.sleep(2)
 
           time.sleep(2)
-          subprocess.run(
-              ["xcrun", "simctl", "io", device, "screenshot", f"artifacts/ui-reference/{route}.png"],
-              check=True, timeout=20
-          )
+          screenshot = f"artifacts/ui-reference/{route}.png"
+          for shot_attempt in range(3):
+              try:
+                  subprocess.run(
+                      ["xcrun", "simctl", "io", device, "screenshot", screenshot],
+                      check=True, timeout=30
+                  )
+                  break
+              except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                  if shot_attempt == 2:
+                      print(f"screenshot failed three times for {route}", file=sys.stderr)
+                      raise
+                  print(f"screenshot stalled for {route}; retrying", file=sys.stderr)
+                  time.sleep(3)
           print(f"captured {route}")
           PY
           done
