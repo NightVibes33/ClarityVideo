@@ -1,0 +1,37 @@
+name: Install current supplied ClarityVideo icon
+
+on:
+  push:
+    branches: [neural-ios-port]
+    paths:
+      - '.github/workflows/install-current-supplied-icon.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: neural-ios-port
+
+      - name: Install byte-exact current supplied icon
+        run: |
+          set -euo pipefail
+          ICON='ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png'
+          curl -fL --retry 3 'https://at.adobe.com/50ZN2AYwHUqaIaME' -o "$ICON"
+
+          test "$(sips -g pixelWidth "$ICON" | awk '/pixelWidth/ {print $2}')" = "1024"
+          test "$(sips -g pixelHeight "$ICON" | awk '/pixelHeight/ {print $2}')" = "1024"
+          test "$(git hash-object "$ICON")" = "5df3af193b356981869fcabfa36faf5a978df149"
+
+          git rm .github/workflows/install-current-supplied-icon.yml
+          git add "$ICON"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Use byte-exact current supplied ClarityVideo icon'
+          git push origin HEAD:neural-ios-port
