@@ -86,5 +86,24 @@ jobs:
           spec = converted.get_spec()
           assert len(spec.description.input) == 1
           assert len(spec.description.output) == 1
+          original_input = spec.description.input[0].name
+          original_output = spec.description.output[0].name
+          ct.utils.rename_feature(
+              spec, original_input, 'color',
+              rename_inputs=True, rename_outputs=False,
+          )
+          ct.utils.rename_feature(
+              spec, original_output, 'restored',
+              rename_inputs=False, rename_outputs=True,
+          )
+          repacked = ct.models.MLModel(
+              spec,
+              weights_dir=converted.weights_dir,
+              skip_model_load=True,
+          )
+          destination = __import__('pathlib').Path(__import__('os').environ['RUNNER_TEMP']) / 'WindowSmoke.mlpackage'
+          repacked.save(destination)
+          assert (destination / 'Manifest.json').is_file()
           print('COREML_WINDOW_CONVERSION_OK', flush=True)
+          print('COREML_RENAME_REPACK_SAVE_OK', flush=True)
           PY
