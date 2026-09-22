@@ -769,8 +769,10 @@ private struct ReferenceVideoCameraPicker: UIViewControllerRepresentable {
 struct ReferenceEditorView: View {
     @Environment(AppState.self) private var state
     @State private var reveal = 0.50
-    @State private var player: AVPlayer?
+    @State private var beforePlayer: AVPlayer?
+    @State private var afterPlayer: AVPlayer?
     @State private var isPlaying = false
+    @State private var previewRefreshTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -779,18 +781,17 @@ struct ReferenceEditorView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 12) {
                     ReferenceHeader(title: "Enhance") {
-                        player?.pause()
+                        pausePlayers()
+                        state.cancelComparisonPreview()
                         state.route = .importVideo
                     }
 
                     comparisonCard
-
                     playbackBar
-
                     settingsPanel
 
                     Button {
-                        player?.pause()
+                        pausePlayers()
                         state.route = .exportSetup
                     } label: {
                         HStack {
@@ -818,12 +819,20 @@ struct ReferenceEditorView: View {
         .navigationBarHidden(true)
         .preferredColorScheme(.dark)
         .onAppear {
-            if player == nil, let url = state.importedURL {
-                player = AVPlayer(url: url)
+            configurePreviewPlayers()
+            if state.importedURL != nil && state.comparisonPreview == nil && !state.isGeneratingPreview {
+                state.generateComparisonPreview()
             }
         }
+        .onChange(of: state.comparisonPreview?.id) { _, _ in
+            configurePreviewPlayers()
+        }
+        .onChange(of: state.configuration) { _, _ in
+            scheduleRealPreviewRefresh()
+        }
         .onDisappear {
-            player?.pause()
+            previewRefreshTask?.cancel()
+            pausePlayers()
         }
     }
 
@@ -832,37 +841,40 @@ struct ReferenceEditorView: View {
             let split = max(0, min(geometry.size.width, geometry.size.width * reveal))
 
             ZStack(alignment: .leading) {
-                if let player {
-                    VideoPlayer(player: player)
-                        .allowsHitTesting(false)
-                } else if let mountain = ReferenceArt.mountain {
-                    Image(uiImage: mountain)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Rectangle().fill(Color.blue.opacity(0.18))
-                }
+                previewLayer(player: afterPlayer, placeholder: true)
 
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.blue.opacity(0.10), Color.purple.opacity(0.14)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .blendMode(.screen)
-                    .mask(
+                previewLayer(player: beforePlayer, placeholder: true)
+                    .mask(alignment: .leading) {
                         HStack(spacing: 0) {
+                            Rectangle().frame(width: max(1, split))
                             Spacer(minLength: 0)
-                            Rectangle().frame(width: max(0, geometry.size.width - split))
                         }
-                    )
+                    }
+
+                if state.importedURL != nil && afterPlayer == nil {
+                    HStack(spacing: 7) {
+                        if state.isGeneratingPreview {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.cyan)
+                            Text("Generating real AI preview  \(Int(state.previewProgress * 100))%")
+                        } else {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text("Enhanced preview unavailable")
+                        }
+                    }
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(.black.opacity(0.72), in: Capsule())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                }
 
                 HStack {
                     Text("Before")
                     Spacer()
-                    Text("After")
+                    Text(afterPlayer == nil && state.importedURL != nil ? "After · Rendering" : "After")
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(ReferenceTheme.button, in: Capsule())
@@ -905,16 +917,33 @@ struct ReferenceEditorView: View {
         .padding(.horizontal, 15)
     }
 
+    @ViewBuilder
+    private func previewLayer(player: AVPlayer?, placeholder: Bool) -> some View {
+        if let player {
+            VideoPlayer(player: player)
+                .allowsHitTesting(false)
+        } else if placeholder, let mountain = ReferenceArt.mountain {
+            Image(uiImage: mountain)
+                .resizable()
+                .scaledToFill()
+        } else {
+            Rectangle().fill(Color.blue.opacity(0.18))
+        }
+    }
+
     private var playbackBar: some View {
         HStack(spacing: 12) {
             Button {
-                guard let player else { return }
+                guard beforePlayer != nil || afterPlayer != nil else { return }
                 if isPlaying {
-                    player.pause()
+                    pausePlayers()
                 } else {
-                    player.play()
+                    beforePlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                    afterPlayer?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                    beforePlayer?.play()
+                    afterPlayer?.play()
+                    isPlaying = true
                 }
-                isPlaying.toggle()
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 17, weight: .bold))
@@ -928,7 +957,7 @@ struct ReferenceEditorView: View {
             Slider(value: $reveal, in: 0...1)
                 .tint(.cyan)
 
-            Text(state.assetInfo?.durationText ?? "00:15")
+            Text(state.comparisonPreview.map { durationLabel($0.selectedDurationSeconds) } ?? state.assetInfo?.durationText ?? "00:15")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.white.opacity(0.72))
         }
@@ -1080,6 +1109,46 @@ struct ReferenceEditorView: View {
                 .foregroundStyle(.white.opacity(0.70))
                 .frame(width: 28, alignment: .trailing)
         }
+    }
+
+    private func configurePreviewPlayers() {
+        pausePlayers()
+        if let preview = state.comparisonPreview {
+            beforePlayer = AVPlayer(url: preview.sourceURL)
+            afterPlayer = AVPlayer(url: preview.enhancedURL)
+        } else if let source = state.importedURL {
+            beforePlayer = AVPlayer(url: source)
+            afterPlayer = nil
+        } else {
+            beforePlayer = nil
+            afterPlayer = nil
+        }
+    }
+
+    private func scheduleRealPreviewRefresh() {
+        guard state.importedURL != nil else { return }
+        previewRefreshTask?.cancel()
+        state.cancelComparisonPreview()
+        state.comparisonPreview = nil
+        afterPlayer?.pause()
+        afterPlayer = nil
+
+        previewRefreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            state.generateComparisonPreview()
+        }
+    }
+
+    private func pausePlayers() {
+        beforePlayer?.pause()
+        afterPlayer?.pause()
+        isPlaying = false
+    }
+
+    private func durationLabel(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }
 
