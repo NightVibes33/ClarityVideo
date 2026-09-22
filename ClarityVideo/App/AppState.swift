@@ -116,6 +116,9 @@ final class AppState {
                 ) { [weak self] progress in
                     Task { @MainActor in self?.previewProgress = progress }
                 }
+            } catch is CancellationError {
+                // Expected when the user changes enhancement controls and the
+                // native comparison schedules a replacement preview.
             } catch {
                 errorMessage = error.localizedDescription
             }
