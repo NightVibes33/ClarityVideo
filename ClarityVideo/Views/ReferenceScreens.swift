@@ -1358,7 +1358,7 @@ struct ReferenceExportView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Text("Processing will continue in the background.\nYou’ll be notified when it’s done.")
+                    Text("Keep Clarity open for fastest processing.\nLong exports keep checkpoints if iOS pauses them.")
                         .font(.system(size: 10, weight: .medium))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.45))
