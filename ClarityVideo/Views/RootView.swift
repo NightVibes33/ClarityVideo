@@ -869,7 +869,7 @@ struct SettingsView: View {
         value: Binding<Double>,
         enabled: Bool = true
     ) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 9) {
             HStack(spacing: 12) {
                 ClarityIconTile(icon: icon, size: 40, iconSize: 16)
 
@@ -881,12 +881,57 @@ struct SettingsView: View {
 
                 Text("\(Int((value.wrappedValue * 100).rounded()))")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(enabled ? .cyan.opacity(0.82) : .white.opacity(0.28))
+                    .foregroundStyle(enabled ? .cyan.opacity(0.86) : .white.opacity(0.28))
+                    .frame(minWidth: 28, alignment: .trailing)
             }
 
-            Slider(value: value, in: 0...1)
-                .tint(.cyan)
-                .disabled(!enabled)
+            GeometryReader { geometry in
+                let width = max(1, geometry.size.width)
+                let clamped = max(0, min(1, value.wrappedValue))
+                let knobX = max(10, min(width - 10, width * clamped))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.075))
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(ClarityNativeTheme.brand)
+                        .frame(width: max(5, width * clamped), height: 5)
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 20, height: 20)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.42), lineWidth: 0.8))
+                        .shadow(color: Color.cyan.opacity(0.30), radius: 6)
+                        .position(x: knobX, y: 13)
+                }
+                .frame(height: 26)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            guard enabled else { return }
+                            value.wrappedValue = max(0, min(1, drag.location.x / width))
+                        }
+                )
+                .accessibilityElement()
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
+                .accessibilityAdjustableAction { direction in
+                    guard enabled else { return }
+                    switch direction {
+                    case .increment:
+                        value.wrappedValue = min(1, value.wrappedValue + 0.05)
+                    case .decrement:
+                        value.wrappedValue = max(0, value.wrappedValue - 0.05)
+                    @unknown default:
+                        break
+                    }
+                }
+            }
+            .frame(height: 26)
+            .opacity(enabled ? 1 : 0.35)
         }
         .padding(.vertical, 10)
     }
@@ -894,13 +939,46 @@ struct SettingsView: View {
     private func brandedToggle(icon: String, title: String, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 12) {
             ClarityIconTile(icon: icon, size: 40, iconSize: 16)
+
             Text(title)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
+
             Spacer()
-            Toggle("", isOn: isOn)
-                .labelsHidden()
-                .tint(.cyan)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    isOn.wrappedValue.toggle()
+                }
+            } label: {
+                ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                    Capsule()
+                        .fill(
+                            isOn.wrappedValue
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.09))
+                        )
+                        .frame(width: 50, height: 29)
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    isOn.wrappedValue
+                                        ? Color.cyan.opacity(0.40)
+                                        : Color.white.opacity(0.08),
+                                    lineWidth: 0.8
+                                )
+                        )
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 23, height: 23)
+                        .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
+                        .padding(3)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
         }
         .padding(.vertical, 10)
     }
