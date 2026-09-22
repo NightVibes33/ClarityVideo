@@ -183,7 +183,9 @@ final class AIAssetReaderWriterPipeline {
         result.outputCodec = selectedCodec + (useNativeEnhancement
             ? (plan.requiresFinalResize ? " (spatial upscale)" : " (on-device enhancement)")
             : " (Apple AI upscale)")
-        if wantsNeuralRenderer { result.outputCodec += " + recovered DLSS 5 neural rendering" }
+        if wantsNeuralRenderer {
+            result.outputCodec = (result.outputCodec ?? selectedCodec) + " + recovered DLSS 5 neural rendering"
+        }
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
         writerInput.transform = try await track.load(.preferredTransform)
