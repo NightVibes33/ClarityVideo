@@ -13,11 +13,11 @@ final class VideoProcessingCoordinator {
         var result = job
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
-        if job.configuration.mode == .dlss5 && IOSNeuralHeadService.bundledModelURL() == nil {
+        if job.configuration.upscaler == .dlss5 && IOSNeuralHeadService.bundledModelURL() == nil {
             throw AppError.exportFailed("DLSS 5 model is not installed in this build.")
         }
         let probe = AppleFrameProcessorService.probe()
-        if job.configuration.mode == .dlss5 && !probe.fullSupported && !probe.lowLatencySupported {
+        if job.configuration.upscaler == .dlss5 && !probe.fullSupported && !probe.lowLatencySupported {
             throw AppError.unsupported("The neural renderer needs Apple Super Resolution to reach the selected 4K or 8K output on this device.")
         }
         if probe.fullSupported || probe.lowLatencySupported {
@@ -29,7 +29,7 @@ final class VideoProcessingCoordinator {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                if job.configuration.mode == .dlss5 { throw error }
+                if job.configuration.upscaler == .dlss5 { throw error }
                 // An advertised scaler can still reject a particular source or require
                 // a model download. Keep the export usable and label the actual route.
                 if let output = job.outputURL { try? FileManager.default.removeItem(at: output) }
