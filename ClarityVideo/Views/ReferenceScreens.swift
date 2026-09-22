@@ -1493,12 +1493,12 @@ struct ReferenceExportView: View {
 
     private func setQuality(_ index: Int) {
         qualityIndex = index
-        let values = state.configuration.resolution == .uhd8K ? [45, 70, 100] : [24, 40, 60]
+        let values = state.configuration.exportBitrateOptionsMbps
         state.configuration.bitrateMbps = values[index]
     }
 
     private func closestQualityIndex() -> Int {
-        let values = state.configuration.resolution == .uhd8K ? [45, 70, 100] : [24, 40, 60]
+        let values = state.configuration.exportBitrateOptionsMbps
         return values.enumerated().min {
             abs($0.element - state.configuration.bitrateMbps) < abs($1.element - state.configuration.bitrateMbps)
         }?.offset ?? 1
