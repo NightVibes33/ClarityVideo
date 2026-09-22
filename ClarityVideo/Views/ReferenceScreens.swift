@@ -246,6 +246,156 @@ struct ClaritySwitchControl: View {
     }
 }
 
+struct ClarityStorageDetailSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let breakdown: StorageEstimateBreakdown
+    let availableBytes: Int64?
+
+    var body: some View {
+        ZStack {
+            ClarityScreenBackdrop()
+
+            VStack(spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Storage Estimate")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text(
+                            breakdown.usesCheckpoints
+                                ? "Checkpointed export"
+                                : "Streaming export"
+                        )
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.cyan.opacity(0.76))
+                    }
+
+                    Spacer()
+
+                    ClarityPillButton(title: "Done") { dismiss() }
+                }
+
+                NativePanel {
+                    VStack(spacing: 0) {
+                        storageRow(
+                            icon: "film.fill",
+                            title: "Final video",
+                            detail: "Estimated encoded output",
+                            bytes: breakdown.finalOutputBytes
+                        )
+
+                        rowDivider
+
+                        storageRow(
+                            icon: breakdown.usesCheckpoints ? "rectangle.stack.fill" : "arrow.triangle.2.circlepath",
+                            title: breakdown.usesCheckpoints ? "Working checkpoints" : "Temporary working copy",
+                            detail: breakdown.usesCheckpoints
+                                ? "Completed segments + current 5-second pair"
+                                : "One encoded video track while audio is remuxed",
+                            bytes: breakdown.workingBytes
+                        )
+
+                        rowDivider
+
+                        storageRow(
+                            icon: "shield.fill",
+                            title: "Safety reserve",
+                            detail: "Prevents an export from filling the device",
+                            bytes: breakdown.safetyBytes
+                        )
+
+                        rowDivider
+
+                        HStack {
+                            Text("Total temporary requirement")
+                                .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+
+                            Spacer()
+
+                            Text(fileSize(breakdown.requiredBytes))
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundStyle(.cyan)
+                        }
+                        .padding(.vertical, 13)
+                    }
+                    .padding(.horizontal, 14)
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "internaldrive.fill")
+                        .foregroundStyle(.cyan)
+
+                    Text("Available")
+                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.70))
+
+                    Spacer()
+
+                    Text(availableBytes.map(fileSize) ?? "Unknown")
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 4)
+
+                Text("Clarity never budgets raw uncompressed video frames on disk. Short exports stream frames and keep only the encoded output plus one working movie.")
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.46))
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+        }
+        .preferredColorScheme(.dark)
+        .presentationDetents([.height(470)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func storageRow(
+        icon: String,
+        title: String,
+        detail: String,
+        bytes: Int64
+    ) -> some View {
+        HStack(spacing: 12) {
+            ClarityIconTile(icon: icon, size: 40, iconSize: 15)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text(detail)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.44))
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(fileSize(bytes))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.78))
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var rowDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.06))
+            .frame(height: 0.7)
+            .padding(.leading, 52)
+    }
+
+    private func fileSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+}
+
 struct ClarityWaveDecoration: View {
     var body: some View {
         GeometryReader { proxy in
@@ -1591,6 +1741,7 @@ struct ReferenceEditorView: View {
     @State private var reveal = 0.5
     @State private var isPlaying = false
     @State private var previewRefreshTask: Task<Void, Never>?
+    @State private var showingStorageDetails = false
 
     var body: some View {
         ZStack {
@@ -1684,6 +1835,17 @@ struct ReferenceEditorView: View {
             previewRefreshTask?.cancel()
             pausePlayers()
         }
+        .sheet(isPresented: $showingStorageDetails) {
+            if let info = state.assetInfo {
+                ClarityStorageDetailSheet(
+                    breakdown: StorageEstimator.breakdown(
+                        info: info,
+                        configuration: state.configuration
+                    ),
+                    availableBytes: storageEstimate.available
+                )
+            }
+        }
     }
 
     private var previewShell: some View {
@@ -1710,8 +1872,12 @@ struct ReferenceEditorView: View {
 
             ZStack(alignment: .leading) {
                 comparisonLayer(player: afterPlayer ?? beforePlayer)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
 
                 comparisonLayer(player: beforePlayer)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
                     .mask(alignment: .leading) {
                         Rectangle().frame(width: max(1, split))
                     }
@@ -1857,50 +2023,58 @@ struct ReferenceEditorView: View {
         let estimate = storageEstimate
         let enough = estimate.available.map { $0 >= estimate.required } ?? true
 
-        return HStack(spacing: 13) {
-            Circle()
-                .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: enough ? "checkmark" : "exclamationmark")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Estimated temporary storage")
-                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.66))
-
-                Text(storageDetail(required: estimate.required, available: estimate.available))
-                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-
-            Spacer(minLength: 8)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white.opacity(0.52))
-        }
-        .padding(11)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            (enough ? Color.green : Color.orange).opacity(0.18),
-                            Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
+        return Button {
+            showingStorageDetails = true
+        } label: {
+            HStack(spacing: 13) {
+                Circle()
+                    .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: enough ? "checkmark" : "exclamationmark")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
                     )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke((enough ? Color.green : Color.orange).opacity(0.50), lineWidth: 0.8)
-                )
-        )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Estimated temporary storage")
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.66))
+
+                    Text(storageDetail(required: estimate.required, available: estimate.available))
+                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.52))
+            }
+            .padding(11)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                (enough ? Color.green : Color.orange).opacity(0.18),
+                                Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke((enough ? Color.green : Color.orange).opacity(0.50), lineWidth: 0.8)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Storage estimate")
+        .accessibilityValue(storageDetail(required: estimate.required, available: estimate.available))
+        .accessibilityHint("Shows how the temporary storage estimate is calculated")
     }
 
     private var storageEstimate: (required: Int64, available: Int64?) {
