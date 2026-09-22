@@ -685,23 +685,11 @@ struct SettingsView: View {
                         header
 
                         settingsSection("About Clarity") {
-                            infoRow(
-                                icon: "info.circle.fill",
-                                title: "Version",
-                                value: appVersion
-                            )
+                            infoRow(icon: "info.circle.fill", title: "Version", value: appVersion)
                             divider
-                            infoRow(
-                                icon: "cpu.fill",
-                                title: "Processing",
-                                value: "On-device"
-                            )
+                            infoRow(icon: "cpu.fill", title: "Processing", value: "On-device")
                             divider
-                            infoRow(
-                                icon: "person.fill",
-                                title: "Account",
-                                value: "Not required"
-                            )
+                            infoRow(icon: "person.fill", title: "Account", value: "Not required")
                         }
 
                         Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
@@ -762,43 +750,15 @@ struct SettingsView: View {
                             }
                         }
 
-                        NativePanel {
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Label("Free storage", systemImage: "externaldrive.fill")
-                                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-                                    Spacer()
-                                    Text(freeStorageText)
-                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.cyan.opacity(0.80))
-                                }
-                                .padding(.vertical, 13)
-
-                                divider
-
-                                Button {
-                                    state.clearProcessingCache()
-                                } label: {
-                                    HStack {
-                                        Label("Clear processing cache", systemImage: "trash.fill")
-                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                            .foregroundStyle(.red)
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 13)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal, 15)
+                        VStack(spacing: 4) {
+                            Text("Free storage: " + freeStorageText)
+                            Text("Processing stays on this iPhone unless you explicitly share an exported file.")
                         }
-
-                        Text("Processing stays on this iPhone unless you explicitly share an exported file.")
-                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.34))
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 10)
-                            .padding(.bottom, 12)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.34))
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 12)
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 10)
@@ -877,10 +837,6 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
 
             Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.cyan.opacity(0.68))
         }
         .padding(.vertical, 11)
     }
