@@ -85,6 +85,17 @@ final class AppState {
 
     init() {
         recentJobs = JobHistoryStore.load()
+
+        // An interrupted import that was never turned into a resumable job has
+        // no reason to survive the next launch. Keep only sources required by
+        // paused jobs so abandoned imports cannot quietly occupy device storage.
+        let resumableSources = Set(
+            recentJobs
+                .filter { $0.status == .paused }
+                .map(\.sourceURL)
+        )
+        SecurityScopedFileManager.cleanupWorkspace(keeping: resumableSources)
+
         if let snapshot = CapabilitySnapshotStore.loadForCurrentOS() {
             capabilities = snapshot.capabilities
             lastSuccessfulSelfTest = snapshot.lastSuccessfulSelfTest
@@ -525,9 +536,21 @@ final class AppState {
     func clearProcessingCache() {
         do {
             try ProcessingCache.clear()
-            let previews = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("ComparisonPreviews", isDirectory: true)
-            try? FileManager.default.removeItem(at: previews)
-            diagnosticStatus = "Processing cache cleared"
+
+            previewCoordinator.clearCache()
+            comparisonPreview = nil
+
+            var keepImports = Set(
+                recentJobs
+                    .filter { $0.status == .paused }
+                    .map(\.sourceURL)
+            )
+            if let importedURL {
+                keepImports.insert(importedURL)
+            }
+            SecurityScopedFileManager.cleanupWorkspace(keeping: keepImports)
+
+            diagnosticStatus = "Temporary processing files cleared"
         } catch {
             errorMessage = error.localizedDescription
         }
