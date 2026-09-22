@@ -61,7 +61,7 @@ enum HDRBehavior: String, Codable, CaseIterable, Identifiable, Sendable {
 struct ExportConfiguration: Codable, Equatable, Sendable {
     var resolution: OutputResolution = .uhd4K
     var upscaler: UpscalerEngine = .appleSR
-    var qualityPreset: QualityPreset = .quality
+    var qualityPreset: QualityPreset = .balanced
     var denoise = 0.2
     var detailRecovery = 0.5
     var sharpening = 0.15
@@ -119,7 +119,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
         case "Restore Old Video", "Anime & Game", "DLSS 5 (experimental)":
             .ultra
         default:
-            .quality
+            .balanced
         }
     }
 }
@@ -129,13 +129,13 @@ extension ExportConfiguration {
         qualityPreset = preset
         switch preset {
         case .balanced:
-            denoise = temporalDenoiseAvailable ? 0.08 : 0
-            detailRecovery = 0.25
-            sharpening = 0.10
-        case .quality:
             denoise = temporalDenoiseAvailable ? 0.20 : 0
             detailRecovery = 0.50
             sharpening = 0.15
+        case .quality:
+            denoise = temporalDenoiseAvailable ? 0.28 : 0
+            detailRecovery = 0.60
+            sharpening = 0.20
         case .ultra:
             denoise = temporalDenoiseAvailable ? 0.35 : 0
             detailRecovery = 0.70
