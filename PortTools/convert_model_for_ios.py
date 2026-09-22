@@ -53,8 +53,8 @@ def main() -> None:
     # those nodes (network/6666 in CI). torch.export keeps the same fixed input
     # contract without emitting that TorchScript scalarization path.
     with torch.inference_mode():
-        exported = torch.export.export(network, (example,), strict=True)
-    print("Captured fixed-shape graph with torch.export", flush=True)
+        exported = torch.export.export(network, (example,), strict=True).run_decompositions({})
+    print(f"Captured fixed-shape graph with torch.export ({exported.graph_module.meta.get('dialect', 'ATEN')})", flush=True)
 
     converted = ct.convert(
         exported,
