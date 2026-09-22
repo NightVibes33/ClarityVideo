@@ -143,7 +143,7 @@ jobs:
 
           # Capture Import last. Its simulator-only fixture exercises the exact
           # native layout without invoking the Photos permission UI.
-          for route in onboarding home enhance export storage processing results import settings settings-advanced settings-confirm diagnostics diagnostics-actions diagnostics-confirm projects; do
+          for route in onboarding home enhance export storage processing processing-confirm results results-confirm import settings settings-advanced settings-confirm diagnostics diagnostics-actions diagnostics-confirm projects; do
             echo "Capturing $route"
             ROUTE="$route" DEVICE="$DEVICE" python3 - <<'PY'
           import os, subprocess, sys, time
@@ -210,7 +210,9 @@ jobs:
           test -s artifacts/ui-reference/export.png
           test -s artifacts/ui-reference/storage.png
           test -s artifacts/ui-reference/processing.png
+          test -s artifacts/ui-reference/processing-confirm.png
           test -s artifacts/ui-reference/results.png
+          test -s artifacts/ui-reference/results-confirm.png
           test -s artifacts/ui-reference/settings.png
           test -s artifacts/ui-reference/settings-advanced.png
           test -s artifacts/ui-reference/settings-confirm.png
