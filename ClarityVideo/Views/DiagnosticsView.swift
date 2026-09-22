@@ -35,9 +35,8 @@ struct DiagnosticsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("ACTIONS")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .tracking(1.3)
+                        Text("Actions")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
 
                         Text("Run diagnostic tests to verify capabilities and performance.")
@@ -84,7 +83,8 @@ struct DiagnosticsView: View {
                                 divider
 
                                 actionButton(
-                                    icon: "4k.tv.fill",
+                                    icon: nil,
+                                    badgeText: "4K",
                                     title: state.isRunningFiveSecondTest ? "Running 4K test…" : "Run five-second 4K test",
                                     subtitle: state.importedURL == nil ? "Import a video first" : "Encode a real 5-second 4K sample",
                                     enabled: !state.isRunningFiveSecondTest
@@ -97,9 +97,10 @@ struct DiagnosticsView: View {
                                 divider
 
                                 actionButton(
-                                    icon: "8.circle.fill",
+                                    icon: nil,
+                                    badgeText: "8K",
                                     title: "Run five-second 8K test",
-                                    subtitle: state.importedURL == nil ? "Import a video first" : "Validate the real 8K export pipeline",
+                                    subtitle: state.importedURL == nil ? "Import a video first" : "Encode a real 5-second 8K sample",
                                     enabled: !state.isRunningFiveSecondTest
                                         && state.importedURL != nil
                                         && state.capabilities.supports8KHEVCEncode
@@ -213,7 +214,8 @@ struct DiagnosticsView: View {
     }
 
     private func actionButton(
-        icon: String,
+        icon: String?,
+        badgeText: String? = nil,
         title: String,
         subtitle: String,
         enabled: Bool = true,
@@ -222,7 +224,11 @@ struct DiagnosticsView: View {
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 13) {
-                ClarityIconTile(icon: icon, size: 44, iconSize: 18, destructive: destructive)
+                diagnosticActionTile(
+                    icon: icon,
+                    badgeText: badgeText,
+                    destructive: destructive
+                )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -249,6 +255,64 @@ struct DiagnosticsView: View {
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
+    }
+
+    @ViewBuilder
+    private func diagnosticActionTile(
+        icon: String?,
+        badgeText: String?,
+        destructive: Bool
+    ) -> some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(
+                destructive
+                    ? AnyShapeStyle(
+                        LinearGradient(
+                            colors: [Color.red.opacity(0.72), Color.pink.opacity(0.28)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    : AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.03, green: 0.43, blue: 0.95),
+                                Color(red: 0.24, green: 0.18, blue: 0.88)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .frame(width: 44, height: 44)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(
+                        destructive ? Color.red.opacity(0.42) : Color.cyan.opacity(0.38),
+                        lineWidth: 0.8
+                    )
+            )
+            .overlay {
+                if let badgeText {
+                    Text(badgeText)
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.white, Color.cyan.opacity(0.82)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                } else if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(destructive ? Color.white : Color(red: 0.66, green: 0.92, blue: 1.0))
+                }
+            }
+            .shadow(
+                color: destructive ? Color.red.opacity(0.16) : Color.blue.opacity(0.22),
+                radius: 8
+            )
     }
 
     private func shareRow(_ title: String, icon: String) -> some View {
