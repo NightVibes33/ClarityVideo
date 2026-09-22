@@ -72,7 +72,9 @@ struct DiagnosticsView: View {
                                 actionButton(
                                     icon: "sparkles.tv.fill",
                                     title: state.isPreparingModel ? "Running Apple SR test…" : "Run Apple SR one-frame test",
-                                    subtitle: "Validate Apple Super Resolution",
+                                    subtitle: state.capabilities.fullSuperResolutionAvailable
+                                        ? "Validate Apple Super Resolution"
+                                        : "Apple Super Resolution is unavailable on this device",
                                     enabled: !state.isPreparingModel && state.capabilities.fullSuperResolutionAvailable
                                 ) {
                                     Task { await state.prepareModelAndRunSelfTest() }
@@ -83,7 +85,9 @@ struct DiagnosticsView: View {
                                 actionButton(
                                     icon: "brain.head.profile",
                                     title: state.isPreparingModel ? "Running DLSS 5 test…" : "Run DLSS 5 device test",
-                                    subtitle: "Validate the experimental neural upscaler",
+                                    subtitle: neuralDeviceTestAvailable
+                                        ? "Validate the experimental neural upscaler"
+                                        : "DLSS 5 model is not installed in this build",
                                     enabled: !state.isPreparingModel && neuralDeviceTestAvailable
                                 ) {
                                     Task { await state.runRecoveredNeuralHeadSelfTest() }
