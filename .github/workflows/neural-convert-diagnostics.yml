@@ -73,26 +73,74 @@ jobs:
           report('optimize_for_inference', optimized)
 
           graph=optimized._c._get_method('forward').graph
-          for name in (
-              '_jit_pass_constant_propagation',
-              '_jit_pass_dce',
-              '_jit_pass_canonicalize',
-          ):
-              fn=getattr(torch._C,name,None)
-              if fn is not None:
+
+          def counts(label, g):
+              nodes=list(g.nodes())
+              ints=[n for n in nodes if n.kind()=='aten::Int']
+              nums=[n for n in nodes if n.kind()=='prim::NumToTensor']
+              sizes=[n for n in nodes if n.kind() in ('aten::size','prim::NumToTensor')]
+              print(f'{label}: nodes={len(nodes)} aten::Int={len(ints)} NumToTensor={len(nums)} shape_nodes={len(sizes)}',flush=True)
+              return ints
+
+          print('available-shape-passes', [
+              n for n in dir(torch._C)
+              if n.startswith('_jit_pass') and any(k in n for k in ('shape','constant','peephole','propagate'))
+          ], flush=True)
+
+          variants=[]
+
+          def clone_graph():
+              return optimized._c._get_method('forward').graph.copy()
+
+          for label, runner in [
+              ('constant', lambda g: torch._C._jit_pass_constant_propagation(g)),
+              ('peephole', lambda g: torch._C._jit_pass_peephole(g, True)),
+              ('shape-prop', lambda g: torch._C._jit_pass_propagate_shapes_on_graph(g)),
+              ('shape+constant', lambda g: (
+                  torch._C._jit_pass_propagate_shapes_on_graph(g),
+                  torch._C._jit_pass_constant_propagation(g),
+                  torch._C._jit_pass_peephole(g, True),
+                  torch._C._jit_pass_dce(g),
+              )),
+          ]:
+              g=clone_graph()
+              try:
+                  runner(g)
+                  variants.append((label,g))
+                  counts(label,g)
+              except Exception as exc:
+                  print('variant-failed',label,repr(exc),flush=True)
+
+          g=clone_graph()
+          try:
+              torch._C._jit_pass_complete_shape_analysis(g, (example,), False)
+              torch._C._jit_pass_constant_propagation(g)
+              torch._C._jit_pass_peephole(g, True)
+              torch._C._jit_pass_dce(g)
+              variants.append(('complete-shape',g))
+              counts('complete-shape',g)
+          except Exception as exc:
+              print('variant-failed complete-shape',repr(exc),flush=True)
+
+          ints=counts('baseline-for-chain',graph)
+          for root in ints[:3]:
+              print('CHAIN-ROOT',root,flush=True)
+              seen=set()
+              def walk(value, depth=0):
+                  if depth>6 or value.debugName() in seen:
+                      return
+                  seen.add(value.debugName())
+                  producer=value.node()
                   try:
-                      result=fn(graph)
-                      if result is not None:
-                          graph=result
-                      print('ran',name,flush=True)
-                  except Exception as exc:
-                      print('pass-failed',name,repr(exc),flush=True)
-          nodes=list(graph.nodes())
-          ints=[n for n in nodes if n.kind()=='aten::Int']
-          print(f'manual-passes: nodes={len(nodes)} aten::Int={len(ints)}',flush=True)
-          for n in ints[:12]:
-              inp=n.inputsAt(0)
-              print('INT2',str(n),'producer=',inp.node().kind(),str(inp.node()),flush=True)
+                      typ=value.type()
+                      sizes=typ.sizes() if hasattr(typ,'sizes') else None
+                  except Exception:
+                      typ=value.type()
+                      sizes=None
+                  print('  '*depth,'VALUE',value.debugName(),'type=',typ,'sizes=',sizes,'producer=',producer.kind(),str(producer),flush=True)
+                  for inp in producer.inputs():
+                      walk(inp,depth+1)
+              walk(root.inputsAt(0))
 
           with torch.inference_mode():
               exported=torch.export.export(network,(example,),strict=True).run_decompositions({})
