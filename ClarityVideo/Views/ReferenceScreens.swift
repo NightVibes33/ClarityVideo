@@ -24,7 +24,14 @@ private enum ReferenceArtworkCrop {
     static var mountain: UIImage? {
         guard let source = UIImage(named: "ReferenceArtwork")?.cgImage else { return nil }
         let w = CGFloat(source.width), h = CGFloat(source.height)
-        let rect = CGRect(x: w * 0.18, y: h * 0.12, width: w * 0.64, height: h * 0.20).integral
+        // Clean mountain artwork only. This deliberately excludes every piece of
+        // promotional text, iconography, and phone UI from the reference poster.
+        let rect = CGRect(
+            x: w * 0.26917,
+            y: h * 0.12081,
+            width: w * 0.48124,
+            height: h * 0.12860
+        ).integral
         guard let cropped = source.cropping(to: rect) else { return nil }
         return UIImage(cgImage: cropped)
     }
