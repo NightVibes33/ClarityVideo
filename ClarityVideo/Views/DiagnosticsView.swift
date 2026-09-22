@@ -159,21 +159,15 @@ struct DiagnosticsView: View {
                     }
 
                     if let still = state.diagnosticStillURL {
-                        ShareLink(item: still) {
-                            shareRow("Enhanced test still", icon: "photo.fill")
-                        }
+                        ShareLink(item: still) { shareRow("Enhanced test still", icon: "photo.fill") }
                     }
 
                     if let output = state.diagnosticTestOutputURL {
-                        ShareLink(item: output) {
-                            shareRow("Five-second test video", icon: "square.and.arrow.up")
-                        }
+                        ShareLink(item: output) { shareRow("Five-second test video", icon: "square.and.arrow.up") }
                     }
 
                     if let exportURL {
-                        ShareLink(item: exportURL) {
-                            shareRow("Diagnostic JSON", icon: "doc.fill")
-                        }
+                        ShareLink(item: exportURL) { shareRow("Diagnostic JSON", icon: "doc.fill") }
                     }
 
                     Text("Device tests above run against the real on-device APIs. Simulator and CI results are not presented as device capability results.")
@@ -255,9 +249,12 @@ struct DiagnosticsView: View {
         NativePanel {
             HStack(spacing: 12) {
                 ClarityIconTile(icon: icon, size: 40, iconSize: 16)
+
                 Text(title)
                     .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+
                 Spacer()
+
                 Image(systemName: "arrow.up.right")
                     .font(.caption.bold())
                     .foregroundStyle(.white.opacity(0.34))
