@@ -67,9 +67,9 @@ struct RootView: View {
         Group {
             if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
                 switch snapshotRoute {
-                case "settings", "settings-advanced":
+                case "settings", "settings-advanced", "settings-confirm":
                     SettingsView()
-                case "diagnostics", "diagnostics-actions":
+                case "diagnostics", "diagnostics-actions", "diagnostics-confirm":
                     NavigationStack { DiagnosticsView() }
                 case "projects":
                     ClarityProjectsView()
