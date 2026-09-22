@@ -382,7 +382,7 @@ private struct NativeActionCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                ClarityIconTile(icon: icon, size: 60, iconSize: 25)
+                ClarityIconTile(icon: icon, size: 64, iconSize: 27)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -478,7 +478,7 @@ struct ReferenceHomeView: View {
                             showingSettings = true
                         }
                     }
-                    .padding(.horizontal, 18)
+                    .padding(.horizontal, 14)
                     .padding(.top, 22)
 
                     ZStack(alignment: .bottom) {
@@ -519,7 +519,7 @@ struct ReferenceHomeView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 255)
                     .clipped()
-                    .padding(.top, 16)
+                    .padding(.top, 2)
                 }
             }
         }
@@ -555,7 +555,7 @@ struct ReferenceHomeView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 48, height: 48)
+                .frame(width: 44, height: 44)
                 .overlay(
                     Circle()
                         .stroke(
