@@ -34,7 +34,7 @@ enum PipelinePlanner {
         sourceWidth: Int,
         sourceHeight: Int,
         target: OutputResolution,
-        mode: EnhancementMode,
+        qualityPreset: QualityPreset,
         capabilities: DeviceEnhancementCapabilities,
         lowLatencyFactorsForSource: [Double]
     ) throws -> PipelinePlan {
@@ -69,7 +69,7 @@ enum PipelinePlanner {
         let fullFrameEligible = capabilities.fullSuperResolutionAvailable
             && fullCanvasSafe
             && sourceWidth <= 1440 && sourceHeight <= 1080 && selectedFull != nil
-        let preferLow = mode == .fast && capabilities.lowLatencySuperResolutionAvailable && selectedLow != nil
+        let preferLow = qualityPreset == .balanced && capabilities.lowLatencySuperResolutionAvailable && selectedLow != nil
 
         if preferLow, let factor = selectedLow {
             return makePlan(
