@@ -249,6 +249,18 @@ extension ClarityVideoTests {
         XCTAssertEqual(configuration.denoise, 0)
     }
 
+    func testLegacyBitrateIsClampedToCurrentResolutionBudget() {
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd8K
+        configuration.bitrateMbps = 220
+        configuration.clampBitrateToSupportedRange()
+        XCTAssertEqual(configuration.bitrateMbps, 100)
+
+        configuration.resolution = .uhd4K
+        configuration.clampBitrateToSupportedRange()
+        XCTAssertEqual(configuration.bitrateMbps, 60)
+    }
+
     func testUpscalerCanChangeWithoutChangingResolutionOrQuality() {
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd8K
