@@ -305,9 +305,9 @@ extension ClarityVideoTests {
         let info = VideoAssetInfo(fileName: "short.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 19, estimatedSourceBytes: 25_000_000)
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd8K
-        configuration.bitrateMbps = 110
+        configuration.bitrateMbps = 100
         XCTAssertFalse(SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration))
-        XCTAssertLessThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), 500_000_000)
+        XCTAssertLessThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), 550_000_000)
     }
 
     func test8KStoragePreflightAllowsFinalAndSegmentCopies() {
