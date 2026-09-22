@@ -136,6 +136,133 @@ struct NativePanel<Content: View>: View {
     }
 }
 
+struct ClarityPillButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.48, green: 0.88, blue: 1.0))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 11)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.02, green: 0.22, blue: 0.48),
+                                    Color(red: 0.07, green: 0.10, blue: 0.28),
+                                    Color.purple.opacity(0.30)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.9))
+                        .shadow(color: Color.blue.opacity(0.24), radius: 10)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ClarityWaveDecoration: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+
+            ZStack {
+                wave(
+                    width: width,
+                    height: height,
+                    crest: height * 0.28,
+                    trough: height * 0.70,
+                    end: height * 0.34
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.02),
+                            Color.blue.opacity(0.38),
+                            Color.purple.opacity(0.18),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .overlay(
+                    wave(
+                        width: width,
+                        height: height,
+                        crest: height * 0.28,
+                        trough: height * 0.70,
+                        end: height * 0.34
+                    )
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.12), Color.cyan.opacity(0.72), Color.purple.opacity(0.60)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1.1
+                    )
+                )
+
+                wave(
+                    width: width,
+                    height: height,
+                    crest: height * 0.46,
+                    trough: height * 0.78,
+                    end: height * 0.50
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color.blue.opacity(0.18),
+                            Color.purple.opacity(0.20),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func wave(
+        width: CGFloat,
+        height: CGFloat,
+        crest: CGFloat,
+        trough: CGFloat,
+        end: CGFloat
+    ) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: crest))
+            path.addCurve(
+                to: CGPoint(x: width * 0.52, y: trough),
+                control1: CGPoint(x: width * 0.20, y: crest - height * 0.02),
+                control2: CGPoint(x: width * 0.31, y: trough + height * 0.05)
+            )
+            path.addCurve(
+                to: CGPoint(x: width, y: end),
+                control1: CGPoint(x: width * 0.72, y: trough - height * 0.03),
+                control2: CGPoint(x: width * 0.86, y: end - height * 0.15)
+            )
+            path.addLine(to: CGPoint(x: width, y: height))
+            path.addLine(to: CGPoint(x: 0, y: height))
+            path.closeSubpath()
+        }
+    }
+}
+
 struct NativeHeader: View {
     let title: String
     var showsBack = true
@@ -217,7 +344,7 @@ private struct NativeActionCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                ClarityIconTile(icon: icon, size: 54, iconSize: 23)
+                ClarityIconTile(icon: icon, size: 60, iconSize: 25)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -239,7 +366,7 @@ private struct NativeActionCard: View {
                     .foregroundStyle(.white.opacity(0.50))
             }
             .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
         }
         .buttonStyle(.plain)
         .background(
@@ -352,9 +479,9 @@ struct ReferenceHomeView: View {
                             .padding(.bottom, 20)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 210)
+                    .frame(height: 255)
                     .clipped()
-                    .padding(.top, 14)
+                    .padding(.top, 16)
                 }
             }
         }
@@ -379,18 +506,39 @@ struct ReferenceHomeView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 29, weight: .bold))
-                .foregroundStyle(
-                    usesBrand
-                        ? AnyShapeStyle(ClarityNativeTheme.brand)
-                        : AnyShapeStyle(Color(red: 0.66, green: 0.91, blue: 1.0))
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.02, green: 0.13, blue: 0.29),
+                            Color(red: 0.01, green: 0.03, blue: 0.09)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
                 .frame(width: 48, height: 48)
-                .contentShape(Rectangle())
+                .overlay(
+                    Circle()
+                        .stroke(
+                            usesBrand
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.cyan.opacity(0.34)),
+                            lineWidth: 0.9
+                        )
+                )
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(
+                            usesBrand
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color(red: 0.66, green: 0.91, blue: 1.0))
+                        )
+                )
                 .shadow(
-                    color: usesBrand ? Color.purple.opacity(0.28) : Color.cyan.opacity(0.18),
-                    radius: 7
+                    color: usesBrand ? Color.purple.opacity(0.30) : Color.cyan.opacity(0.18),
+                    radius: 10
                 )
         }
         .buttonStyle(.plain)
@@ -498,52 +646,52 @@ struct ClarityProjectsView: View {
 
                     Spacer(minLength: 14)
 
-                    Button("Done") { dismiss() }
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.cyan)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.055))
-                                .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.8))
-                        )
+                    ClarityPillButton(title: "Done") { dismiss() }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
 
                 if state.recentJobs.isEmpty {
-                    Spacer()
-
-                    VStack(spacing: 18) {
-                        ClarityIconTile(icon: "film.fill", size: 92, iconSize: 38)
-
-                        Text("No recent projects")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("Completed exports and paused enhancements will appear here.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(ClarityNativeTheme.muted)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 290)
-
-                        Button {
-                            dismiss()
-                            state.route = .importVideo
-                        } label: {
-                            Label("Enhance a video", systemImage: "plus")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(ClarityNativeTheme.brand, in: Capsule())
+                    ZStack {
+                        VStack {
+                            Spacer()
+                            ClarityWaveDecoration()
+                                .frame(height: 250)
                         }
-                        .buttonStyle(.plain)
-                    }
+                        .ignoresSafeArea(edges: .bottom)
 
-                    Spacer()
-                    Spacer()
+                        VStack(spacing: 18) {
+                            Spacer()
+
+                            ClarityIconTile(icon: "film.fill", size: 96, iconSize: 40)
+
+                            Text("No recent projects")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+
+                            Text("Completed exports and paused enhancements will appear here.")
+                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 290)
+
+                            Button {
+                                dismiss()
+                                state.route = .importVideo
+                            } label: {
+                                Label("Enhance a video", systemImage: "plus")
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 12)
+                                    .background(ClarityNativeTheme.brand, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            Spacer()
+                            Spacer()
+                        }
+                    }
                 } else {
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 11) {
