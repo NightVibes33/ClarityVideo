@@ -43,7 +43,7 @@ struct DiagnosticsView: View {
                             .foregroundStyle(.white)
 
                         Text("Run diagnostic tests to verify capabilities and performance.")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
                             .foregroundStyle(ClarityNativeTheme.muted)
 
                         NativePanel {
@@ -300,7 +300,7 @@ struct DiagnosticsView: View {
                     .foregroundStyle(.white)
 
                 Text("Hardware.  Performance.  Clarity.")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
                     .tracking(1.2)
                     .foregroundStyle(.white.opacity(0.56))
             }
