@@ -768,7 +768,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = true
     @State private var showsCompactHeader = false
-    @State private var showClearCacheConfirmation = false
+    @State private var showClearCacheConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "settings-confirm"
 
     var body: some View {
         NavigationStack {
