@@ -113,7 +113,9 @@ final class AppState {
             if routeName == "enhance"
                 || routeName == "export"
                 || routeName == "processing"
-                || routeName == "results" {
+                || routeName == "processing-confirm"
+                || routeName == "results"
+                || routeName == "results-confirm" {
                 let fixtureInfo = VideoAssetInfo(
                     fileName: "My Video.mov",
                     encodedWidth: 1920,
@@ -128,7 +130,10 @@ final class AppState {
                 )
                 assetInfo = fixtureInfo
 
-                if routeName == "processing" || routeName == "results" {
+                if routeName == "processing"
+                    || routeName == "processing-confirm"
+                    || routeName == "results"
+                    || routeName == "results-confirm" {
                     let source = FileManager.default.temporaryDirectory
                         .appendingPathComponent("Clarity-UI-source.mov")
                     let output = FileManager.default.temporaryDirectory
@@ -143,7 +148,7 @@ final class AppState {
                     job.outputCodec = "HEVC (Apple AI upscale)"
                     job.denoiseMethod = "Apple temporal"
 
-                    if routeName == "processing" {
+                    if routeName == "processing" || routeName == "processing-confirm" {
                         job.status = .processing
                         job.progress = 0.62
                         job.processedFrames = 353
@@ -179,8 +184,8 @@ final class AppState {
             case "import": route = .importVideo
             case "enhance": route = .editor
             case "export": route = .exportSetup
-            case "processing": route = .processing
-            case "results": route = .results
+            case "processing", "processing-confirm": route = .processing
+            case "results", "results-confirm": route = .results
             default: break
             }
         }
