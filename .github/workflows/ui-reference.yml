@@ -125,10 +125,13 @@ jobs:
                       print(f"launch timed out twice for {route}", file=sys.stderr)
                       raise
                   print(f"launch timed out for {route}; retrying once", file=sys.stderr)
-                  subprocess.run(
-                      ["xcrun", "simctl", "terminate", device, "com.nightvibes33.clarityvideo"],
-                      check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10
-                  )
+                  try:
+                      subprocess.run(
+                          ["xcrun", "simctl", "terminate", device, "com.nightvibes33.clarityvideo"],
+                          check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5
+                      )
+                  except subprocess.TimeoutExpired:
+                      pass
                   time.sleep(2)
 
           time.sleep(2)
