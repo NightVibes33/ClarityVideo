@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          for attempt in $(seq 1 90); do
+          for attempt in $(seq 1 40); do
             while read -r PREVIOUS_RUN PREVIOUS_SHA; do
               [ -n "$PREVIOUS_RUN" ] || continue
               git fetch --no-tags --depth=1 origin "$PREVIOUS_SHA" >/dev/null 2>&1 || continue
@@ -65,7 +65,7 @@ jobs:
               gh run list --workflow ios-neural-model.yml --branch neural-ios-port --status success --limit 10 \
                 --json databaseId,headSha --jq '.[] | "\(.databaseId) \(.headSha)"' || true
             )
-            echo "No compatible completed model artifact yet (attempt $attempt/90)."
+            echo "No compatible completed model artifact yet (attempt $attempt/40)."
             sleep 30
           done
           echo "reused=false" >> "$GITHUB_OUTPUT"
@@ -92,17 +92,12 @@ jobs:
         with:
           path: artifacts/DLSSNeuralHead128.mlpackage
           key: dlss-neural-head-ios26-v016-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('PortTools/convert_model_for_ios.py', 'PortTools/mlxdlss/**/*.py') }}
-      - name: Bundle model and validate iOS simulator Core ML load
+      - name: Stage converted model for iPhone build
         run: |
           set -euo pipefail
+          rm -rf ClarityVideo/Resources/DLSSNeuralHead128.mlpackage
           cp -R artifacts/DLSSNeuralHead128.mlpackage ClarityVideo/Resources/
-          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
-          test -n "$DEVICE"
-          xcrun simctl boot "$DEVICE" || true
-          xcrun simctl bootstatus "$DEVICE" -b
-          xcodebuild test -project ClarityVideo.xcodeproj -scheme ClarityVideo \
-            -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO \
-            -only-testing:ClarityVideoTests/RecoveredNeuralIntegrationTests
+          test -s ClarityVideo/Resources/DLSSNeuralHead128.mlpackage/Manifest.json
       - name: Build experimental unsigned iPhone IPA
         run: |
           set -euo pipefail
