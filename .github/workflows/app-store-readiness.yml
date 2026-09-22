@@ -75,5 +75,13 @@ jobs:
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")" == 26.* ]]
 
           EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
-          file "$APP/$EXECUTABLE_NAME" | grep -q 'Mach-O'
-          lipo -info "$APP/$EXECUTABLE_NAME" | grep -q 'arm64'
+          EXECUTABLE="$APP/$EXECUTABLE_NAME"
+          file "$EXECUTABLE" | grep -q 'Mach-O'
+          lipo -info "$EXECUTABLE" | grep -q 'arm64'
+
+          # Visual-QA routes and simulator fixture data must never ship in the
+          # App Store device binary.
+          if strings "$EXECUTABLE" | grep -E 'CLARITY_UI_SNAPSHOT|CLARITY_UI_ROUTE|Clarity-UI-source\.mov|Clarity-UI-output\.mov'; then
+            echo "Simulator visual-QA fixture leaked into the device binary."
+            exit 1
+          fi
