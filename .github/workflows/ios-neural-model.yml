@@ -5,6 +5,9 @@ on:
     branches: [neural-ios-port]
 permissions:
   contents: read
+concurrency:
+  group: neural-ios-port-${{ github.workflow }}
+  cancel-in-progress: true
 jobs:
   convert:
     runs-on: macos-26
