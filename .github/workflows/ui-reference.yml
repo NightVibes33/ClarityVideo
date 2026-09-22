@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: clarity-native-reference-ui-v2
+  group: clarity-native-reference-ui-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
