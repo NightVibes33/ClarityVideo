@@ -197,9 +197,38 @@ struct ReferenceHomeView: View {
 
 struct ReferenceImportVideoView: View {
     @Environment(AppState.self) private var state
-    @State private var showingPhotos = false
+    @State private var assets: [PHAsset] = []
+    @State private var thumbnails: [String: UIImage] = [:]
+    @State private var selected: PHAsset?
     @State private var showingFiles = false
     @State private var showingCamera = false
+    @State private var filter: Filter = .all
+    @State private var photoAccessResolved = false
+    @State private var photoAccessDenied = false
+
+    enum Filter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case videos = "Videos"
+        case favorites = "Favorites"
+        case recents = "Recents"
+        var id: String { rawValue }
+    }
+
+    private var isSnapshotMode: Bool {
+        ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] != nil
+    }
+
+    private var filteredAssets: [PHAsset] {
+        switch filter {
+        case .favorites:
+            return assets.filter(\.isFavorite)
+        case .recents:
+            let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
+            return assets.filter { ($0.creationDate ?? .distantPast) >= cutoff }
+        case .all, .videos:
+            return assets
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -210,9 +239,9 @@ struct ReferenceImportVideoView: View {
                 state.route = .home
             }
 
-            // Source controls.
+            // Source controls retain the exact reference chrome.
             ExactHotspot(rect: CGRect(x: 0.04, y: 0.115, width: 0.32, height: 0.065)) {
-                showingPhotos = true
+                Task { await loadAssets() }
             }
             ExactHotspot(rect: CGRect(x: 0.37, y: 0.115, width: 0.30, height: 0.065)) {
                 showingFiles = true
@@ -221,37 +250,30 @@ struct ReferenceImportVideoView: View {
                 showingCamera = true
             }
 
-            // The reference grid remains visually exact. Any thumbnail tap opens
-            // the real Photos video picker, so the underlying import is real.
-            ExactHotspot(rect: CGRect(x: 0.03, y: 0.245, width: 0.94, height: 0.515)) {
-                showingPhotos = true
+            if !isSnapshotMode {
+                liveFilterRow
+                liveVideoGrid
+
+                if let selected {
+                    selectedSummary(selected)
+                }
             }
 
-            // Continue.
+            // Continue imports the exact video selected in the live grid.
             ExactHotspot(rect: CGRect(x: 0.05, y: 0.895, width: 0.90, height: 0.075)) {
-                if state.importedURL != nil {
-                    state.route = .editor
-                } else {
-                    showingPhotos = true
+                guard let selected else {
+                    state.errorMessage = "Select a video to continue."
+                    return
                 }
+                Task { await importAsset(selected) }
             }
         }
         .navigationBarHidden(true)
         .statusBarHidden(true)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingPhotos) {
-            VideoPhotosPicker { result in
-                showingPhotos = false
-                switch result {
-                case .success(let url):
-                    Task { await state.importVideo(from: url, sourceLabel: "Photos video") }
-                case .failure(let error):
-                    state.errorMessage = error.localizedDescription
-                }
-            } onCancel: {
-                showingPhotos = false
-            }
-            .ignoresSafeArea()
+        .task {
+            guard !isSnapshotMode else { return }
+            await loadAssets()
         }
         .fileImporter(isPresented: $showingFiles, allowedContentTypes: [.video]) { result in
             switch result {
@@ -284,6 +306,313 @@ struct ReferenceImportVideoView: View {
                 }
             }
         }
+    }
+
+    private var liveFilterRow: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 5) {
+                ForEach(Filter.allCases) { item in
+                    Button(item.rawValue) {
+                        filter = item
+                        if selected.map({ filteredAssets.contains($0) }) == false {
+                            selected = nil
+                        }
+                    }
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(filter == item ? .white : .white.opacity(0.58))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(
+                        filter == item
+                            ? AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [.purple, .blue, .cyan],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            : AnyShapeStyle(Color.white.opacity(0.06)),
+                        in: Capsule()
+                    )
+                    .accessibilityAddTraits(filter == item ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, 4)
+            .frame(
+                width: geometry.size.width * 0.94,
+                height: geometry.size.height * 0.052
+            )
+            .background(
+                Color(red: 0.012, green: 0.028, blue: 0.050).opacity(0.98),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
+            .position(
+                x: geometry.size.width * 0.50,
+                y: geometry.size.height * 0.210
+            )
+        }
+    }
+
+    private var liveVideoGrid: some View {
+        GeometryReader { geometry in
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(red: 0.008, green: 0.020, blue: 0.038).opacity(0.995))
+
+                if photoAccessDenied {
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo.badge.exclamationmark")
+                            .font(.title2)
+                            .foregroundStyle(.cyan)
+                        Text("Photos access is off")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Use Files or Camera, or allow Photos access in Settings.")
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else if photoAccessResolved && filteredAssets.isEmpty {
+                    ContentUnavailableView("No Videos", systemImage: "video.slash")
+                        .scaleEffect(0.75)
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3),
+                            spacing: 6
+                        ) {
+                            ForEach(filteredAssets, id: \.localIdentifier) { asset in
+                                ExactReferencePhotoCell(
+                                    asset: asset,
+                                    image: thumbnails[asset.localIdentifier],
+                                    selected: selected?.localIdentifier == asset.localIdentifier
+                                )
+                                .onTapGesture {
+                                    selected = asset
+                                }
+                                .task {
+                                    await loadThumbnail(for: asset)
+                                }
+                            }
+                        }
+                        .padding(5)
+                    }
+                }
+            }
+            .frame(
+                width: geometry.size.width * 0.94,
+                height: geometry.size.height * 0.515
+            )
+            .position(
+                x: geometry.size.width * 0.50,
+                y: geometry.size.height * 0.505
+            )
+        }
+    }
+
+    private func selectedSummary(_ asset: PHAsset) -> some View {
+        GeometryReader { geometry in
+            HStack(spacing: 9) {
+                Group {
+                    if let image = thumbnails[asset.localIdentifier] {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Color.white.opacity(0.07)
+                    }
+                }
+                .frame(
+                    width: geometry.size.width * 0.13,
+                    height: geometry.size.width * 0.13
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("1 Video Selected")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("\(duration(asset.duration)) · \(asset.pixelWidth)×\(asset.pixelHeight)")
+                        .font(.system(size: 8.5, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.56))
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .frame(
+                width: geometry.size.width * 0.94,
+                height: geometry.size.height * 0.085
+            )
+            .background(
+                Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                in: RoundedRectangle(cornerRadius: 11)
+            )
+            .position(
+                x: geometry.size.width * 0.50,
+                y: geometry.size.height * 0.815
+            )
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func loadAssets() async {
+        let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        photoAccessResolved = true
+        guard status == .authorized || status == .limited else {
+            photoAccessDenied = true
+            assets = []
+            selected = nil
+            return
+        }
+
+        photoAccessDenied = false
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        let result = PHAsset.fetchAssets(with: .video, options: options)
+        var values: [PHAsset] = []
+        result.enumerateObjects { asset, _, _ in values.append(asset) }
+        assets = values
+        if let selected, !values.contains(where: { $0.localIdentifier == selected.localIdentifier }) {
+            self.selected = nil
+        }
+    }
+
+    private func loadThumbnail(for asset: PHAsset) async {
+        guard thumbnails[asset.localIdentifier] == nil else { return }
+
+        let manager = PHCachingImageManager()
+        let image = await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .opportunistic
+            options.resizeMode = .fast
+            options.isNetworkAccessAllowed = true
+            var resumed = false
+
+            manager.requestImage(
+                for: asset,
+                targetSize: CGSize(width: 360, height: 240),
+                contentMode: .aspectFill,
+                options: options
+            ) { image, info in
+                let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                let cancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let requestError = info?[PHImageErrorKey] as? Error
+                if (!degraded || cancelled || requestError != nil) && !resumed {
+                    resumed = true
+                    continuation.resume(returning: image)
+                }
+            }
+        }
+
+        if let image {
+            thumbnails[asset.localIdentifier] = image
+        }
+    }
+
+    private func importAsset(_ asset: PHAsset) async {
+        state.isImporting = true
+        state.importStatus = "Preparing selected video…"
+
+        do {
+            let url = try await ExactReferencePhotoAssetResolver.videoURL(for: asset)
+            await state.importVideo(from: url, sourceLabel: "Photos video")
+        } catch {
+            state.isImporting = false
+            state.importStatus = nil
+            state.errorMessage = error.localizedDescription
+        }
+    }
+
+    private func duration(_ seconds: Double) -> String {
+        String(format: "%d:%02d", Int(seconds) / 60, Int(seconds) % 60)
+    }
+}
+
+private struct ExactReferencePhotoCell: View {
+    let asset: PHAsset
+    let image: UIImage?
+    let selected: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.055))
+                        .overlay(ProgressView().tint(.cyan))
+                }
+            }
+            .aspectRatio(1.25, contentMode: .fill)
+            .clipped()
+
+            Text(String(format: "%d:%02d", Int(asset.duration) / 60, Int(asset.duration) % 60))
+                .font(.system(size: 8, weight: .bold))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(.black.opacity(0.72), in: Capsule())
+                .padding(4)
+
+            if selected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.cyan)
+                    .background(Circle().fill(.black))
+                    .padding(5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(selected ? Color.cyan : Color.white.opacity(0.05), lineWidth: selected ? 2 : 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Video \(String(format: "%d minutes %d seconds", Int(asset.duration) / 60, Int(asset.duration) % 60))")
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+private enum ExactReferencePhotoAssetResolver {
+    static func videoURL(for asset: PHAsset) async throws -> URL {
+        let avAsset: AVAsset = try await withCheckedThrowingContinuation { continuation in
+            let options = PHVideoRequestOptions()
+            options.version = .current
+            options.deliveryMode = .highQualityFormat
+            options.isNetworkAccessAllowed = true
+
+            PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
+                if let error = info?[PHImageErrorKey] as? Error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let avAsset else {
+                    continuation.resume(
+                        throwing: AppError.importFailedReason("Photos could not prepare this video.")
+                    )
+                    return
+                }
+                continuation.resume(returning: avAsset)
+            }
+        }
+
+        if let urlAsset = avAsset as? AVURLAsset {
+            return urlAsset.url
+        }
+
+        let temporaryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Clarity-Photos-" + UUID().uuidString)
+            .appendingPathExtension("mov")
+        try? FileManager.default.removeItem(at: temporaryURL)
+
+        guard let session = AVAssetExportSession(asset: avAsset, presetName: AVAssetExportPresetPassthrough) else {
+            throw AppError.importFailedReason("Photos returned a composed video that could not be exported.")
+        }
+        try await session.export(to: temporaryURL, as: .mov)
+        return temporaryURL
     }
 }
 
