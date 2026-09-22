@@ -14,7 +14,7 @@ enum SegmentPlan {
 
     static func requiresSegmentation(duration: Double, configuration: ExportConfiguration) -> Bool {
         configuration.resolution == .uhd8K
-            || (configuration.mode == .quality && duration > 60)
+            || (configuration.qualityPreset != .balanced && duration > 60)
             || duration > 180
     }
 
