@@ -1185,39 +1185,7 @@ struct SettingsView: View {
 
             Spacer()
 
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    isOn.wrappedValue.toggle()
-                }
-            } label: {
-                ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
-                    Capsule()
-                        .fill(
-                            isOn.wrappedValue
-                                ? AnyShapeStyle(ClarityNativeTheme.brand)
-                                : AnyShapeStyle(Color.white.opacity(0.10))
-                        )
-                        .frame(width: 48, height: 28)
-                        .overlay(
-                            Capsule()
-                                .stroke(
-                                    isOn.wrappedValue
-                                        ? Color.cyan.opacity(0.40)
-                                        : Color.white.opacity(0.08),
-                                    lineWidth: 0.8
-                                )
-                        )
-
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 22, height: 22)
-                        .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
-                        .padding(3)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(title)
-            .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
+            ClaritySwitchControl(isOn: isOn, accessibilityLabel: title)
         }
         .padding(.vertical, 10)
     }
@@ -1259,10 +1227,6 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
 
             Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.cyan.opacity(0.68))
         }
         .padding(.vertical, 11)
     }
