@@ -655,7 +655,7 @@ struct ReferenceImportVideoView: View {
 
     var body: some View {
         ZStack {
-            ClarityNativeTheme.background.ignoresSafeArea()
+            ClarityScreenBackdrop()
             VStack(spacing: 12) {
                 NativeHeader(title: "Import Video", onBack: { state.route = .home })
                     .padding(.horizontal, 14)
@@ -731,37 +731,53 @@ struct ReferenceImportVideoView: View {
     }
 
     private var sourceSelector: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 8) {
             ForEach(ImportSource.allCases) { item in
                 Button { source = item } label: {
                     Label(item.rawValue, systemImage: item.icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
                         .background(
-                            item == source ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.07)),
-                            in: RoundedRectangle(cornerRadius: 10)
+                            item == source
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.055)),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(
+                                    item == source
+                                        ? AnyShapeStyle(Color.cyan.opacity(0.65))
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    lineWidth: 0.8
+                                )
                         )
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(5)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 13))
+        .background(
+            Color.white.opacity(0.025),
+            in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+        )
     }
 
     private var filterSelector: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             ForEach(ImportFilter.allCases) { item in
                 Button { filter = item } label: {
                     Text(item.rawValue)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 9)
                         .background(
-                            item == filter ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
+                            item == filter
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.05)),
                             in: Capsule()
                         )
                 }
@@ -802,35 +818,50 @@ struct ReferenceImportVideoView: View {
             if isSnapshotMode {
                 let item = NativeSnapshotVideo.samples[snapshotSelection]
                 NativePanel {
-                    HStack(spacing: 11) {
+                    HStack(spacing: 12) {
                         NativeSnapshotVideoThumbnail(item: item, selected: false)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("1 Video Selected").font(.subheadline.bold())
-                            Text("\(item.duration) · 1080p · 412 MB")
-                                .font(.caption)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("1 Video Selected")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                            Text(item.duration + " · Ready to enhance")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundStyle(ClarityNativeTheme.muted)
                         }
+
                         Spacer()
+
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.cyan)
                     }
-                    .padding(11)
+                    .padding(12)
                 }
                 .padding(.horizontal, 16)
             } else if let selectedAsset {
                 NativePanel {
-                    HStack(spacing: 11) {
+                    HStack(spacing: 12) {
                         NativeVideoThumbnail(asset: selectedAsset, selected: false)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("1 Video Selected").font(.subheadline.bold())
-                            Text(durationText(selectedAsset.duration))
-                                .font(.caption).foregroundStyle(ClarityNativeTheme.muted)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("1 Video Selected")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                            Text(durationText(selectedAsset.duration) + " · Ready to enhance")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
                         }
+
                         Spacer()
+
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.cyan)
                     }
-                    .padding(11)
+                    .padding(12)
                 }
                 .padding(.horizontal, 16)
             }
@@ -847,31 +878,28 @@ struct ReferenceImportVideoView: View {
                     }
                 }
             } label: {
-                HStack {
-                    Spacer()
+                HStack(spacing: 10) {
                     Text("Continue")
                     Image(systemName: "arrow.right")
-                    Spacer()
                 }
-                .font(.headline)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .padding(.vertical, 15)
-                .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
-                .opacity((isSnapshotMode || selectedAsset != nil) ? 1 : 0.45)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    ClarityNativeTheme.brand,
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
+                .shadow(color: Color.blue.opacity(0.25), radius: 15, y: 6)
+                .opacity((isSnapshotMode || selectedAsset != nil) ? 1 : 0.42)
             }
             .buttonStyle(.plain)
             .disabled((!isSnapshotMode && selectedAsset == nil) || state.isImporting)
             .padding(.horizontal, 16)
         }
-        .padding(.top, 8)
-        .padding(.bottom, 7)
-        .background(
-            LinearGradient(
-                colors: [ClarityNativeTheme.background.opacity(0.78), ClarityNativeTheme.background],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(ClarityNativeTheme.background.opacity(0.96))
         .overlay(alignment: .top) {
             Rectangle().fill(Color.cyan.opacity(0.10)).frame(height: 0.7)
         }
@@ -1508,24 +1536,38 @@ private struct NativeChoiceRow: View {
     let select: (String) -> Void
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 5) {
             ForEach(options, id: \.self) { option in
                 Button { select(option) } label: {
                     Text(option)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
+                        .padding(.vertical, 9)
                         .background(
-                            option == selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
-                            in: RoundedRectangle(cornerRadius: 8)
+                            option == selected
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.055)),
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(
+                                    option == selected
+                                        ? Color.cyan.opacity(0.42)
+                                        : Color.white.opacity(0.035),
+                                    lineWidth: 0.7
+                                )
                         )
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(3)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+        .padding(4)
+        .background(
+            Color.black.opacity(0.22),
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+        )
     }
 }
 
@@ -1554,9 +1596,10 @@ private struct NativeValueSlider: View {
                         .frame(width: max(4, width * clamped), height: 4)
 
                     Circle()
-                        .fill(Color(red: 0.12, green: 0.74, blue: 1.0))
-                        .frame(width: 14, height: 14)
-                        .shadow(color: .cyan.opacity(0.42), radius: 4)
+                        .fill(Color.white)
+                        .frame(width: 16, height: 16)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
+                        .shadow(color: .cyan.opacity(0.32), radius: 5)
                         .position(x: thumbX, y: 22)
                 }
                 .frame(height: 44)
