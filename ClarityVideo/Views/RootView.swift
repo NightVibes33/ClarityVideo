@@ -606,12 +606,21 @@ struct SettingsView: View {
         .padding(.vertical, 8)
         .background(
             Rectangle()
-                .fill(ClarityNativeTheme.background.opacity(0.90))
-                .background(.ultraThinMaterial)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.008, green: 0.040, blue: 0.095).opacity(0.98),
+                            ClarityNativeTheme.background.opacity(0.98)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(Color.cyan.opacity(0.10))
-                        .frame(height: 0.7)
+                        .fill(ClarityNativeTheme.border)
+                        .frame(height: 0.8)
+                        .opacity(0.42)
                 }
         )
     }
