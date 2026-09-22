@@ -396,6 +396,103 @@ struct ClarityStorageDetailSheet: View {
     }
 }
 
+struct ClarityConfirmationCard: View {
+    let icon: String
+    let title: String
+    let message: String
+    let destructiveTitle: String
+    let cancelTitle: String
+    let destructiveAction: () -> Void
+    let cancelAction: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ClarityIconTile(
+                icon: icon,
+                size: 58,
+                iconSize: 23,
+                destructive: true
+            )
+
+            VStack(spacing: 7) {
+                Text(title)
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+
+                Text(message)
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: destructiveAction) {
+                Text(destructiveTitle)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color.red.opacity(0.92),
+                                Color.pink.opacity(0.62)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.red.opacity(0.42), lineWidth: 0.8)
+                    )
+            }
+            .buttonStyle(.plain)
+
+            Button(action: cancelAction) {
+                Text(cancelTitle)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.76))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(
+                        Color.white.opacity(0.055),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 0.8)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(20)
+        .frame(maxWidth: 330)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.018, green: 0.075, blue: 0.16),
+                            Color(red: 0.010, green: 0.025, blue: 0.065)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(ClarityNativeTheme.border, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.52), radius: 34, y: 18)
+        )
+        .padding(.horizontal, 26)
+    }
+}
+
 struct ClarityWaveDecoration: View {
     var body: some View {
         GeometryReader { proxy in
