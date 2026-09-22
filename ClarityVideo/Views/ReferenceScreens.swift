@@ -428,8 +428,9 @@ struct ReferenceHomeView: View {
         ZStack {
             ClarityScreenBackdrop()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 0) {
+            GeometryReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
                     HStack {
                         roundTopButton(icon: "gearshape.fill", accessibility: "Settings") {
                             showingSettings = true
@@ -520,8 +521,12 @@ struct ReferenceHomeView: View {
                     .frame(height: 255)
                     .clipped()
                     .padding(.top, 16)
+                    }
+                    // A vertical ScrollView otherwise lets padded children choose
+                    // an oversized ideal width. Pinning the content to the viewport
+                    // keeps the top controls and cards inside the physical display.
+                    .frame(width: proxy.size.width)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
@@ -804,6 +809,156 @@ struct ClarityProjectsView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+struct ReferenceImportSnapshotView: View {
+    @Environment(AppState.self) private var state
+    @State private var selection = 4
+
+    private let grid = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6)
+    ]
+
+    var body: some View {
+        ZStack {
+            ClarityScreenBackdrop()
+
+            VStack(spacing: 12) {
+                NativeHeader(title: "Import Video", onBack: { state.route = .home })
+                    .padding(.horizontal, 14)
+
+                HStack(spacing: 8) {
+                    snapshotSource("Photos", icon: "photo.on.rectangle.angled", selected: true)
+                    snapshotSource("Files", icon: "doc.fill", selected: false)
+                    snapshotSource("Camera", icon: "camera.fill", selected: false)
+                }
+                .padding(5)
+                .background(
+                    Color.white.opacity(0.025),
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
+                .padding(.horizontal, 16)
+
+                HStack(spacing: 7) {
+                    snapshotFilter("All", selected: true)
+                    snapshotFilter("Videos", selected: false)
+                    snapshotFilter("Favorites", selected: false)
+                    snapshotFilter("Recents", selected: false)
+                }
+                .padding(.horizontal, 16)
+
+                ScrollView(showsIndicators: false) {
+                    LazyVGrid(columns: grid, spacing: 6) {
+                        ForEach(Array(NativeSnapshotVideo.samples.enumerated()), id: \.offset) { index, item in
+                            Button { selection = index } label: {
+                                NativeSnapshotVideoThumbnail(item: item, selected: selection == index)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 10) {
+                let item = NativeSnapshotVideo.samples[selection]
+
+                NativePanel {
+                    HStack(spacing: 12) {
+                        NativeSnapshotVideoThumbnail(item: item, selected: false)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("1 video selected")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+
+                            Text(item.duration + " total")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+
+                        Spacer()
+
+                        Text("Clear")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(.cyan)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.blue.opacity(0.18))
+                                    .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
+                            )
+                    }
+                    .padding(12)
+                }
+                .padding(.horizontal, 16)
+
+                HStack(spacing: 10) {
+                    Text("Continue")
+                    Image(systemName: "arrow.right")
+                }
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    ClarityNativeTheme.brand,
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
+                .shadow(color: Color.blue.opacity(0.25), radius: 15, y: 6)
+                .padding(.horizontal, 16)
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .background(ClarityNativeTheme.background.opacity(0.97))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.cyan.opacity(0.10)).frame(height: 0.7)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func snapshotSource(_ title: String, icon: String, selected: Bool) -> some View {
+        Label(title, systemImage: icon)
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                selected
+                    ? AnyShapeStyle(ClarityNativeTheme.brand)
+                    : AnyShapeStyle(Color.white.opacity(0.055)),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(
+                        selected ? Color.cyan.opacity(0.65) : Color.white.opacity(0.06),
+                        lineWidth: 0.8
+                    )
+            )
+    }
+
+    private func snapshotFilter(_ title: String, selected: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .background(
+                selected
+                    ? AnyShapeStyle(ClarityNativeTheme.brand)
+                    : AnyShapeStyle(Color.white.opacity(0.05)),
+                in: Capsule()
+            )
     }
 }
 
