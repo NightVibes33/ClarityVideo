@@ -34,6 +34,28 @@ jobs:
           test -n "$SELECTED"
           sudo xcode-select --switch "$SELECTED/Contents/Developer"
 
+      - name: Verify native implementation and supplied brand assets
+        run: |
+          set -euo pipefail
+
+          test ! -d ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset
+
+          if grep -R -E 'ExactHotspot|ExactReferenceBackground|ReferenceArtwork' ClarityVideo/Views; then
+            echo "Poster-backed or hotspot UI implementation detected."
+            exit 1
+          fi
+
+          grep -q 'LazyVGrid' ClarityVideo/Views/ReferenceScreens.swift
+          grep -q 'VideoPlayer' ClarityVideo/Views/ReferenceScreens.swift
+          grep -q 'Toggle' ClarityVideo/Views/ReferenceScreens.swift
+          grep -q 'Slider' ClarityVideo/Views/ReferenceScreens.swift
+
+          test "$(git hash-object ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png)" = "5df3af193b356981869fcabfa36faf5a978df149"
+          test "$(git hash-object ClarityVideo/Resources/Assets.xcassets/MountainReference.imageset/MountainReference.png)" = "a8fb84ef58e112d8ff9c6210285c81cd5a28db65"
+
+          test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
+          test "$(sips -g pixelHeight ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelHeight/ {print $2}')" = "1024"
+
       - name: Build simulator app
         run: |
           set -euo pipefail
