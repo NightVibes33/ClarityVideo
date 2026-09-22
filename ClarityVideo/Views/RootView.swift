@@ -762,7 +762,7 @@ struct SettingsView: View {
                 ClarityScreenBackdrop()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 16) {
                         header
 
                         settingsSection("About Clarity") {
@@ -786,9 +786,9 @@ struct SettingsView: View {
                         }
 
                         Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.58))
-                            .lineSpacing(4)
+                            .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.60))
+                            .lineSpacing(3)
                             .padding(.horizontal, 10)
 
                         settingsSection("Your privacy") {
@@ -824,18 +824,18 @@ struct SettingsView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Good to know")
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.68))
-                                .padding(.leading, 8)
+                                .font(.system(size: 19, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.70))
+                                .padding(.leading, 10)
 
                             NativePanel {
                                 HStack(alignment: .top, spacing: 16) {
                                     ClarityIconTile(icon: "lightbulb.fill", size: 56, iconSize: 22)
 
                                     Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                                        .foregroundStyle(.white.opacity(0.62))
-                                        .lineSpacing(4)
+                                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.64))
+                                        .lineSpacing(3)
 
                                     Spacer(minLength: 0)
                                 }
@@ -887,9 +887,9 @@ struct SettingsView: View {
                         }
 
                         Text("Advanced defaults")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.68))
-                            .padding(.leading, 8)
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.70))
+                            .padding(.leading, 10)
 
                         settingsSection("Enhancement defaults") {
                             VStack(alignment: .leading, spacing: 10) {
@@ -1052,7 +1052,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 10)
                             .padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 18)
+                    .padding(.horizontal, 14)
                     .padding(.top, 10)
                     .padding(.bottom, 28)
                 }
@@ -1065,13 +1065,14 @@ struct SettingsView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Settings")
-                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(.system(size: 36, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer(minLength: 12)
 
             ClarityPillButton(title: "Done") { dismiss() }
         }
+        .padding(.horizontal, 9)
     }
 
     @ViewBuilder
@@ -1081,9 +1082,9 @@ struct SettingsView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.68))
-                .padding(.leading, 8)
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.70))
+                .padding(.leading, 10)
 
             NativePanel {
                 VStack(spacing: 0) {
@@ -1233,7 +1234,7 @@ struct SettingsView: View {
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 36, iconSize: 15)
 
             Text(title)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -1245,12 +1246,12 @@ struct SettingsView: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.58))
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private func featureRow(icon: String, title: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 36, iconSize: 15)
 
             Text(title)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -1262,7 +1263,7 @@ struct SettingsView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.cyan.opacity(0.68))
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private func actionRow(
@@ -1271,7 +1272,7 @@ struct SettingsView: View {
         showsChevron: Bool = false
     ) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+            ClarityIconTile(icon: icon, size: 36, iconSize: 15)
 
             Text(title)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
@@ -1285,7 +1286,7 @@ struct SettingsView: View {
                     .foregroundStyle(.white.opacity(0.40))
             }
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 7)
     }
 
     private var divider: some View {
