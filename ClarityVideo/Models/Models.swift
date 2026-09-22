@@ -147,8 +147,8 @@ extension ExportConfiguration {
 extension ExportConfiguration {
     var exportBitrateOptionsMbps: [Int] {
         switch resolution {
-        case .uhd4K: [24, 40, 60]
-        case .uhd8K: [45, 70, 100]
+        case .uhd4K: [24, 40, 55]
+        case .uhd8K: [55, 70, 85]
         }
     }
 
