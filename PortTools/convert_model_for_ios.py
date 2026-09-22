@@ -48,7 +48,11 @@ def main() -> None:
     example = torch.zeros((1, 16, args.size, args.size), dtype=torch.float32)
     network = NCHWHead(recovered.load_model(args.weights)).eval()
     with torch.inference_mode():
-        traced = torch.jit.trace(network, example, strict=True)
+        traced = torch.jit.freeze(torch.jit.trace(network, example, strict=True))
+    casts = [node for node in traced.inlined_graph.nodes() if node.kind() == "aten::Int"]
+    print(f"Fixed-shape graph has {len(casts)} dynamic integer casts", flush=True)
+    for node in casts[:3]:
+        print(str(node.sourceRange())[:250], flush=True)
     converted = ct.convert(
         traced,
         convert_to="mlprogram",

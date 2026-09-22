@@ -37,7 +37,9 @@ final class IOSNeuralHeadService {
         } else {
             throw Failure.missingModel
         }
-        model = try MLModel(contentsOf: url, configuration: MLModelConfiguration())
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .cpuAndGPU
+        model = try MLModel(contentsOf: url, configuration: configuration)
         guard model.modelDescription.inputDescriptionsByName["color"]?.multiArrayConstraint?.shape.map(\.intValue)
                 == [1, 16, Self.tileSize, Self.tileSize],
               model.modelDescription.outputDescriptionsByName["restored"]?.multiArrayConstraint?.shape.map(\.intValue)

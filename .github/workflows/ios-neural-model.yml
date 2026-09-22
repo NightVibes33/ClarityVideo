@@ -48,8 +48,22 @@ jobs:
           xcodebuild test -project ClarityVideo.xcodeproj -scheme ClarityVideo \
             -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO \
             -only-testing:ClarityVideoTests/RecoveredNeuralIntegrationTests
+      - name: Build experimental unsigned iPhone IPA
+        run: |
+          set -euo pipefail
+          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -sdk iphoneos -configuration Release -derivedDataPath "$RUNNER_TEMP/NeuralDevice" \
+            CODE_SIGNING_ALLOWED=NO build
+          APP="$RUNNER_TEMP/NeuralDevice/Build/Products/Release-iphoneos/ClarityVideo.app"
+          test -d "$APP/DLSSNeuralHead128.mlmodelc"
+          mkdir -p "$RUNNER_TEMP/NeuralIPA/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/NeuralIPA/Payload/"
+          ( cd "$RUNNER_TEMP/NeuralIPA" && zip -qr "$GITHUB_WORKSPACE/artifacts/ClarityVideo-DLSS5-experimental.ipa" Payload )
+          unzip -t artifacts/ClarityVideo-DLSS5-experimental.ipa | tail -1
       - uses: actions/upload-artifact@v4
         with:
           name: dlss-neural-head-ios26
-          path: artifacts/DLSSNeuralHead128.mlpackage
+          path: |
+            artifacts/DLSSNeuralHead128.mlpackage
+            artifacts/ClarityVideo-DLSS5-experimental.ipa
           retention-days: 7
