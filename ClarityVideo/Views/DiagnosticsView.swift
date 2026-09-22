@@ -13,7 +13,7 @@ struct DiagnosticsView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
-                    NativeHeader(title: "Diagnostics", onBack: { dismiss() })
+                    NativeHeader(title: "Diagnostics", circularBack: true, onBack: { dismiss() })
 
                     hero
 
