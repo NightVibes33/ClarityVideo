@@ -36,6 +36,8 @@ final class AppState {
     var isGeneratingPreview = false
     var isPreparingModel = false
     var saveToPhotosAfterExport = false
+    var saveToFilesAfterExport = false
+    var pendingFilesExportURL: URL?
     private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
     let capabilityDetector = CapabilityDetector()
@@ -127,6 +129,7 @@ final class AppState {
 
     func beginExport() {
         pauseRequested = false
+        pendingFilesExportURL = nil
         guard let importedURL, let assetInfo else { return }
         if configuration.resolution == .uhd8K && !capabilities.supports8KHEVCEncode {
             errorMessage = "This device did not pass Clarity’s real 8K hardware encoder validation."
@@ -184,6 +187,9 @@ final class AppState {
                 activeJob = completed
                 recentJobs.insert(completed, at: 0)
                 JobHistoryStore.save(recentJobs)
+                if saveToFilesAfterExport, let url = completed.outputURL {
+                    pendingFilesExportURL = url
+                }
                 route = .results
                 if saveToPhotosAfterExport, let url = completed.outputURL {
                     do { try await PhotosExportService.save(url) }
@@ -392,6 +398,9 @@ final class AppState {
         if let url = job.outputURL { try? FileManager.default.removeItem(at: url) }
         recentJobs.removeAll { $0.id == job.id }
         JobHistoryStore.save(recentJobs)
+        if pendingFilesExportURL == job.outputURL {
+            pendingFilesExportURL = nil
+        }
         activeJob = nil
         route = .home
     }

@@ -586,7 +586,6 @@ struct ReferenceEditorView: View {
 struct ReferenceExportView: View {
     @Environment(AppState.self) private var state
     @State private var quality = 1
-    @State private var alsoSaveToFiles = false
 
     var body: some View {
         ZStack {
@@ -673,7 +672,7 @@ struct ReferenceExportView: View {
                 state.saveToPhotosAfterExport.toggle()
             }
             ExactHotspot(rect: CGRect(x: 0.83, y: 0.645, width: 0.17, height: 0.060)) {
-                alsoSaveToFiles.toggle()
+                state.saveToFilesAfterExport.toggle()
             }
 
             // Start Export.

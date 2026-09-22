@@ -1,6 +1,7 @@
 import SwiftUI
 import AVKit
 import Combine
+import UIKit
 
 struct EditorView: View {
     @Environment(AppState.self) private var state
@@ -454,7 +455,57 @@ struct ResultsView: View {
                     }
                 }.padding(17).padding(.bottom, 20)
             }
-        }.navigationBarBackButtonHidden().preferredColorScheme(.dark)
+        }
+        .navigationBarBackButtonHidden()
+        .preferredColorScheme(.dark)
+        .sheet(
+            isPresented: Binding(
+                get: { state.pendingFilesExportURL != nil },
+                set: { presented in
+                    if !presented { state.pendingFilesExportURL = nil }
+                }
+            )
+        ) {
+            if let url = state.pendingFilesExportURL {
+                NativeFilesExportPicker(url: url) {
+                    state.pendingFilesExportURL = nil
+                }
+            }
+        }
+    }
+}
+
+private struct NativeFilesExportPicker: UIViewControllerRepresentable {
+    let url: URL
+    let onFinish: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinish: onFinish)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        picker.delegate = context.coordinator
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onFinish: () -> Void
+
+        init(onFinish: @escaping () -> Void) {
+            self.onFinish = onFinish
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onFinish()
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onFinish()
+        }
     }
 }
 
