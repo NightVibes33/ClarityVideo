@@ -846,53 +846,52 @@ struct SettingsView: View {
                             }
                         }
 
-                        NativePanel {
-                            VStack(spacing: 0) {
+                        settingsSection("Storage") {
+                            HStack(spacing: 13) {
+                                ClarityIconTile(icon: "externaldrive.fill", size: 38, iconSize: 15)
+
+                                Text("Free storage")
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white)
+
+                                Spacer()
+
+                                Text(freeStorageText)
+                                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.cyan.opacity(0.80))
+                            }
+                            .padding(.vertical, 7)
+
+                            divider
+
+                            Button {
+                                state.clearProcessingCache()
+                            } label: {
                                 HStack(spacing: 13) {
-                                    ClarityIconTile(icon: "externaldrive.fill", size: 40, iconSize: 16)
+                                    ClarityIconTile(
+                                        icon: "trash.fill",
+                                        size: 38,
+                                        iconSize: 15,
+                                        destructive: true
+                                    )
 
-                                    Text("Free storage")
-                                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white)
-
-                                    Spacer()
-
-                                    Text(freeStorageText)
-                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.cyan.opacity(0.80))
-                                }
-                                .padding(.vertical, 10)
-
-                                divider
-
-                                Button {
-                                    state.clearProcessingCache()
-                                } label: {
-                                    HStack(spacing: 13) {
-                                        ClarityIconTile(
-                                            icon: "trash.fill",
-                                            size: 40,
-                                            iconSize: 16,
-                                            destructive: true
-                                        )
-
+                                    VStack(alignment: .leading, spacing: 2) {
                                         Text("Clear processing cache")
-                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                            .font(.system(size: 14, weight: .medium, design: .rounded))
                                             .foregroundStyle(.red)
 
-                                        Spacer()
+                                        Text("Removes previews, checkpoints, and disposable processing files.")
+                                            .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                                            .foregroundStyle(.white.opacity(0.42))
+                                            .lineLimit(2)
                                     }
-                                    .padding(.vertical, 10)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal, 15)
-                        }
 
-                        Text("Advanced defaults")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.68))
-                            .padding(.leading, 8)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 7)
+                            }
+                            .buttonStyle(.plain)
+                        }
 
                         settingsSection("Enhancement defaults") {
                             VStack(alignment: .leading, spacing: 10) {
