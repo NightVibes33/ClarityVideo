@@ -65,15 +65,25 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            switch ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
-            case "settings":
-                SettingsView()
-            case "diagnostics":
-                NavigationStack { DiagnosticsView() }
-            case "projects":
-                ClarityProjectsView()
-            default:
+            if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
+                switch snapshotRoute {
+                case "settings":
+                    SettingsView()
+                case "diagnostics":
+                    NavigationStack { DiagnosticsView() }
+                case "projects":
+                    ClarityProjectsView()
+                default:
+                    appNavigation
+                }
+            } else if hasCompletedOnboarding {
                 appNavigation
+            } else {
+                OnboardingView {
+                    withAnimation(.easeInOut(duration: 0.24)) {
+                        hasCompletedOnboarding = true
+                    }
+                }
             }
         }
         .tint(.cyan)
