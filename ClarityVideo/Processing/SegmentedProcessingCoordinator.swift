@@ -13,9 +13,12 @@ enum SegmentPlan {
     static let defaultDuration = 5.0
 
     static func requiresSegmentation(duration: Double, configuration: ExportConfiguration) -> Bool {
-        configuration.resolution == .uhd8K
-            || (configuration.qualityPreset != .balanced && duration > 60)
-            || duration > 180
+        // The frame pipeline is already bounded by tile-sized CVPixelBuffers, so short 8K
+        // jobs do not need to retain a second encoded copy of every five-second segment.
+        // Checkpointed segmentation is reserved for genuinely long/heavy exports.
+        (configuration.resolution == .uhd8K && duration > 45)
+            || (configuration.qualityPreset != .balanced && duration > 90)
+            || duration > 240
     }
 
     static func segments(duration: Double, segmentDuration: Double = defaultDuration) -> [ProcessingSegment] {
