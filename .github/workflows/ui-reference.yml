@@ -225,13 +225,26 @@ jobs:
           test -s artifacts/ui-reference/diagnostics-confirm.png
           test -s artifacts/ui-reference/projects.png
 
-          # App Store screenshots cannot contain alpha/transparency.
+          # simctl PNGs can carry an alpha channel even when every pixel is opaque.
+          # Produce a separate JPEG set that is directly safe for App Store Connect.
+          mkdir -p artifacts/app-store-screenshots
           for image in artifacts/ui-reference/*.png; do
-            test "$(sips -g hasAlpha "$image" | awk '/hasAlpha/ {print $2}')" = "no"
+            base="$(basename "$image" .png)"
+            sips -s format jpeg -s formatOptions 95 "$image"               --out "artifacts/app-store-screenshots/$base.jpg" >/dev/null
+            test "$(sips -g hasAlpha "artifacts/app-store-screenshots/$base.jpg" | awk '/hasAlpha/ {print $2}')" = "no"
           done
+
+          # Record the capture resolution so the release checklist can confirm it
+          # is one of App Store Connect's accepted iPhone screenshot sizes.
+          SAMPLE="artifacts/app-store-screenshots/home.jpg"
+          WIDTH="$(sips -g pixelWidth "$SAMPLE" | awk '/pixelWidth/ {print $2}')"
+          HEIGHT="$(sips -g pixelHeight "$SAMPLE" | awk '/pixelHeight/ {print $2}')"
+          printf '%sx%s\n' "$WIDTH" "$HEIGHT" > artifacts/app-store-screenshots/CAPTURE_SIZE.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: clarity-reference-ui-snapshots
-          path: artifacts/ui-reference
+          path: |
+            artifacts/ui-reference
+            artifacts/app-store-screenshots
           retention-days: 7
