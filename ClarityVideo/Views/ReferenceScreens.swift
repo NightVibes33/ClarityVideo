@@ -992,9 +992,17 @@ struct ReferenceImportVideoView: View {
 
                         Spacer()
 
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
+                        Button("Clear") { }
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundStyle(.cyan)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.blue.opacity(0.18))
+                                    .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
+                            )
+                            .buttonStyle(.plain)
                     }
                     .padding(12)
                 }
@@ -1016,9 +1024,19 @@ struct ReferenceImportVideoView: View {
 
                         Spacer()
 
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.cyan)
+                        Button("Clear") {
+                            self.selectedAsset = nil
+                        }
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(.cyan)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue.opacity(0.18))
+                                .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
+                        )
+                        .buttonStyle(.plain)
                     }
                     .padding(12)
                 }
