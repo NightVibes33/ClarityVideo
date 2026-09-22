@@ -1,0 +1,32 @@
+name: Quick neural test compile
+
+on:
+  push:
+    branches: [neural-ci-cache]
+    paths:
+      - 'ClarityVideo/**'
+      - 'ClarityVideoTests/**'
+      - '.github/workflows/quick-neural-test-compile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+      - name: Compile app and neural integration tests
+        run: |
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+          test -n "$DEVICE"
+          xcodebuild build-for-testing -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO
