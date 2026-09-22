@@ -2187,13 +2187,14 @@ struct ReferenceEditorView: View {
 
     private var resolutionControl: some View {
         NativeChoiceRow(
-            options: ["4K", "8K"],
-            selected: state.configuration.resolution == .uhd4K ? "4K" : "8K"
+            options: state.capabilities.supports8KHEVCEncode ? ["4K", "8K"] : ["4K"],
+            selected: state.configuration.resolution == .uhd8K ? "8K" : "4K"
         ) { value in
             let next: OutputResolution = value == "8K" ? .uhd8K : .uhd4K
             state.configuration.resolution = next
             if next == .uhd8K, state.configuration.bitrateMbps < 55 {
                 state.configuration.bitrateMbps = 70
+                state.configuration.codec = .hevc
             } else if next == .uhd4K, state.configuration.bitrateMbps > 55 {
                 state.configuration.bitrateMbps = 40
             }
@@ -2215,18 +2216,12 @@ struct ReferenceEditorView: View {
 
     private var upscalerControl: some View {
         NativeChoiceRow(
-            options: ["Apple SR", "DLSS 5"],
+            options: IOSNeuralHeadService.bundledModelURL() == nil
+                ? ["Apple SR"]
+                : ["Apple SR", "DLSS 5"],
             selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
         ) { value in
-            if value == "DLSS 5" {
-                guard IOSNeuralHeadService.bundledModelURL() != nil else {
-                    state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
-                    return
-                }
-                state.configuration.upscaler = .dlss5
-            } else {
-                state.configuration.upscaler = .appleSR
-            }
+            state.configuration.upscaler = value == "DLSS 5" ? .dlss5 : .appleSR
         }
     }
 
