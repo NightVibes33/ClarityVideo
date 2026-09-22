@@ -202,7 +202,7 @@ private struct NativeWordmark: View {
             Text("Clarity").foregroundStyle(.white)
             Text("Video").foregroundStyle(ClarityNativeTheme.brand)
         }
-        .font(.system(size: 34, weight: .bold, design: .rounded))
+        .font(.system(size: 32, weight: .bold, design: .rounded))
         .minimumScaleFactor(0.85)
         .lineLimit(1)
     }
@@ -217,7 +217,7 @@ private struct NativeActionCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                ClarityIconTile(icon: icon, size: 62, iconSize: 26)
+                ClarityIconTile(icon: icon, size: 54, iconSize: 23)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -239,11 +239,11 @@ private struct NativeActionCard: View {
                     .foregroundStyle(.white.opacity(0.50))
             }
             .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
         }
         .buttonStyle(.plain)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(ClarityNativeTheme.card)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -314,7 +314,7 @@ struct ReferenceHomeView: View {
                         }
                     }
                     .padding(.horizontal, 18)
-                    .padding(.top, 26)
+                    .padding(.top, 22)
 
                     ZStack(alignment: .bottom) {
                         if let mountain = ClarityArt.mountain {
@@ -352,9 +352,9 @@ struct ReferenceHomeView: View {
                             .padding(.bottom, 20)
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 265)
+                    .frame(height: 210)
                     .clipped()
-                    .padding(.top, 18)
+                    .padding(.top, 14)
                 }
             }
         }
@@ -379,35 +379,18 @@ struct ReferenceHomeView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.04, green: 0.13, blue: 0.28),
-                            Color.black.opacity(0.72)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+            Image(systemName: icon)
+                .font(.system(size: 29, weight: .bold))
+                .foregroundStyle(
+                    usesBrand
+                        ? AnyShapeStyle(ClarityNativeTheme.brand)
+                        : AnyShapeStyle(Color(red: 0.66, green: 0.91, blue: 1.0))
                 )
                 .frame(width: 48, height: 48)
-                .overlay(
-                    Circle()
-                        .stroke(
-                            usesBrand
-                                ? AnyShapeStyle(ClarityNativeTheme.brand)
-                                : AnyShapeStyle(Color.cyan.opacity(0.34)),
-                            lineWidth: 0.9
-                        )
-                )
-                .overlay(
-                    Image(systemName: icon)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(
-                            usesBrand
-                                ? AnyShapeStyle(ClarityNativeTheme.brand)
-                                : AnyShapeStyle(Color(red: 0.63, green: 0.90, blue: 1.0))
-                        )
+                .contentShape(Rectangle())
+                .shadow(
+                    color: usesBrand ? Color.purple.opacity(0.28) : Color.cyan.opacity(0.18),
+                    radius: 7
                 )
         }
         .buttonStyle(.plain)
