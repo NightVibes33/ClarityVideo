@@ -64,14 +64,25 @@ struct RootView: View {
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = false
 
     var body: some View {
-        appNavigation
-            .tint(.cyan)
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
-                state.handleMemoryPressure()
+        Group {
+            switch ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
+            case "settings":
+                SettingsView()
+            case "diagnostics":
+                NavigationStack { DiagnosticsView() }
+            case "projects":
+                ClarityProjectsView()
+            default:
+                appNavigation
             }
-            .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
-                state.recordThermalTransition()
-            }
+        }
+        .tint(.cyan)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            state.handleMemoryPressure()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+            state.recordThermalTransition()
+        }
     }
 
     private var appNavigation: some View {
