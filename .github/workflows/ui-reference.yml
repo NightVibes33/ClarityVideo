@@ -7,7 +7,6 @@ on:
     branches: [temp-appstore-ui-final]
     paths:
       - 'ClarityVideo/Views/**'
-      - 'ClarityVideo/App/AppState.swift'
       - 'ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset/**'
       - 'ClarityVideo/Resources/Assets.xcassets/MountainReference.imageset/**'
       - 'ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/**'

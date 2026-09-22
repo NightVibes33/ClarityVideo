@@ -322,14 +322,7 @@ struct ProcessingView: View {
 
     var body: some View {
         ZStack {
-            ClarityNativeTheme.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [Color.blue.opacity(0.20), Color.cyan.opacity(0.035), .clear],
-                center: .top,
-                startRadius: 10,
-                endRadius: 440
-            )
-            .ignoresSafeArea()
+            ClarityScreenBackdrop()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 18) {
@@ -474,7 +467,14 @@ struct ProcessingView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            ClarityNativeTheme.surface,
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(ClarityNativeTheme.border, lineWidth: 0.7)
+        )
     }
 
     private var actionBar: some View {
@@ -553,14 +553,7 @@ struct ResultsView: View {
 
     var body: some View {
         ZStack {
-            ClarityNativeTheme.background.ignoresSafeArea()
-            RadialGradient(
-                colors: [Color.blue.opacity(0.18), Color.cyan.opacity(0.035), .clear],
-                center: .top,
-                startRadius: 10,
-                endRadius: 430
-            )
-            .ignoresSafeArea()
+            ClarityScreenBackdrop()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 16) {
@@ -588,7 +581,14 @@ struct ResultsView: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 13)
-                                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 13))
+                                .background(
+                                    ClarityNativeTheme.surface,
+                                    in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                        .stroke(ClarityNativeTheme.border, lineWidth: 0.7)
+                                )
                         }
                         .buttonStyle(.plain)
 
@@ -729,10 +729,13 @@ struct ResultsView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 13)
-                .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(
+                    ClarityNativeTheme.surface,
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.07), lineWidth: 0.8)
+                        .stroke(ClarityNativeTheme.border, lineWidth: 0.8)
                 )
             }
         }
