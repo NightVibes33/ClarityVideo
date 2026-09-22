@@ -1701,7 +1701,12 @@ struct ReferenceExportView: View {
     }
 
     private var videoSummary: some View {
-        NativePanel {
+        let duration = state.assetInfo?.durationText ?? "00:00"
+        let resolution = state.configuration.resolution == .uhd8K ? "8K" : "4K"
+        let upscaler = state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+        let summary = duration + " · " + resolution + " · " + upscaler
+
+        return NativePanel {
             HStack(spacing: 13) {
                 Group {
                     if let mountain = ClarityArt.mountain {
@@ -1724,30 +1729,23 @@ struct ReferenceExportView: View {
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .lineLimit(1)
 
-                    Text(
-                        (state.assetInfo?.durationText ?? "00:00")
-                        + " · "
-                        + (state.configuration.resolution == .uhd8K ? "8K" : "4K")
-                        + " · "
-                        + (state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")
-                    )
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.60))
+                    Text(summary)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.60))
 
                     if let info = state.assetInfo {
-                        Text(
-                            "~ "
-                            + ByteCountFormatter.string(
-                                fromByteCount: StorageEstimator.estimatedOutputBytes(
-                                    info: info,
-                                    configuration: state.configuration
-                                ),
-                                countStyle: .file
-                            )
-                            + " final video"
+                        let outputBytes = StorageEstimator.estimatedOutputBytes(
+                            info: info,
+                            configuration: state.configuration
                         )
-                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.cyan.opacity(0.76))
+                        let outputText = ByteCountFormatter.string(
+                            fromByteCount: outputBytes,
+                            countStyle: .file
+                        )
+
+                        Text("~ " + outputText + " final video")
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.cyan.opacity(0.76))
                     }
                 }
 
