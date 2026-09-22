@@ -31,9 +31,23 @@ final class ComparisonPreviewCoordinator {
     private let pipeline = AIAssetReaderWriterPipeline()
     private var extractionSession: AVAssetExportSession?
 
+    private var cacheFolder: URL {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ComparisonPreviews", isDirectory: true)
+    }
+
+    init() {
+        clearCache()
+    }
+
     func cancel() {
         extractionSession?.cancelExport()
         pipeline.cancel()
+    }
+
+    func clearCache() {
+        cancel()
+        try? FileManager.default.removeItem(at: cacheFolder)
     }
 
     func generate(
@@ -52,33 +66,43 @@ final class ComparisonPreviewCoordinator {
         let previewDuration = selection.durationSeconds
         guard previewDuration > 0 else { throw AppError.exportFailed("The video has no previewable duration.") }
         let start = selection.startSeconds
-        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ComparisonPreviews", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let sourceClip = folder.appendingPathComponent("source-" + UUID().uuidString + ".mov")
-        let enhancedClip = folder.appendingPathComponent("enhanced-" + UUID().uuidString + ".mov")
-        try await extract(sourceURL: sourceURL, start: start, duration: previewDuration, outputURL: sourceClip)
-        progress(0.05)
+        // Every settings change replaces the old preview. Remove the previous
+        // source/enhanced pair before generating another one so repeated slider
+        // adjustments cannot quietly consume hundreds of MB or more.
+        try? FileManager.default.removeItem(at: cacheFolder)
+        try FileManager.default.createDirectory(at: cacheFolder, withIntermediateDirectories: true)
 
-        let clipInfo = try await AssetInspector.inspect(sourceClip)
-        var job = ProcessingJob(sourceURL: sourceClip, assetInfo: clipInfo, configuration: configuration)
-        job.outputURL = enhancedClip
-        job.totalFrames = max(1, Int(clipInfo.duration * clipInfo.frameRate))
-        let started = Date()
-        _ = try await pipeline.process(
-            job: job,
-            progress: { local in progress(0.05 + local * 0.95) }
-        )
-        let elapsed = Date().timeIntervalSince(started)
-        return ComparisonPreview(
+        let sourceClip = cacheFolder.appendingPathComponent("source-" + UUID().uuidString + ".mov")
+        let enhancedClip = cacheFolder.appendingPathComponent("enhanced-" + UUID().uuidString + ".mov")
+
+        do {
+            try await extract(sourceURL: sourceURL, start: start, duration: previewDuration, outputURL: sourceClip)
+            progress(0.05)
+
+            let clipInfo = try await AssetInspector.inspect(sourceClip)
+            var job = ProcessingJob(sourceURL: sourceClip, assetInfo: clipInfo, configuration: configuration)
+            job.outputURL = enhancedClip
+            job.totalFrames = max(1, Int(clipInfo.duration * clipInfo.frameRate))
+            let started = Date()
+            _ = try await pipeline.process(
+                job: job,
+                progress: { local in progress(0.05 + local * 0.95) }
+            )
+            let elapsed = Date().timeIntervalSince(started)
+            return ComparisonPreview(
             sourceURL: sourceClip,
             enhancedURL: enhancedClip,
             previewProcessingDuration: elapsed,
             estimatedFullDuration: elapsed / max(0.1, previewDuration) * sourceInfo.duration,
             estimatedOutputBytes: StorageEstimator.estimatedOutputBytes(info: sourceInfo, configuration: configuration),
-            selectedStartSeconds: start,
-            selectedDurationSeconds: previewDuration
-        )
+                selectedStartSeconds: start,
+                selectedDurationSeconds: previewDuration
+            )
+        } catch {
+            try? FileManager.default.removeItem(at: sourceClip)
+            try? FileManager.default.removeItem(at: enhancedClip)
+            throw error
+        }
     }
 
     private func extract(sourceURL: URL, start: Double, duration: Double, outputURL: URL) async throws {
