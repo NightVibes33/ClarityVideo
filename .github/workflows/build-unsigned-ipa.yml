@@ -97,8 +97,8 @@ jobs:
           ditto "$APP" "Payload/$(basename "$APP")"
           ditto -c -k --sequesterRsrc --keepParent Payload artifacts/ClarityVideo.ipa
           unzip -t artifacts/ClarityVideo.ipa
-          test "$(unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -E '^Payload/[^/]+\.app/$' | wc -l | tr -d ' ')" = 1
-          ! unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -q embedded.mobileprovision
+          test "$(unzip -Z1 artifacts/ClarityVideo.ipa | grep -E '^Payload/[^/]+\.app/$' | wc -l | tr -d ' ')" = 1
+          ! unzip -Z1 artifacts/ClarityVideo.ipa | grep -q embedded.mobileprovision
       - name: Generate metadata and checksum
         shell: bash
         run: |
@@ -114,12 +114,12 @@ jobs:
             '{bundleIdentifier:$bundle,version:$version,build:$build,minimumOS:"26.0",platform:"iphoneos",architecture:"arm64",signed:false,commit:$commit,xcode:$xcode}' \
             > artifacts/build-metadata.json
           cd artifacts
-          shasum -a 256 ClarityVideo-unsigned.ipa > ClarityVideo.ipa.sha256
+          shasum -a 256 ClarityVideo.ipa > ClarityVideo.ipa.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: ClarityVideo-IPA
           path: |
-            artifacts/ClarityVideo-unsigned.ipa
+            artifacts/ClarityVideo.ipa
             artifacts/ClarityVideo.ipa.sha256
             artifacts/build-metadata.json
             artifacts/xcodebuild.log
