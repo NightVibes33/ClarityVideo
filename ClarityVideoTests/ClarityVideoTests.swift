@@ -202,10 +202,11 @@ extension ClarityVideoTests {
 }
 
 extension ClarityVideoTests {
-    func testAll8KJobsAreSegmented() {
+    func testShort8KJobsUseBoundedStreamingAndLong8KJobsCheckpoint() {
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd8K
-        XCTAssertTrue(SegmentPlan.requiresSegmentation(duration: 5, configuration: configuration))
+        XCTAssertFalse(SegmentPlan.requiresSegmentation(duration: 19, configuration: configuration))
+        XCTAssertTrue(SegmentPlan.requiresSegmentation(duration: 46, configuration: configuration))
     }
 
     func testSegmentPlanHasNoTimelineGaps() {
@@ -300,6 +301,15 @@ extension ClarityVideoTests {
         configuration.bitrateMbps = 50
         XCTAssertEqual(StorageEstimator.estimatedOutputBytes(info: info, configuration: configuration), 50_000_000)
     }
+    func testShort8KMaximumQualityFitsUnderHalfGigabyteWorkingBudget() {
+        let info = VideoAssetInfo(fileName: "short.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 19, estimatedSourceBytes: 25_000_000)
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd8K
+        configuration.bitrateMbps = 110
+        XCTAssertFalse(SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration))
+        XCTAssertLessThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), 500_000_000)
+    }
+
     func test8KStoragePreflightAllowsFinalAndSegmentCopies() {
         let info = VideoAssetInfo(fileName: "x.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 60, estimatedSourceBytes: 1)
         var configuration = ExportConfiguration()
