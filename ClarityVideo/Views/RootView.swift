@@ -557,9 +557,9 @@ struct OnboardingView: View {
             detail: "Start with a thoughtful preset, then fine-tune noise reduction, detail, sharpness, codec, and quality.",
             accent: .purple,
             features: [
-                OnboardingFeature(symbol: "hare.fill", title: "Fast", detail: "A lighter path for quick, efficient enhancement."),
-                OnboardingFeature(symbol: "diamond.fill", title: "Quality", detail: "Prioritizes detail and the best supported Apple processing route."),
-                OnboardingFeature(symbol: "clock.arrow.circlepath", title: "Restore and Anime", detail: "Tailored controls for older footage, animation, and gameplay.")
+                OnboardingFeature(symbol: "hare.fill", title: "Balanced", detail: "A lighter enhancement pass for faster processing."),
+                OnboardingFeature(symbol: "diamond.fill", title: "Quality", detail: "Balanced cleanup and detail recovery for most footage."),
+                OnboardingFeature(symbol: "sparkles", title: "Ultra", detail: "The strongest cleanup, detail recovery, and sharpening preset.")
             ]
         ),
         OnboardingPage(
@@ -568,7 +568,7 @@ struct OnboardingView: View {
             detail: "Clarity checks storage and device support, keeps you informed, and makes the finished video easy to save or share.",
             accent: .orange,
             features: [
-                OnboardingFeature(symbol: "play.rectangle.on.rectangle", title: "Before and after", detail: "Inspect detail at 100, 200, or 400 percent before a full export."),
+                OnboardingFeature(symbol: "play.rectangle.on.rectangle", title: "Before and after", detail: "Generate a short real enhancement preview before committing to a full export."),
                 OnboardingFeature(symbol: "pause.circle.fill", title: "Pause and resume", detail: "Long jobs use checkpoints so completed work can be resumed."),
                 OnboardingFeature(symbol: "square.and.arrow.up", title: "Save anywhere", detail: "Save to Photos, Files, or share with your favorite apps.")
             ]
@@ -577,19 +577,37 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [pages[page].accent.opacity(0.20), Color.black, Color.black],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ).ignoresSafeArea()
+            ClarityScreenBackdrop()
+
+            RadialGradient(
+                colors: [pages[page].accent.opacity(0.16), .clear],
+                center: .top,
+                startRadius: 20,
+                endRadius: 420
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("CLARITY").font(.subheadline.bold()).tracking(2).foregroundStyle(.secondary)
-                    Spacer()
-                    if page < pages.count - 1 {
-                        Button("Skip") { onComplete() }.foregroundStyle(.secondary)
+                    HStack(spacing: 0) {
+                        Text("Clarity").foregroundStyle(.white)
+                        Text("Video").foregroundStyle(ClarityNativeTheme.brand)
                     }
-                }.padding(.horizontal, 24).padding(.top, 12)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+
+                    Spacer()
+
+                    if page < pages.count - 1 {
+                        Button("Skip") { onComplete() }
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.045), in: Capsule())
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 10)
 
                 TabView(selection: $page) {
                     ForEach(pages.indices, id: \.self) { index in
@@ -601,27 +619,44 @@ struct OnboardingView: View {
                 HStack(spacing: 7) {
                     ForEach(pages.indices, id: \.self) { index in
                         Capsule()
-                            .fill(index == page ? pages[page].accent : Color.secondary.opacity(0.28))
-                            .frame(width: index == page ? 28 : 8, height: 8)
+                            .fill(
+                                index == page
+                                    ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                    : AnyShapeStyle(Color.white.opacity(0.18))
+                            )
+                            .frame(width: index == page ? 30 : 8, height: 7)
                             .animation(.spring(response: 0.35), value: page)
                     }
-                }.padding(.bottom, 20)
+                }
+                .padding(.bottom, 15)
 
                 Button {
-                    if page == pages.count - 1 { onComplete() }
-                    else { withAnimation { page += 1 } }
+                    if page == pages.count - 1 {
+                        onComplete()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.24)) { page += 1 }
+                    }
                 } label: {
-                    HStack {
-                        Text(page == pages.count - 1 ? "Start enhancing" : "Continue")
+                    HStack(spacing: 9) {
+                        Text(page == pages.count - 1 ? "Start Enhancing" : "Continue")
                         Image(systemName: page == pages.count - 1 ? "sparkles" : "arrow.right")
                     }
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 5)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(
+                        ClarityNativeTheme.brand,
+                        in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    )
+                    .shadow(color: Color.blue.opacity(0.28), radius: 16, y: 7)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large)
-                .tint(pages[page].accent)
-                .padding(.horizontal, 24).padding(.bottom, 16)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 12)
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -629,44 +664,78 @@ struct OnboardingPageView: View {
     let page: OnboardingPage
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 22) {
-                Spacer(minLength: 16)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 18) {
+                Spacer(minLength: 8)
+
                 ZStack {
-                    Circle().fill(page.accent.opacity(0.17)).frame(width: 118, height: 118)
-                    Circle().stroke(page.accent.opacity(0.28), lineWidth: 1).frame(width: 92, height: 92)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(ClarityNativeTheme.card)
+                        .frame(width: 106, height: 106)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .stroke(ClarityNativeTheme.border, lineWidth: 1)
+                        )
+                        .shadow(color: page.accent.opacity(0.22), radius: 18)
+
                     Image(systemName: page.symbol)
-                        .font(.system(size: 47, weight: .semibold)).foregroundStyle(page.accent)
+                        .font(.system(size: 42, weight: .semibold))
+                        .foregroundStyle(page.accent)
                 }
-                VStack(spacing: 10) {
-                    Text(page.eyebrow).font(.caption.bold()).tracking(1.8).foregroundStyle(page.accent)
-                    Text(page.title).font(.system(size: 34, weight: .bold, design: .rounded))
+
+                VStack(spacing: 8) {
+                    Text(page.eyebrow)
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .tracking(1.8)
+                        .foregroundStyle(page.accent)
+
+                    Text(page.title)
+                        .font(.system(size: 31, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
-                    Text(page.detail).font(.title3).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.white)
+
+                    Text(page.detail)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                VStack(spacing: 12) {
+
+                VStack(spacing: 10) {
                     ForEach(page.features.indices, id: \.self) { index in
                         let feature = page.features[index]
-                        HStack(alignment: .top, spacing: 14) {
-                            Image(systemName: feature.symbol)
-                                .font(.headline).foregroundStyle(page.accent)
-                                .frame(width: 38, height: 38)
-                                .background(page.accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 11))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(feature.title).font(.headline)
-                                Text(feature.detail).font(.subheadline).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+
+                        NativePanel {
+                            HStack(alignment: .top, spacing: 13) {
+                                ClarityIconTile(
+                                    icon: feature.symbol,
+                                    size: 44,
+                                    iconSize: 18
+                                )
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(feature.title)
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+
+                                    Text(feature.detail)
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.55))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
+                            .padding(13)
                         }
-                        .padding(14).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 17))
                     }
                 }
+
                 Spacer(minLength: 8)
-            }.padding(.horizontal, 24)
+            }
+            .padding(.horizontal, 22)
         }
-        .scrollIndicators(.hidden)
     }
 }
 
