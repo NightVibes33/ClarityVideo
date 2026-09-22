@@ -1143,12 +1143,13 @@ private struct NativeSnapshotVideoThumbnail: View {
     let selected: Bool
 
     var body: some View {
+        GeometryReader { tile in
         ZStack(alignment: .bottomTrailing) {
             if item.mountain, let mountain = ClarityArt.mountain {
                 Image(uiImage: mountain)
                     .resizable()
                     .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: tile.size.width, height: tile.size.height)
                     .clipped()
             } else {
                 LinearGradient(
@@ -1179,8 +1180,7 @@ private struct NativeSnapshotVideoThumbnail: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 92)
+        .frame(width: tile.size.width, height: tile.size.height)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(
@@ -1190,6 +1190,8 @@ private struct NativeSnapshotVideoThumbnail: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Snapshot video, \(item.duration)")
         .accessibilityValue(selected ? "Selected" : "Not selected")
+        }
+        .frame(height: 92)
     }
 }
 
@@ -1199,6 +1201,7 @@ private struct NativeVideoThumbnail: View {
     @State private var image: UIImage?
 
     var body: some View {
+        GeometryReader { tile in
         ZStack(alignment: .bottomTrailing) {
             Group {
                 if let image {
@@ -1210,8 +1213,7 @@ private struct NativeVideoThumbnail: View {
                         .overlay(ProgressView().tint(.cyan))
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 92)
+            .frame(width: tile.size.width, height: tile.size.height)
             .clipped()
 
             Text(durationText(asset.duration))
@@ -1230,12 +1232,15 @@ private struct NativeVideoThumbnail: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
+        .frame(width: tile.size.width, height: tile.size.height)
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(selected ? Color.cyan : Color.white.opacity(0.08), lineWidth: selected ? 2 : 1))
         .task(id: asset.localIdentifier) { await loadImage() }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Video, \(durationText(asset.duration))")
         .accessibilityValue(selected ? "Selected" : "Not selected")
+        }
+        .frame(height: 92)
     }
 
     @MainActor
