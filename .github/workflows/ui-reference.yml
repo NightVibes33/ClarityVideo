@@ -4,13 +4,14 @@ name: Verify native Clarity reference UI
 on:
   workflow_dispatch:
   push:
-    branches: [neural-ios-port]
+    branches: [temp-appstore-ui-final]
     paths:
       - 'ClarityVideo/Views/**'
       - 'ClarityVideo/App/AppState.swift'
       - 'ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset/**'
       - 'ClarityVideo/Resources/Assets.xcassets/MountainReference.imageset/**'
       - 'ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/**'
+      - 'ClarityVideo/Resources/PrivacyInfo.xcprivacy'
       - 'ClarityVideo.xcodeproj/project.pbxproj'
       - '.github/workflows/ui-reference.yml'
 
@@ -57,10 +58,22 @@ jobs:
           test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
           test "$(sips -g pixelHeight ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelHeight/ {print $2}')" = "1024"
 
+      - name: Verify App Store privacy manifest
+        run: |
+          set -euo pipefail
+          test -s ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          plutil -lint ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPrivacyAccessedAPICategoryDiskSpace' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPrivacyAccessedAPICategoryFileTimestamp' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q 'NSPrivacyAccessedAPICategoryUserDefaults' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+
       - name: Build simulator app
         run: |
           set -euo pipefail
           xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo             -sdk iphonesimulator -configuration Release             -derivedDataPath "$RUNNER_TEMP/UIReference"             CODE_SIGNING_ALLOWED=NO build
+          APP="$RUNNER_TEMP/UIReference/Build/Products/Release-iphonesimulator/ClarityVideo.app"
+          test -f "$APP/PrivacyInfo.xcprivacy"
+          plutil -lint "$APP/PrivacyInfo.xcprivacy"
 
       - name: Capture all reference screens
         run: |
@@ -80,7 +93,7 @@ jobs:
 
           # Capture Import last. Its simulator-only fixture exercises the exact
           # native layout without invoking the Photos permission UI.
-          for route in home enhance export import settings diagnostics projects; do
+          for route in onboarding home enhance export import settings diagnostics projects; do
             echo "Capturing $route"
             ROUTE="$route" DEVICE="$DEVICE" python3 - <<'PY'
           import os, subprocess, sys, time
@@ -122,6 +135,7 @@ jobs:
           PY
           done
 
+          test -s artifacts/ui-reference/onboarding.png
           test -s artifacts/ui-reference/home.png
           test -s artifacts/ui-reference/import.png
           test -s artifacts/ui-reference/enhance.png
