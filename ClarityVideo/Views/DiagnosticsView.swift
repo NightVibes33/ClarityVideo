@@ -13,8 +13,9 @@ struct DiagnosticsView: View {
         ZStack {
             ClarityScreenBackdrop()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 10) {
+            ScrollViewReader { diagnosticsProxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 10) {
                     NativeHeader(title: "Diagnostics", circularBack: true, onBack: { dismiss() })
 
                     hero
@@ -134,6 +135,7 @@ struct DiagnosticsView: View {
                             .padding(.horizontal, 12)
                         }
                     }
+                    .id("diagnostics-actions")
 
                     if state.diagnosticStatus != "Not run" {
                         NativePanel {
@@ -186,15 +188,26 @@ struct DiagnosticsView: View {
                         .padding(.horizontal, 4)
                         .padding(.bottom, 10)
                 }
-                .padding(.horizontal, 18)
-                .padding(.top, 4)
-                .padding(.bottom, 28)
-            }
-            .onScrollGeometryChange(for: Bool.self) { geometry in
+                    .padding(.horizontal, 18)
+                    .padding(.top, 4)
+                    .padding(.bottom, 28)
+                }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y > 88
-            } action: { _, scrolled in
-                withAnimation(.easeOut(duration: 0.16)) {
-                    showsCompactHeader = scrolled
+                } action: { _, scrolled in
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        showsCompactHeader = scrolled
+                    }
+                }
+                .task {
+#if targetEnvironment(simulator)
+                    if ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "diagnostics-actions" {
+                        try? await Task.sleep(for: .milliseconds(250))
+                        withAnimation(.none) {
+                            diagnosticsProxy.scrollTo("diagnostics-actions", anchor: .top)
+                        }
+                    }
+#endif
                 }
             }
         }

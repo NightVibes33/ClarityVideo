@@ -67,9 +67,9 @@ struct RootView: View {
         Group {
             if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
                 switch snapshotRoute {
-                case "settings":
+                case "settings", "settings-advanced":
                     SettingsView()
-                case "diagnostics":
+                case "diagnostics", "diagnostics-actions":
                     NavigationStack { DiagnosticsView() }
                 case "projects":
                     ClarityProjectsView()
@@ -775,8 +775,9 @@ struct SettingsView: View {
             ZStack {
                 ClarityScreenBackdrop()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 15) {
+                ScrollViewReader { settingsProxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 15) {
                         header
 
                         settingsSection("About Clarity") {
@@ -954,6 +955,7 @@ struct SettingsView: View {
                             }
                             .padding(.vertical, 13)
                         }
+                        .id("settings-advanced")
 
                         settingsSection("Fine tune defaults") {
                             settingsSlider(
@@ -1065,15 +1067,26 @@ struct SettingsView: View {
                             .padding(.horizontal, 10)
                             .padding(.bottom, 12)
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 8)
-                    .padding(.bottom, 22)
-                }
-                .onScrollGeometryChange(for: Bool.self) { geometry in
+                        .padding(.horizontal, 18)
+                        .padding(.top, 8)
+                        .padding(.bottom, 22)
+                    }
+                    .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y > 92
-                } action: { _, scrolled in
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        showsCompactHeader = scrolled
+                    } action: { _, scrolled in
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            showsCompactHeader = scrolled
+                        }
+                    }
+                    .task {
+#if targetEnvironment(simulator)
+                        if ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "settings-advanced" {
+                            try? await Task.sleep(for: .milliseconds(250))
+                            withAnimation(.none) {
+                                settingsProxy.scrollTo("settings-advanced", anchor: .top)
+                            }
+                        }
+#endif
                     }
                 }
             }
