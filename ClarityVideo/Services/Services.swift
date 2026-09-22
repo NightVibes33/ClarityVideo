@@ -67,6 +67,20 @@ enum SecurityScopedFileManager {
         guard candidate.hasPrefix(root + "/") else { return }
         try? FileManager.default.removeItem(at: url)
     }
+
+    static func cleanupWorkspace(keeping URLs: Set<URL>) {
+        let folder = importsFolder
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        let keep = Set(URLs.map { $0.standardizedFileURL.path })
+        for entry in entries where !keep.contains(entry.standardizedFileURL.path) {
+            try? FileManager.default.removeItem(at: entry)
+        }
+    }
 }
 enum AssetInspector {
     static func inspect(_ url: URL) async throws -> VideoAssetInfo {
