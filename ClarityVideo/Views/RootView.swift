@@ -11,7 +11,7 @@ struct RootView: View {
 #if targetEnvironment(simulator)
             if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
                 switch snapshotRoute {
-                case "settings", "settings-advanced", "settings-confirm":
+                case "settings":
                     SettingsView()
                 case "diagnostics", "diagnostics-actions", "diagnostics-confirm":
                     NavigationStack { DiagnosticsView() }
@@ -432,7 +432,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = true
     @State private var showsCompactHeader = false
-    @State private var showClearCacheConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "settings-confirm"
 
     var body: some View {
         NavigationStack {
@@ -552,40 +551,6 @@ struct SettingsView: View {
             .navigationBarHidden(true)
         }
         .preferredColorScheme(.dark)
-        .overlay {
-            if showClearCacheConfirmation {
-                ZStack {
-                    Color.black.opacity(0.62)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                showClearCacheConfirmation = false
-                            }
-                        }
-
-                    ClarityConfirmationCard(
-                        icon: "trash.fill",
-                        title: "Clear processing cache?",
-                        message: "This removes previews, checkpoints, and other disposable processing files. Completed exports are not deleted.",
-                        destructiveTitle: "Clear Cache",
-                        cancelTitle: "Cancel",
-                        destructiveAction: {
-                            state.clearProcessingCache()
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                showClearCacheConfirmation = false
-                            }
-                        },
-                        cancelAction: {
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                showClearCacheConfirmation = false
-                            }
-                        }
-                    )
-                    .transition(.scale(scale: 0.94).combined(with: .opacity))
-                }
-                .zIndex(100)
-            }
-        }
     }
 
     private var compactHeader: some View {
@@ -720,8 +685,4 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 
-    private var freeStorageText: String {
-        guard let bytes = try? StorageEstimator.availableBytes() else { return "Unknown" }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-    }
 }
