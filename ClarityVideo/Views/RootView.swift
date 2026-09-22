@@ -65,15 +65,27 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            switch ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
-            case "settings":
-                SettingsView()
-            case "diagnostics":
-                NavigationStack { DiagnosticsView() }
-            case "projects":
-                ClarityProjectsView()
-            default:
+            if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
+                switch snapshotRoute {
+                case "settings":
+                    SettingsView()
+                case "diagnostics":
+                    NavigationStack { DiagnosticsView() }
+                case "projects":
+                    ClarityProjectsView()
+                case "onboarding":
+                    OnboardingView { }
+                default:
+                    appNavigation
+                }
+            } else if hasCompletedOnboarding {
                 appNavigation
+            } else {
+                OnboardingView {
+                    withAnimation(.easeInOut(duration: 0.24)) {
+                        hasCompletedOnboarding = true
+                    }
+                }
             }
         }
         .tint(.cyan)
@@ -557,9 +569,9 @@ struct OnboardingView: View {
             detail: "Start with a thoughtful preset, then fine-tune noise reduction, detail, sharpness, codec, and quality.",
             accent: .purple,
             features: [
-                OnboardingFeature(symbol: "hare.fill", title: "Fast", detail: "A lighter path for quick, efficient enhancement."),
-                OnboardingFeature(symbol: "diamond.fill", title: "Quality", detail: "Prioritizes detail and the best supported Apple processing route."),
-                OnboardingFeature(symbol: "clock.arrow.circlepath", title: "Restore and Anime", detail: "Tailored controls for older footage, animation, and gameplay.")
+                OnboardingFeature(symbol: "hare.fill", title: "Balanced", detail: "A lighter enhancement pass for faster processing."),
+                OnboardingFeature(symbol: "diamond.fill", title: "Quality", detail: "Balanced cleanup and detail recovery for most footage."),
+                OnboardingFeature(symbol: "sparkles", title: "Ultra", detail: "The strongest cleanup, detail recovery, and sharpening preset.")
             ]
         ),
         OnboardingPage(
@@ -568,7 +580,7 @@ struct OnboardingView: View {
             detail: "Clarity checks storage and device support, keeps you informed, and makes the finished video easy to save or share.",
             accent: .orange,
             features: [
-                OnboardingFeature(symbol: "play.rectangle.on.rectangle", title: "Before and after", detail: "Inspect detail at 100, 200, or 400 percent before a full export."),
+                OnboardingFeature(symbol: "play.rectangle.on.rectangle", title: "Before and after", detail: "Generate a short real enhancement preview before committing to a full export."),
                 OnboardingFeature(symbol: "pause.circle.fill", title: "Pause and resume", detail: "Long jobs use checkpoints so completed work can be resumed."),
                 OnboardingFeature(symbol: "square.and.arrow.up", title: "Save anywhere", detail: "Save to Photos, Files, or share with your favorite apps.")
             ]
@@ -577,19 +589,37 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [pages[page].accent.opacity(0.20), Color.black, Color.black],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ).ignoresSafeArea()
+            ClarityScreenBackdrop()
+
+            RadialGradient(
+                colors: [pages[page].accent.opacity(0.16), .clear],
+                center: .top,
+                startRadius: 20,
+                endRadius: 420
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("CLARITY").font(.subheadline.bold()).tracking(2).foregroundStyle(.secondary)
-                    Spacer()
-                    if page < pages.count - 1 {
-                        Button("Skip") { onComplete() }.foregroundStyle(.secondary)
+                    HStack(spacing: 0) {
+                        Text("Clarity").foregroundStyle(.white)
+                        Text("Video").foregroundStyle(ClarityNativeTheme.brand)
                     }
-                }.padding(.horizontal, 24).padding(.top, 12)
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+
+                    Spacer()
+
+                    if page < pages.count - 1 {
+                        Button("Skip") { onComplete() }
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.045), in: Capsule())
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 10)
 
                 TabView(selection: $page) {
                     ForEach(pages.indices, id: \.self) { index in
@@ -601,27 +631,44 @@ struct OnboardingView: View {
                 HStack(spacing: 7) {
                     ForEach(pages.indices, id: \.self) { index in
                         Capsule()
-                            .fill(index == page ? pages[page].accent : Color.secondary.opacity(0.28))
-                            .frame(width: index == page ? 28 : 8, height: 8)
+                            .fill(
+                                index == page
+                                    ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                    : AnyShapeStyle(Color.white.opacity(0.18))
+                            )
+                            .frame(width: index == page ? 30 : 8, height: 7)
                             .animation(.spring(response: 0.35), value: page)
                     }
-                }.padding(.bottom, 20)
+                }
+                .padding(.bottom, 15)
 
                 Button {
-                    if page == pages.count - 1 { onComplete() }
-                    else { withAnimation { page += 1 } }
+                    if page == pages.count - 1 {
+                        onComplete()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.24)) { page += 1 }
+                    }
                 } label: {
-                    HStack {
-                        Text(page == pages.count - 1 ? "Start enhancing" : "Continue")
+                    HStack(spacing: 9) {
+                        Text(page == pages.count - 1 ? "Start Enhancing" : "Continue")
                         Image(systemName: page == pages.count - 1 ? "sparkles" : "arrow.right")
                     }
-                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 5)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(
+                        ClarityNativeTheme.brand,
+                        in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    )
+                    .shadow(color: Color.blue.opacity(0.28), radius: 16, y: 7)
                 }
-                .buttonStyle(.borderedProminent).controlSize(.large)
-                .tint(pages[page].accent)
-                .padding(.horizontal, 24).padding(.bottom, 16)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 12)
             }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -629,44 +676,78 @@ struct OnboardingPageView: View {
     let page: OnboardingPage
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 22) {
-                Spacer(minLength: 16)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 18) {
+                Spacer(minLength: 8)
+
                 ZStack {
-                    Circle().fill(page.accent.opacity(0.17)).frame(width: 118, height: 118)
-                    Circle().stroke(page.accent.opacity(0.28), lineWidth: 1).frame(width: 92, height: 92)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(ClarityNativeTheme.card)
+                        .frame(width: 106, height: 106)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .stroke(ClarityNativeTheme.border, lineWidth: 1)
+                        )
+                        .shadow(color: page.accent.opacity(0.22), radius: 18)
+
                     Image(systemName: page.symbol)
-                        .font(.system(size: 47, weight: .semibold)).foregroundStyle(page.accent)
+                        .font(.system(size: 42, weight: .semibold))
+                        .foregroundStyle(page.accent)
                 }
-                VStack(spacing: 10) {
-                    Text(page.eyebrow).font(.caption.bold()).tracking(1.8).foregroundStyle(page.accent)
-                    Text(page.title).font(.system(size: 34, weight: .bold, design: .rounded))
+
+                VStack(spacing: 8) {
+                    Text(page.eyebrow)
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .tracking(1.8)
+                        .foregroundStyle(page.accent)
+
+                    Text(page.title)
+                        .font(.system(size: 31, weight: .bold, design: .rounded))
                         .multilineTextAlignment(.center)
-                    Text(page.detail).font(.title3).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.white)
+
+                    Text(page.detail)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                VStack(spacing: 12) {
+
+                VStack(spacing: 10) {
                     ForEach(page.features.indices, id: \.self) { index in
                         let feature = page.features[index]
-                        HStack(alignment: .top, spacing: 14) {
-                            Image(systemName: feature.symbol)
-                                .font(.headline).foregroundStyle(page.accent)
-                                .frame(width: 38, height: 38)
-                                .background(page.accent.opacity(0.13), in: RoundedRectangle(cornerRadius: 11))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(feature.title).font(.headline)
-                                Text(feature.detail).font(.subheadline).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
+
+                        NativePanel {
+                            HStack(alignment: .top, spacing: 13) {
+                                ClarityIconTile(
+                                    icon: feature.symbol,
+                                    size: 44,
+                                    iconSize: 18
+                                )
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(feature.title)
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                        .foregroundStyle(.white)
+
+                                    Text(feature.detail)
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.55))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
+                            .padding(13)
                         }
-                        .padding(14).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 17))
                     }
                 }
+
                 Spacer(minLength: 8)
-            }.padding(.horizontal, 24)
+            }
+            .padding(.horizontal, 22)
         }
-        .scrollIndicators(.hidden)
     }
 }
 
@@ -685,11 +766,23 @@ struct SettingsView: View {
                         header
 
                         settingsSection("About Clarity") {
-                            infoRow(icon: "info.circle.fill", title: "Version", value: appVersion)
+                            infoRow(
+                                icon: "info.circle.fill",
+                                title: "Version",
+                                value: appVersion
+                            )
                             divider
-                            infoRow(icon: "cpu.fill", title: "Processing", value: "On-device")
+                            infoRow(
+                                icon: "cpu.fill",
+                                title: "Processing",
+                                value: "On-device"
+                            )
                             divider
-                            infoRow(icon: "person.fill", title: "Account", value: "Not required")
+                            infoRow(
+                                icon: "person.fill",
+                                title: "Account",
+                                value: "Not required"
+                            )
                         }
 
                         Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
@@ -750,15 +843,214 @@ struct SettingsView: View {
                             }
                         }
 
-                        VStack(spacing: 4) {
-                            Text("Free storage: " + freeStorageText)
-                            Text("Processing stays on this iPhone unless you explicitly share an exported file.")
+                        NativePanel {
+                            VStack(spacing: 0) {
+                                HStack(spacing: 13) {
+                                    ClarityIconTile(icon: "externaldrive.fill", size: 40, iconSize: 16)
+
+                                    Text("Free storage")
+                                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+
+                                    Spacer()
+
+                                    Text(freeStorageText)
+                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.cyan.opacity(0.80))
+                                }
+                                .padding(.vertical, 10)
+
+                                divider
+
+                                Button {
+                                    state.clearProcessingCache()
+                                } label: {
+                                    HStack(spacing: 13) {
+                                        ClarityIconTile(
+                                            icon: "trash.fill",
+                                            size: 40,
+                                            iconSize: 16,
+                                            destructive: true
+                                        )
+
+                                        Text("Clear processing cache")
+                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                            .foregroundStyle(.red)
+
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 10)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 15)
                         }
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.34))
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 12)
+
+                        Text("Advanced defaults")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.68))
+                            .padding(.leading, 8)
+
+                        settingsSection("Enhancement defaults") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Target Resolution")
+                                SettingsChoiceRow(
+                                    options: state.capabilities.supports8KHEVCEncode
+                                        ? ["4K", "8K"]
+                                        : ["4K"],
+                                    selected: state.configuration.resolution == .uhd8K ? "8K" : "4K"
+                                ) { value in
+                                    state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
+                                    if state.configuration.resolution == .uhd8K {
+                                        state.configuration.codec = .hevc
+                                    }
+                                    state.configuration.clampBitrateToSupportedRange()
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("AI Upscaler")
+                                SettingsChoiceRow(
+                                    options: IOSNeuralHeadService.bundledModelURL() == nil
+                                        ? ["Apple SR"]
+                                        : ["Apple SR", "DLSS 5"],
+                                    selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+                                ) { value in
+                                    state.configuration.upscaler = value == "DLSS 5" ? .dlss5 : .appleSR
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Enhancement Mode")
+                                SettingsChoiceRow(
+                                    options: QualityPreset.allCases.map(\.rawValue),
+                                    selected: state.configuration.qualityPreset.rawValue
+                                ) { value in
+                                    guard let preset = QualityPreset(rawValue: value) else { return }
+                                    state.configuration.applyPreset(
+                                        preset,
+                                        temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                                    )
+                                }
+                            }
+                            .padding(.vertical, 13)
+                        }
+
+                        settingsSection("Fine tune defaults") {
+                            settingsSlider(
+                                title: "Denoise",
+                                value: Binding(
+                                    get: { state.configuration.denoise },
+                                    set: { state.configuration.denoise = $0 }
+                                ),
+                                enabled: state.capabilities.temporalNoiseFilteringAvailable
+                            )
+
+                            divider
+
+                            settingsSlider(
+                                title: "Detail Recovery",
+                                value: Binding(
+                                    get: { state.configuration.detailRecovery },
+                                    set: { state.configuration.detailRecovery = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsSlider(
+                                title: "Sharpen",
+                                value: Binding(
+                                    get: { state.configuration.sharpening },
+                                    set: { state.configuration.sharpening = $0 }
+                                )
+                            )
+                        }
+
+                        settingsSection("Export defaults") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                settingTitle("Format")
+                                SettingsChoiceRow(
+                                    options: state.configuration.resolution == .uhd8K
+                                        ? ["HEVC"]
+                                        : ["HEVC", "H.264"],
+                                    selected: state.configuration.codec == .hevc ? "HEVC" : "H.264"
+                                ) { value in
+                                    state.configuration.codec = value == "H.264" ? .h264 : .hevc
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    settingTitle("Output Quality")
+                                    Spacer()
+                                    Text("\(state.configuration.bitrateMbps) Mbps")
+                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.cyan.opacity(0.78))
+                                }
+
+                                SettingsChoiceRow(
+                                    options: ["Standard", "High", "Maximum"],
+                                    selected: bitrateQualityLabel
+                                ) { value in
+                                    let index = ["Standard", "High", "Maximum"].firstIndex(of: value) ?? 1
+                                    let values = state.configuration.exportBitrateOptionsMbps
+                                    if values.indices.contains(index) {
+                                        state.configuration.bitrateMbps = values[index]
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 13)
+
+                            divider
+
+                            settingsToggle(
+                                icon: "gauge.with.dots.needle.50percent",
+                                title: "Preserve source frame rate",
+                                isOn: Binding(
+                                    get: { state.configuration.preserveFrameRate },
+                                    set: { state.configuration.preserveFrameRate = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsToggle(
+                                icon: "photo.on.rectangle.angled",
+                                title: "Save to Photos after export",
+                                isOn: Binding(
+                                    get: { state.saveToPhotosAfterExport },
+                                    set: { state.saveToPhotosAfterExport = $0 }
+                                )
+                            )
+
+                            divider
+
+                            settingsToggle(
+                                icon: "folder.fill",
+                                title: "Open Files export after completion",
+                                isOn: Binding(
+                                    get: { state.saveToFilesAfterExport },
+                                    set: { state.saveToFilesAfterExport = $0 }
+                                )
+                            )
+                        }
+
+                        Text("Processing stays on this iPhone unless you explicitly share an exported file.")
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.34))
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 10)
+                            .padding(.bottom, 12)
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 10)
@@ -778,16 +1070,7 @@ struct SettingsView: View {
 
             Spacer(minLength: 12)
 
-            Button("Done") { dismiss() }
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundStyle(.cyan)
-                .padding(.horizontal, 19)
-                .padding(.vertical, 11)
-                .background(
-                    Capsule()
-                        .fill(Color.white.opacity(0.055))
-                        .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.8))
-                )
+            ClarityPillButton(title: "Done") { dismiss() }
         }
     }
 
@@ -809,6 +1092,143 @@ struct SettingsView: View {
                 .padding(.horizontal, 15)
             }
         }
+    }
+
+    private func settingTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.72))
+    }
+
+    private func settingsSlider(
+        title: String,
+        value: Binding<Double>,
+        enabled: Bool = true
+    ) -> some View {
+        VStack(spacing: 9) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(enabled ? .white : .white.opacity(0.38))
+
+                Spacer()
+
+                Text("\(Int((value.wrappedValue * 100).rounded()))")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(enabled ? .cyan.opacity(0.82) : .white.opacity(0.28))
+            }
+
+            GeometryReader { geometry in
+                let width = max(1, geometry.size.width)
+                let clamped = max(0, min(1, value.wrappedValue))
+                let thumbX = max(9, min(width - 9, width * clamped))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.09))
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(ClarityNativeTheme.brand)
+                        .frame(width: max(5, width * clamped), height: 5)
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
+                        .shadow(color: Color.cyan.opacity(0.30), radius: 5)
+                        .position(x: thumbX, y: 13)
+                }
+                .frame(height: 26)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            guard enabled else { return }
+                            value.wrappedValue = max(0, min(1, drag.location.x / width))
+                        }
+                )
+                .accessibilityElement()
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
+                .accessibilityAdjustableAction { direction in
+                    guard enabled else { return }
+                    switch direction {
+                    case .increment:
+                        value.wrappedValue = min(1, value.wrappedValue + 0.05)
+                    case .decrement:
+                        value.wrappedValue = max(0, value.wrappedValue - 0.05)
+                    @unknown default:
+                        break
+                    }
+                }
+            }
+            .frame(height: 26)
+            .opacity(enabled ? 1 : 0.38)
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func settingsToggle(
+        icon: String,
+        title: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack(spacing: 13) {
+            ClarityIconTile(icon: icon, size: 40, iconSize: 16)
+
+            Text(title)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isOn.wrappedValue.toggle()
+                }
+            } label: {
+                ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
+                    Capsule()
+                        .fill(
+                            isOn.wrappedValue
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.10))
+                        )
+                        .frame(width: 48, height: 28)
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    isOn.wrappedValue
+                                        ? Color.cyan.opacity(0.40)
+                                        : Color.white.opacity(0.08),
+                                    lineWidth: 0.8
+                                )
+                        )
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 22, height: 22)
+                        .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
+                        .padding(3)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(isOn.wrappedValue ? "On" : "Off")
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var bitrateQualityLabel: String {
+        let values = state.configuration.exportBitrateOptionsMbps
+        guard let index = values.enumerated().min(by: {
+            abs($0.element - state.configuration.bitrateMbps)
+                < abs($1.element - state.configuration.bitrateMbps)
+        })?.offset else {
+            return "High"
+        }
+        return ["Standard", "High", "Maximum"][min(index, 2)]
     }
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
@@ -837,6 +1257,10 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
 
             Spacer()
+
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.cyan.opacity(0.68))
         }
         .padding(.vertical, 11)
     }
