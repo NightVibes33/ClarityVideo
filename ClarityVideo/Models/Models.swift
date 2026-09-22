@@ -67,7 +67,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
     var sharpening = 0.15
     var bitrateMbps = 40
     var codec: OutputCodec = .hevc
-    var hdrBehavior: HDRBehavior = .preserve
+    var hdrBehavior: HDRBehavior = .convertToSDR
     var preserveFrameRate = true
 
     private enum CodingKeys: String, CodingKey {
@@ -88,7 +88,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
         sharpening = try values.decodeIfPresent(Double.self, forKey: .sharpening) ?? 0.15
         bitrateMbps = try values.decodeIfPresent(Int.self, forKey: .bitrateMbps) ?? 40
         codec = try values.decodeIfPresent(OutputCodec.self, forKey: .codec) ?? .hevc
-        hdrBehavior = try values.decodeIfPresent(HDRBehavior.self, forKey: .hdrBehavior) ?? .preserve
+        hdrBehavior = try values.decodeIfPresent(HDRBehavior.self, forKey: .hdrBehavior) ?? .convertToSDR
         preserveFrameRate = try values.decodeIfPresent(Bool.self, forKey: .preserveFrameRate) ?? true
 
         let legacyMode = try values.decodeIfPresent(String.self, forKey: .mode)
