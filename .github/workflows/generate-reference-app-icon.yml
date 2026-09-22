@@ -1,0 +1,49 @@
+name: Generate exact reference app icon
+
+on:
+  push:
+    branches: [neural-convert-diagnostics]
+    paths:
+      - '.github/workflows/generate-reference-app-icon.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: neural-convert-diagnostics
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate exact 1024px icon from reference artwork
+        run: |
+          set -euo pipefail
+          python -m pip install pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          source = Path('ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset/artwork.jpeg')
+          destination = Path('ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png')
+          image = Image.open(source).convert('RGB')
+          if image.size != (1226, 1283):
+              raise SystemExit(f'unexpected reference size: {image.size}')
+          icon = image.crop((42, 120, 292, 370)).resize((1024, 1024), Image.Resampling.LANCZOS)
+          icon.save(destination, 'PNG', optimize=True)
+          print('REFERENCE_ICON_SIZE', icon.size)
+          print('REFERENCE_ICON_SOURCE_CROP', (42, 120, 292, 370))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+          if git diff --cached --quiet; then
+            echo "Icon already exact"
+            exit 0
+          fi
+          git commit -m "Use exact Clarity reference app icon"
+          git push origin HEAD:neural-convert-diagnostics
