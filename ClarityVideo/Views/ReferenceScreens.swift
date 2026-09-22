@@ -6,17 +6,32 @@ import UniformTypeIdentifiers
 import UIKit
 
 enum ClarityNativeTheme {
-    static let background = Color(red: 0.005, green: 0.015, blue: 0.030)
-    static let panel = Color(red: 0.018, green: 0.040, blue: 0.070)
-    static let stroke = Color(red: 0.10, green: 0.48, blue: 1.0).opacity(0.22)
-    static let muted = Color.white.opacity(0.58)
+    static let background = Color(red: 0.002, green: 0.010, blue: 0.024)
+    static let panel = Color(red: 0.012, green: 0.032, blue: 0.064)
+    static let stroke = Color(red: 0.14, green: 0.62, blue: 1.0).opacity(0.34)
+    static let muted = Color.white.opacity(0.60)
     static let brand = LinearGradient(
-        colors: [Color(red: 0.69, green: 0.42, blue: 1.0), Color(red: 0.16, green: 0.58, blue: 1.0), .cyan],
+        colors: [
+            Color(red: 0.63, green: 0.34, blue: 1.0),
+            Color(red: 0.16, green: 0.55, blue: 1.0),
+            Color(red: 0.08, green: 0.82, blue: 1.0)
+        ],
         startPoint: .leading, endPoint: .trailing
     )
+    static let surface = LinearGradient(
+        colors: [
+            Color(red: 0.025, green: 0.080, blue: 0.145).opacity(0.98),
+            Color(red: 0.010, green: 0.026, blue: 0.055).opacity(0.98)
+        ],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
     static let card = LinearGradient(
-        colors: [Color(red: 0.02, green: 0.17, blue: 0.36), Color(red: 0.03, green: 0.10, blue: 0.22)],
-        startPoint: .leading, endPoint: .trailing
+        colors: [
+            Color(red: 0.025, green: 0.24, blue: 0.52),
+            Color(red: 0.025, green: 0.12, blue: 0.30),
+            Color(red: 0.018, green: 0.065, blue: 0.16)
+        ],
+        startPoint: .topLeading, endPoint: .bottomTrailing
     )
 }
 
@@ -31,13 +46,27 @@ struct NativePanel<Content: View>: View {
     var body: some View {
         content
             .background(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .fill(ClarityNativeTheme.panel)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(ClarityNativeTheme.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .stroke(ClarityNativeTheme.stroke, lineWidth: 0.8)
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.cyan.opacity(0.42), Color.blue.opacity(0.24), Color.purple.opacity(0.18)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.9
+                            )
                     )
-                    .shadow(color: .black.opacity(0.28), radius: 10, y: 6)
+                    .overlay(alignment: .top) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.09))
+                            .frame(height: 1)
+                            .padding(.horizontal, 20)
+                    }
+                    .shadow(color: Color.cyan.opacity(0.055), radius: 18, y: 0)
+                    .shadow(color: .black.opacity(0.42), radius: 16, y: 9)
             )
     }
 }
@@ -138,12 +167,26 @@ private struct NativeActionCard: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 21, style: .continuous)
                 .fill(ClarityNativeTheme.card)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.blue.opacity(0.55), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 21, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.cyan.opacity(0.62), Color.blue.opacity(0.50), Color.purple.opacity(0.26)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
+                .overlay(alignment: .top) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.11))
+                        .frame(height: 1)
+                        .padding(.horizontal, 24)
+                }
+                .shadow(color: Color.blue.opacity(0.22), radius: 18, y: 8)
         )
     }
 }
@@ -156,8 +199,19 @@ struct ReferenceHomeView: View {
     var body: some View {
         ZStack {
             ClarityNativeTheme.background.ignoresSafeArea()
-            LinearGradient(colors: [Color.blue.opacity(0.08), .clear, Color.purple.opacity(0.05)], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
+            RadialGradient(
+                colors: [Color.blue.opacity(0.20), Color.cyan.opacity(0.055), .clear],
+                center: .top,
+                startRadius: 10,
+                endRadius: 420
+            )
+            .ignoresSafeArea()
+            LinearGradient(
+                colors: [Color.blue.opacity(0.05), .clear, Color.purple.opacity(0.045)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
@@ -640,9 +694,18 @@ struct ReferenceImportVideoView: View {
             .disabled((!isSnapshotMode && selectedAsset == nil) || state.isImporting)
             .padding(.horizontal, 16)
         }
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(ClarityNativeTheme.background.opacity(0.98))
+        .padding(.top, 8)
+        .padding(.bottom, 7)
+        .background(
+            LinearGradient(
+                colors: [ClarityNativeTheme.background.opacity(0.78), ClarityNativeTheme.background],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.cyan.opacity(0.10)).frame(height: 0.7)
+        }
     }
 
     @MainActor
@@ -979,8 +1042,19 @@ struct ReferenceEditorView: View {
                     .accessibilityLabel("Preview unavailable. \(previewError)")
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.09), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.cyan.opacity(0.62), Color.blue.opacity(0.34), Color.purple.opacity(0.24)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.blue.opacity(0.16), radius: 18, y: 8)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
                 reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
@@ -1291,11 +1365,14 @@ struct ReferenceExportView: View {
                     Text("\(state.assetInfo?.durationText ?? "00:00") · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
                         .font(.caption).foregroundStyle(.white.opacity(0.62))
                     if let info = state.assetInfo {
-                        Text("~ " + ByteCountFormatter.string(
-                            fromByteCount: StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration),
-                            countStyle: .file
-                        ) + " estimated")
-                            .font(.caption).foregroundStyle(.white.opacity(0.48))
+                        let outputBytes = StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration)
+                        let requiredBytes = StorageEstimator.requiredBytes(info: info, configuration: state.configuration)
+                        Text("~ " + ByteCountFormatter.string(fromByteCount: outputBytes, countStyle: .file) + " output")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.58))
+                        Text(ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file) + " free-space check")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(Color.cyan.opacity(0.72))
                     }
                 }
                 Spacer()
@@ -1382,12 +1459,12 @@ struct ReferenceExportView: View {
 
     private func setQuality(_ index: Int) {
         qualityIndex = index
-        let values = state.configuration.resolution == .uhd8K ? [100, 160, 220] : [35, 65, 100]
+        let values = state.configuration.resolution == .uhd8K ? [50, 75, 110] : [24, 40, 60]
         state.configuration.bitrateMbps = values[index]
     }
 
     private func closestQualityIndex() -> Int {
-        let values = state.configuration.resolution == .uhd8K ? [100, 160, 220] : [35, 65, 100]
+        let values = state.configuration.resolution == .uhd8K ? [50, 75, 110] : [24, 40, 60]
         return values.enumerated().min {
             abs($0.element - state.configuration.bitrateMbps) < abs($1.element - state.configuration.bitrateMbps)
         }?.offset ?? 1
