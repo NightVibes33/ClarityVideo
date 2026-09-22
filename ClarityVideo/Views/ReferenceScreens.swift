@@ -1341,7 +1341,7 @@ struct ReferenceExportView: View {
             ClarityNativeTheme.background.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 10) {
-                    NativeHeader(title: "Export", trailingIcon: "magnifyingglass", onBack: { state.route = .editor })
+                    NativeHeader(title: "Export", onBack: { state.route = .editor })
                     videoSummary
                     exportSettings
 
@@ -1432,8 +1432,12 @@ struct ReferenceExportView: View {
                     exportChoice("HEVC (H.265)", selected: state.configuration.codec == .hevc) {
                         state.configuration.codec = .hevc
                     }
-                    exportChoice("ProRes", selected: false, enabled: false) {
-                        state.errorMessage = "ProRes is not enabled in this processing backend yet."
+                    exportChoice(
+                        "H.264",
+                        selected: state.configuration.codec == .h264,
+                        enabled: state.configuration.resolution == .uhd4K && !(state.assetInfo?.isHDR ?? false)
+                    ) {
+                        state.configuration.codec = .h264
                     }
                 }
 
