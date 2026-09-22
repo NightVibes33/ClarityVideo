@@ -5,7 +5,13 @@ import UIKit
 
 struct ProcessingView: View {
     @Environment(AppState.self) private var state
-    @State private var showCancelConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "processing-confirm"
+    @State private var showCancelConfirmation: Bool = {
+#if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "processing-confirm"
+#else
+        false
+#endif
+    }()
 
     var body: some View {
         ZStack {
@@ -271,7 +277,13 @@ struct ProcessingView: View {
 struct ResultsView: View {
     @Environment(AppState.self) private var state
     @State private var saving = false
-    @State private var showDeleteConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "results-confirm"
+    @State private var showDeleteConfirmation: Bool = {
+#if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "results-confirm"
+#else
+        false
+#endif
+    }()
 
     var body: some View {
         ZStack {
