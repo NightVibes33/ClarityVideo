@@ -86,6 +86,46 @@ final class AppState {
     init() {
         recentJobs = JobHistoryStore.load()
 
+#if targetEnvironment(simulator)
+        let isUISnapshot = ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1"
+#else
+        let isUISnapshot = false
+#endif
+
+        if isUISnapshot {
+            configuration = ExportConfiguration()
+            var snapshotCapabilities = DeviceEnhancementCapabilities()
+            snapshotCapabilities.fullSuperResolutionAvailable = true
+            snapshotCapabilities.lowLatencySuperResolutionAvailable = true
+            snapshotCapabilities.supportedFullScaleFactors = [2, 4]
+            snapshotCapabilities.supportedLowLatencyScaleFactors = [1.5, 2.0]
+            snapshotCapabilities.supportedLowLatency1080pScaleFactors = [2.0]
+            snapshotCapabilities.temporalNoiseFilteringAvailable = true
+            snapshotCapabilities.supports4KHEVCEncode = true
+            snapshotCapabilities.supports8KHEVCEncode = true
+            snapshotCapabilities.supportsMain10 = true
+            snapshotCapabilities.modelReadiness = .ready
+            snapshotCapabilities.osVersion = "iOS 27.0 (Build 24A5380h)"
+            snapshotCapabilities.deviceModel = "iPhone17,3"
+            capabilities = snapshotCapabilities
+
+            let routeName = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"]
+            if routeName == "enhance" || routeName == "export" {
+                assetInfo = VideoAssetInfo(
+                    fileName: "My Video",
+                    encodedWidth: 1920,
+                    encodedHeight: 1080,
+                    displayWidth: 1920,
+                    displayHeight: 1080,
+                    frameRate: 30,
+                    codec: "HEVC",
+                    isHDR: false,
+                    duration: 19,
+                    estimatedSourceBytes: 25_000_000
+                )
+            }
+        }
+
         // An interrupted import that was never turned into a resumable job has
         // no reason to survive the next launch. Keep only sources required by
         // paused jobs so abandoned imports cannot quietly occupy device storage.
@@ -109,7 +149,9 @@ final class AppState {
             default: break
             }
         }
-        Task { await refreshCapabilities() }
+        if !isUISnapshot {
+            Task { await refreshCapabilities() }
+        }
     }
 
     func refreshCapabilities() async {

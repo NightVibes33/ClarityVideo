@@ -191,7 +191,15 @@ struct DiagnosticsView: View {
         }
         .navigationBarHidden(true)
         .preferredColorScheme(.dark)
-        .task { await state.refreshCapabilities() }
+        .task {
+#if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] != "1" {
+                await state.refreshCapabilities()
+            }
+#else
+            await state.refreshCapabilities()
+#endif
+        }
     }
 
     private var hero: some View {

@@ -514,13 +514,14 @@ struct ReferenceHomeView: View {
                             .tracking(3.5)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white.opacity(0.94))
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 38)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 255)
                     .clipped()
                     .padding(.top, 16)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
@@ -1599,6 +1600,15 @@ struct ReferenceEditorView: View {
     }
 
     private var storageEstimate: (required: Int64, available: Int64?) {
+#if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1",
+           let info = state.assetInfo {
+            return (
+                StorageEstimator.requiredBytes(info: info, configuration: state.configuration),
+                583_200_000
+            )
+        }
+#endif
         guard let info = state.assetInfo else {
             return (0, try? StorageEstimator.availableBytes())
         }
