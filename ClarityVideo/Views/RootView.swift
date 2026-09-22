@@ -64,34 +64,24 @@ struct RootView: View {
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = false
 
     var body: some View {
-        Group {
-            if hasCompletedOnboarding {
-                appNavigation
-                    .transition(.opacity)
-            } else {
-                OnboardingView {
-                    withAnimation(.easeInOut(duration: 0.35)) { hasCompletedOnboarding = true }
-                }
-                .transition(.opacity)
+        appNavigation
+            .tint(.cyan)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+                state.handleMemoryPressure()
             }
-        }
-        .tint(.cyan)
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
-            state.handleMemoryPressure()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
-            state.recordThermalTransition()
-        }
+            .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+                state.recordThermalTransition()
+            }
     }
 
     private var appNavigation: some View {
         NavigationStack {
             Group {
                 switch state.route {
-                case .home: HomeView()
-                case .importVideo: ImportVideoView()
-                case .editor: EditorView()
-                case .exportSetup: ExportSetupView()
+                case .home: ReferenceHomeView()
+                case .importVideo: ReferenceImportVideoView()
+                case .editor: ReferenceEditorView()
+                case .exportSetup: ReferenceExportView()
                 case .processing: ProcessingView()
                 case .results: ResultsView()
                 }
