@@ -6,6 +6,7 @@ struct DiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exportURL: URL?
     @State private var isRunning = false
+    @State private var showClearCacheConfirmation = false
     @State private var showsCompactHeader = false
 
     var body: some View {
@@ -117,7 +118,7 @@ struct DiagnosticsView: View {
                                     subtitle: "Remove temporary files and cached data",
                                     destructive: true
                                 ) {
-                                    state.clearProcessingCache()
+                                    showClearCacheConfirmation = true
                                 }
 
                                 divider

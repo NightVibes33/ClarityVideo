@@ -550,6 +550,7 @@ struct ProcessingView: View {
 struct ResultsView: View {
     @Environment(AppState.self) private var state
     @State private var saving = false
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         ZStack {
@@ -595,7 +596,7 @@ struct ResultsView: View {
                         .buttonStyle(.plain)
 
                         Button(role: .destructive) {
-                            state.deleteActiveOutput()
+                            showDeleteConfirmation = true
                         } label: {
                             Label("Delete Output", systemImage: "trash")
                                 .font(.system(size: 12.5, weight: .bold, design: .rounded))
@@ -624,6 +625,18 @@ struct ResultsView: View {
                     state.pendingFilesExportURL = nil
                 }
             }
+        }
+        .confirmationDialog(
+            "Delete enhanced video?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Output", role: .destructive) {
+                state.deleteActiveOutput()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes the enhanced export from Clarity. Your original video is not changed.")
         }
     }
 

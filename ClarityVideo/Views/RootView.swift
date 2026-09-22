@@ -768,6 +768,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = true
     @State private var showsCompactHeader = false
+    @State private var showClearCacheConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -875,7 +876,7 @@ struct SettingsView: View {
                             divider
 
                             Button {
-                                state.clearProcessingCache()
+                                showClearCacheConfirmation = true
                             } label: {
                                 HStack(spacing: 13) {
                                     ClarityIconTile(
@@ -1086,6 +1087,18 @@ struct SettingsView: View {
             .navigationBarHidden(true)
         }
         .preferredColorScheme(.dark)
+        .confirmationDialog(
+            "Clear processing cache?",
+            isPresented: $showClearCacheConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Cache", role: .destructive) {
+                state.clearProcessingCache()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes previews, checkpoints, and other disposable processing files. Completed exports are not deleted.")
+        }
     }
 
     private var compactHeader: some View {
