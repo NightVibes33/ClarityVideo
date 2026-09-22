@@ -585,9 +585,12 @@ struct ReferenceExportView: View {
                         Text(info.fileName.isEmpty ? "My Video" : info.fileName)
                             .font(.system(size: 12, weight: .semibold))
                             .lineLimit(1)
-                        Text("\(info.durationText) · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.codec.rawValue)")
+                        Text("\(info.durationText) · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.72))
+                        Text("\(state.configuration.qualityPreset.rawValue) · \(state.configuration.codec.rawValue)")
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.58))
                         Text("~ " + ByteCountFormatter.string(
                             fromByteCount: StorageEstimator.estimatedOutputBytes(
                                 info: info,
