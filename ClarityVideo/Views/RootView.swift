@@ -98,14 +98,18 @@ struct RootView: View {
                 }
             }
             .navigationDestination(isPresented: Bindable(state).showDiagnostics) { DiagnosticsView() }
-            .alert(alertTitle, isPresented: Binding(
-                get: { state.errorMessage != nil },
-                set: { if !$0 { state.errorMessage = nil } }
-            )) {
-                Button("Got it") { state.errorMessage = nil }
-            } message: {
-                Text(state.errorMessage ?? "")
+            .overlay {
+                if let message = state.errorMessage {
+                    ClarityNoticeOverlay(
+                        title: alertTitle,
+                        message: message,
+                        dismiss: { state.errorMessage = nil }
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    .zIndex(50)
+                }
             }
+            .animation(.easeOut(duration: 0.18), value: state.errorMessage != nil)
         }
     }
 
@@ -121,6 +125,97 @@ struct RootView: View {
             return "Export Not Supported"
         }
         return "Unable to Continue"
+    }
+}
+
+private struct ClarityNoticeOverlay: View {
+    let title: String
+    let message: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.72)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { }
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.blue.opacity(0.42), Color.purple.opacity(0.26)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 46, height: 46)
+                        Image(systemName: noticeIcon)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(.cyan)
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text("ClarityVideo")
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.42))
+                    }
+                    Spacer()
+                }
+
+                Text(message)
+                    .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .lineSpacing(4)
+                    .padding(.top, 16)
+
+                Button(action: dismiss) {
+                    Text("Got it")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 18)
+            }
+            .padding(20)
+            .frame(maxWidth: 350)
+            .background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(ClarityNativeTheme.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.cyan.opacity(0.56), Color.blue.opacity(0.30), Color.purple.opacity(0.24)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.blue.opacity(0.20), radius: 30)
+                    .shadow(color: .black.opacity(0.65), radius: 34, y: 18)
+            )
+            .padding(.horizontal, 24)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+    }
+
+    private var noticeIcon: String {
+        if message.localizedCaseInsensitiveContains("storage") { return "internaldrive.fill" }
+        if message.localizedCaseInsensitiveContains("HDR") { return "sun.max.trianglebadge.exclamationmark.fill" }
+        if message.localizedCaseInsensitiveContains("encoder") { return "video.badge.exclamationmark" }
+        return "exclamationmark.triangle.fill"
     }
 }
 
@@ -657,19 +752,34 @@ struct SettingsView: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("Settings")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(ClarityNativeTheme.card)
+                    .frame(width: 46, height: 46)
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 21, weight: .bold))
+                    .foregroundStyle(.cyan)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Settings")
+                    .font(.system(size: 23, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("CLARITYVIDEO")
+                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                    .tracking(1.6)
+                    .foregroundStyle(.white.opacity(0.38))
+            }
             Spacer()
             Button("Done") { dismiss() }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(.cyan)
-                .padding(.horizontal, 15)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Color.white.opacity(0.06), in: Capsule())
+                .background(Color.white.opacity(0.055), in: Capsule())
+                .overlay(Capsule().stroke(Color.cyan.opacity(0.16), lineWidth: 0.8))
         }
-        .padding(.top, 10)
+        .padding(.top, 8)
     }
 
     @ViewBuilder
