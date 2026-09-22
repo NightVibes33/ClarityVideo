@@ -76,7 +76,11 @@ struct RootView: View {
                 case "onboarding":
                     OnboardingView { }
                 case "import":
+#if targetEnvironment(simulator)
                     ReferenceImportSnapshotView()
+#else
+                    appNavigation
+#endif
                 case "storage":
                     ClarityStorageDetailSheet(
                         breakdown: StorageEstimateBreakdown(
