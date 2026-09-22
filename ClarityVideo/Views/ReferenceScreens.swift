@@ -697,25 +697,6 @@ struct ClarityProjectsView: View {
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
 
-                            Text("Completed exports and paused enhancements will appear here.")
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundStyle(ClarityNativeTheme.muted)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: 290)
-
-                            Button {
-                                dismiss()
-                                state.route = .importVideo
-                            } label: {
-                                Label("Enhance a video", systemImage: "plus")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 12)
-                                    .background(ClarityNativeTheme.brand, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-
                             Spacer()
                             Spacer()
                         }
