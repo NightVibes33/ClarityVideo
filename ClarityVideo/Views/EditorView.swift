@@ -122,24 +122,39 @@ struct EditorView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Enhancement Mode").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
-                Picker("Enhancement mode", selection: $state.configuration.mode) {
-                    Text("Balanced").tag(EnhancementMode.fast)
-                    Text("Quality").tag(EnhancementMode.quality)
-                    Text("Ultra").tag(EnhancementMode.restore)
-                    if IOSNeuralHeadService.bundledModelURL() != nil {
-                        Text("DLSS 5").tag(EnhancementMode.dlss5)
+                Text("Quality Preset").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
+                Picker("Quality preset", selection: $state.configuration.qualityPreset) {
+                    ForEach(QualityPreset.allCases) { preset in
+                        Text(preset.rawValue).tag(preset)
                     }
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: state.configuration.mode) { _, mode in
-                    state.configuration.applyPreset(mode, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
+                .onChange(of: state.configuration.qualityPreset) { _, preset in
+                    state.configuration.applyPreset(
+                        preset,
+                        temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                    )
                 }
-                Text(modeDescription(state.configuration.mode)).font(.caption).foregroundStyle(.white.opacity(0.50))
+                Text(presetDescription(state.configuration.qualityPreset))
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.50))
             }
 
-            Text("Clarity tries Apple AI Super Resolution first. If this video is rejected by the scaler, export uses spatial upscaling and labels the result accordingly.")
-                .font(.caption2).foregroundStyle(.white.opacity(0.55))
+            VStack(alignment: .leading, spacing: 8) {
+                Text("AI Upscaler").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
+                Picker("AI upscaler", selection: $state.configuration.upscaler) {
+                    Text("Apple SR").tag(UpscalerEngine.appleSR)
+                    if IOSNeuralHeadService.bundledModelURL() != nil {
+                        Text("DLSS 5").tag(UpscalerEngine.dlss5)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(state.configuration.upscaler == .dlss5
+                     ? "Experimental recovered DLSS 5 neural prepass followed by the selected 4K/8K output route."
+                     : "Apple Super Resolution provides the neural scaling stage.")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
 
             HStack(spacing: 10) {
                 Image(systemName: state.capabilities.fullSuperResolutionAvailable ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
@@ -251,28 +266,16 @@ struct EditorView: View {
             : state.capabilities.supportedLowLatency1080pScaleFactors
         return try? PipelinePlanner.plan(
             sourceWidth: info.encodedWidth, sourceHeight: info.encodedHeight,
-            target: state.configuration.resolution, mode: state.configuration.mode,
+            target: state.configuration.resolution, qualityPreset: state.configuration.qualityPreset,
             capabilities: state.capabilities, lowLatencyFactorsForSource: factors
         )
     }
 
-    private func shortModeName(_ mode: EnhancementMode) -> String {
-        switch mode {
-        case .fast: "Fast"
-        case .quality: "Quality"
-        case .restore: "Restore"
-        case .anime: "Anime"
-        case .dlss5: "DLSS 5"
-        }
-    }
-
-    private func modeDescription(_ mode: EnhancementMode) -> String {
-        switch mode {
-        case .fast: "Faster enhancement with a lighter processing path."
-        case .quality: "Best supported detail and clarity for most videos."
-        case .restore: "Stronger cleanup for old, compressed, or noisy footage."
-        case .anime: "Crisp edges and controlled sharpening for animation and gameplay."
-        case .dlss5: "Recovered neural renderer followed by Apple Super Resolution. Experimental and slower."
+    private func presetDescription(_ preset: QualityPreset) -> String {
+        switch preset {
+        case .balanced: "Faster enhancement with lighter denoise, detail recovery, and sharpening."
+        case .quality: "Higher detail recovery and balanced cleanup for most videos."
+        case .ultra: "Maximum cleanup, detail recovery, and sharpening independent of the selected upscaler."
         }
     }
 
@@ -332,7 +335,7 @@ struct ProcessingView: View {
                         Text("ENHANCING").font(.caption2.bold()).tracking(1.5).foregroundStyle(.white.opacity(0.45))
                     }
                 }
-                Text("\(state.activeJob?.configuration.mode.rawValue ?? "Enhancing") · \(state.activeJob?.configuration.resolution.rawValue ?? "")")
+                Text("\(state.activeJob?.configuration.upscaler.rawValue ?? "Enhancing") · \(state.activeJob?.configuration.qualityPreset.rawValue ?? "") · \(state.activeJob?.configuration.resolution.rawValue ?? "")")
                     .font(.title2.bold())
                 if let job = state.activeJob {
                     VStack(spacing: 7) {
