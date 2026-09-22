@@ -25,11 +25,15 @@ enum AppError: LocalizedError, Sendable {
 }
 
 enum SecurityScopedFileManager {
+    private static var importsFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Imports", isDirectory: true)
+    }
+
     static func copyToWorkspace(_ source: URL) throws -> URL {
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Imports", isDirectory: true)
+        let folder = importsFolder
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let originalName = source.lastPathComponent.isEmpty ? "Video.mov" : source.lastPathComponent
         let destination = folder.appendingPathComponent(UUID().uuidString + "-" + originalName)
@@ -56,8 +60,14 @@ enum SecurityScopedFileManager {
         }
         return destination
     }
-}
 
+    static func removeWorkspaceCopyIfOwned(_ url: URL) {
+        let root = importsFolder.standardizedFileURL.path
+        let candidate = url.standardizedFileURL.path
+        guard candidate.hasPrefix(root + "/") else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+}
 enum AssetInspector {
     static func inspect(_ url: URL) async throws -> VideoAssetInfo {
         let asset = AVURLAsset(url: url)
