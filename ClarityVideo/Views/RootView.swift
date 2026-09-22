@@ -3,7 +3,6 @@ import AVKit
 import UIKit
 
 struct RootView: View {
-    @Environment(AppState.self) private var state
     @AppStorage("clarity.onboarding.completed") private var hasCompletedOnboarding = false
 
     var body: some View {
@@ -438,9 +437,8 @@ struct SettingsView: View {
             ZStack {
                 ClarityScreenBackdrop()
 
-                ScrollViewReader { settingsProxy in
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 15) {
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 15) {
                         header
 
                         settingsSection("About Clarity") {
@@ -531,13 +529,12 @@ struct SettingsView: View {
                         .padding(.horizontal, 18)
                         .padding(.top, 8)
                         .padding(.bottom, 22)
-                    }
-                    .onScrollGeometryChange(for: Bool.self) { geometry in
+                }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y > 92
-                    } action: { _, scrolled in
-                        withAnimation(.easeOut(duration: 0.16)) {
-                            showsCompactHeader = scrolled
-                        }
+                } action: { _, scrolled in
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        showsCompactHeader = scrolled
                     }
                 }
             }
