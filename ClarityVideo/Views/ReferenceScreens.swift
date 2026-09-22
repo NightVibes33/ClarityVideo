@@ -2587,20 +2587,30 @@ struct ReferenceExportView: View {
 
                     Button { state.beginExport() } label: {
                         HStack(spacing: 10) {
-                            Text("Start Export")
-                            Image(systemName: "arrow.right")
+                            Text(hasEnoughStorage ? "Start Export" : "More Storage Needed")
+                            Image(systemName: hasEnoughStorage ? "arrow.right" : "internaldrive.fill.badge.exclamationmark")
                         }
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
-                            ClarityNativeTheme.brand,
+                            hasEnoughStorage
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.orange.opacity(0.18)),
                             in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                         )
-                        .shadow(color: Color.blue.opacity(0.28), radius: 15, y: 7)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                .stroke(
+                                    hasEnoughStorage ? Color.cyan.opacity(0.20) : Color.orange.opacity(0.34),
+                                    lineWidth: 0.8
+                                )
+                        )
+                        .shadow(color: hasEnoughStorage ? Color.blue.opacity(0.28) : .clear, radius: 15, y: 7)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ClarityPressStyle(pressedScale: 0.992))
+                    .disabled(!hasEnoughStorage)
 
                     Text("Keep Clarity open for fastest processing. Long exports keep checkpoints if iOS pauses them.")
                         .font(.system(size: 10.5, weight: .medium, design: .rounded))
@@ -2646,6 +2656,15 @@ struct ReferenceExportView: View {
                 )
             }
         }
+    }
+
+    private var hasEnoughStorage: Bool {
+        guard let info = state.assetInfo else { return false }
+        guard let available = try? StorageEstimator.availableBytes() else { return true }
+        return available >= StorageEstimator.requiredBytes(
+            info: info,
+            configuration: state.configuration
+        )
     }
 
     private var videoSummary: some View {
