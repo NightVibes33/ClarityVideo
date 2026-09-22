@@ -137,6 +137,9 @@ final class AppState {
         pauseRequested = false
         pendingFilesExportURL = nil
         guard let importedURL, let assetInfo else { return }
+        // Clamp legacy/recent-job settings so older 160–220 Mbps presets cannot
+        // resurrect multi-gigabyte scratch-space requirements on short exports.
+        configuration.clampBitrateToSupportedRange()
         if configuration.resolution == .uhd8K && !capabilities.supports8KHEVCEncode {
             errorMessage = "This device did not pass Clarity’s real 8K hardware encoder validation."
             return
