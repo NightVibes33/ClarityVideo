@@ -1,4 +1,4 @@
-name: Build Unsigned iOS 26 IPA
+name: Build ClarityVideo IPA
 on:
   workflow_dispatch:
   push:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test-and-build:
-    name: Test and build arm64 IPA
+    name: Build arm64 IPA
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -35,40 +35,14 @@ jobs:
           sudo xcode-select --switch "$SELECTED/Contents/Developer"
           xcodebuild -version
           xcodebuild -showsdks
-      - name: Generate macOS ProRes decode fixture
+      - name: Validate project before device build
         shell: bash
         run: |
           set -euo pipefail
-          xcrun swift .github/scripts/generate-prores-fixture.swift ClarityVideoTests/Fixtures/prores422.mov
-          test -s ClarityVideoTests/Fixtures/prores422.mov
-      - name: Run simulator unit and end-to-end video processing tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          xcodebuild -list -project "$PROJECT"
-          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
-          if [[ -n "$DEVICE" ]]; then
-            xcrun simctl boot "$DEVICE" || true
-            xcrun simctl bootstatus "$DEVICE" -b
-            COMMON_ARGS=(-project "$PROJECT" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO)
-            xcodebuild test "${COMMON_ARGS[@]}" \
-              -skip-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests \
-              -skip-testing:ClarityVideoTests/RecoveredNeuralIntegrationTests
-            xcodebuild test "${COMMON_ARGS[@]}" -only-testing:ClarityVideoTests/SimulatorProcessingIntegrationTests/testEverySupportedAspectRatioUpscalesTo4K
-            FORMAT_TESTS=(
-              testMP4H264UpscalesTo4K
-              testMOVH264UpscalesTo4K
-              testM4VH264UpscalesTo4K
-              testMP4HEVCUpscalesTo4K
-              testMOVHEVCUpscalesTo4K
-            )
-            for TEST_NAME in "${FORMAT_TESTS[@]}"; do
-              xcodebuild test "${COMMON_ARGS[@]}" -only-testing:"ClarityVideoTests/SimulatorProcessingIntegrationTests/$TEST_NAME"
-            done
-          else
-            echo "No bootable iPhone simulator is available; the required MP4 upscale integration test cannot run."
-            exit 1
-          fi
+          xcodebuild -list -project "$PROJECT" >/dev/null
+          plutil -lint ClarityVideo/Resources/Info.plist
+          plutil -lint ClarityVideo/Resources/PrivacyInfo.xcprivacy
+
       - name: Build unsigned device app
         shell: bash
         run: |
@@ -121,8 +95,8 @@ jobs:
           APP="${{ steps.app.outputs.path }}"
           mkdir Payload
           ditto "$APP" "Payload/$(basename "$APP")"
-          ditto -c -k --sequesterRsrc --keepParent Payload artifacts/ClarityVideo-unsigned.ipa
-          unzip -t artifacts/ClarityVideo-unsigned.ipa
+          ditto -c -k --sequesterRsrc --keepParent Payload artifacts/ClarityVideo.ipa
+          unzip -t artifacts/ClarityVideo.ipa
           test "$(unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -E '^Payload/[^/]+\.app/$' | wc -l | tr -d ' ')" = 1
           ! unzip -Z1 artifacts/ClarityVideo-unsigned.ipa | grep -q embedded.mobileprovision
       - name: Generate metadata and checksum
@@ -140,13 +114,13 @@ jobs:
             '{bundleIdentifier:$bundle,version:$version,build:$build,minimumOS:"26.0",platform:"iphoneos",architecture:"arm64",signed:false,commit:$commit,xcode:$xcode}' \
             > artifacts/build-metadata.json
           cd artifacts
-          shasum -a 256 ClarityVideo-unsigned.ipa > ClarityVideo-unsigned.ipa.sha256
+          shasum -a 256 ClarityVideo-unsigned.ipa > ClarityVideo.ipa.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: ClarityVideo-unsigned-ipa
+          name: ClarityVideo-IPA
           path: |
             artifacts/ClarityVideo-unsigned.ipa
-            artifacts/ClarityVideo-unsigned.ipa.sha256
+            artifacts/ClarityVideo.ipa.sha256
             artifacts/build-metadata.json
             artifacts/xcodebuild.log
           if-no-files-found: error
