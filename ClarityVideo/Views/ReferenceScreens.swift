@@ -158,6 +158,17 @@ struct NativePanel<Content: View>: View {
     }
 }
 
+struct ClarityPressStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.985
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressedScale : 1)
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .animation(.easeOut(duration: 0.11), value: configuration.isPressed)
+    }
+}
+
 struct ClarityPillButton: View {
     let title: String
     let action: () -> Void
@@ -709,7 +720,7 @@ private struct NativeActionCard: View {
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ClarityPressStyle(pressedScale: 0.992))
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(ClarityNativeTheme.card)
@@ -1881,7 +1892,7 @@ struct ReferenceEditorView: View {
                         )
                         .shadow(color: Color.blue.opacity(0.30), radius: 16, y: 8)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(ClarityPressStyle(pressedScale: 0.992))
                     .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 16)
