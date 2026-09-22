@@ -1151,7 +1151,13 @@ struct ReferenceEditorView: View {
             options: ["4K", "8K"],
             selected: state.configuration.resolution == .uhd4K ? "4K" : "8K"
         ) { value in
-            state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
+            let next: OutputResolution = value == "8K" ? .uhd8K : .uhd4K
+            state.configuration.resolution = next
+            if next == .uhd8K, state.configuration.bitrateMbps < 55 {
+                state.configuration.bitrateMbps = 70
+            } else if next == .uhd4K, state.configuration.bitrateMbps > 55 {
+                state.configuration.bitrateMbps = 40
+            }
         }
     }
 
@@ -1401,10 +1407,10 @@ struct ReferenceExportView: View {
                     if let info = state.assetInfo {
                         let outputBytes = StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration)
                         let requiredBytes = StorageEstimator.requiredBytes(info: info, configuration: state.configuration)
-                        Text("~ " + ByteCountFormatter.string(fromByteCount: outputBytes, countStyle: .file) + " output")
+                        Text("~ " + ByteCountFormatter.string(fromByteCount: outputBytes, countStyle: .file) + " final video")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.58))
-                        Text(ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file) + " free-space check")
+                        Text("~ " + ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file) + " free while exporting")
                             .font(.system(size: 10.5, weight: .medium))
                             .foregroundStyle(Color.cyan.opacity(0.72))
                     }
