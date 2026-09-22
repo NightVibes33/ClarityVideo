@@ -10,6 +10,7 @@ enum ClarityNativeTheme {
     static let panel = Color(red: 0.010, green: 0.030, blue: 0.070)
     static let muted = Color.white.opacity(0.60)
     static let subtle = Color.white.opacity(0.40)
+
     static let brand = LinearGradient(
         colors: [
             Color(red: 0.58, green: 0.27, blue: 1.0),
@@ -19,6 +20,7 @@ enum ClarityNativeTheme {
         startPoint: .leading,
         endPoint: .trailing
     )
+
     static let card = LinearGradient(
         colors: [
             Color(red: 0.025, green: 0.22, blue: 0.47),
@@ -28,6 +30,7 @@ enum ClarityNativeTheme {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
     static let surface = LinearGradient(
         colors: [
             Color(red: 0.020, green: 0.070, blue: 0.135).opacity(0.98),
@@ -36,6 +39,7 @@ enum ClarityNativeTheme {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
     static let border = LinearGradient(
         colors: [
             Color.cyan.opacity(0.72),
@@ -61,6 +65,18 @@ struct ClarityScreenBackdrop: View {
                 startRadius: 20,
                 endRadius: 520
             )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.25, blue: 0.62).opacity(0.13),
+                    Color.purple.opacity(0.055),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.50, y: 0.72),
+                startRadius: 10,
+                endRadius: 430
+            )
+
             LinearGradient(
                 colors: [.clear, Color.purple.opacity(0.045), .clear],
                 startPoint: .topTrailing,
@@ -88,7 +104,17 @@ struct ClarityIconTile: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    : AnyShapeStyle(ClarityNativeTheme.brand)
+                    : AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.02, green: 0.55, blue: 1.0),
+                                Color(red: 0.12, green: 0.32, blue: 0.95),
+                                Color(red: 0.48, green: 0.16, blue: 0.95)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .frame(width: size, height: size)
             .overlay(
@@ -132,9 +158,137 @@ struct NativePanel<Content: View>: View {
     }
 }
 
+struct ClarityPillButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.48, green: 0.88, blue: 1.0))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 11)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.02, green: 0.22, blue: 0.48),
+                                    Color(red: 0.07, green: 0.10, blue: 0.28),
+                                    Color.purple.opacity(0.30)
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.9))
+                        .shadow(color: Color.blue.opacity(0.24), radius: 10)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ClarityWaveDecoration: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+
+            ZStack {
+                wave(
+                    width: width,
+                    height: height,
+                    crest: height * 0.28,
+                    trough: height * 0.70,
+                    end: height * 0.34
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.02),
+                            Color.blue.opacity(0.38),
+                            Color.purple.opacity(0.18),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .overlay(
+                    wave(
+                        width: width,
+                        height: height,
+                        crest: height * 0.28,
+                        trough: height * 0.70,
+                        end: height * 0.34
+                    )
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.12), Color.cyan.opacity(0.72), Color.purple.opacity(0.60)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 1.1
+                    )
+                )
+
+                wave(
+                    width: width,
+                    height: height,
+                    crest: height * 0.46,
+                    trough: height * 0.78,
+                    end: height * 0.50
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color.blue.opacity(0.18),
+                            Color.purple.opacity(0.20),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func wave(
+        width: CGFloat,
+        height: CGFloat,
+        crest: CGFloat,
+        trough: CGFloat,
+        end: CGFloat
+    ) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: crest))
+            path.addCurve(
+                to: CGPoint(x: width * 0.52, y: trough),
+                control1: CGPoint(x: width * 0.20, y: crest - height * 0.02),
+                control2: CGPoint(x: width * 0.31, y: trough + height * 0.05)
+            )
+            path.addCurve(
+                to: CGPoint(x: width, y: end),
+                control1: CGPoint(x: width * 0.72, y: trough - height * 0.03),
+                control2: CGPoint(x: width * 0.86, y: end - height * 0.15)
+            )
+            path.addLine(to: CGPoint(x: width, y: height))
+            path.addLine(to: CGPoint(x: 0, y: height))
+            path.closeSubpath()
+        }
+    }
+}
+
 struct NativeHeader: View {
     let title: String
     var showsBack = true
+    var circularBack = false
     var trailingIcon: String? = nil
     var onBack: (() -> Void)? = nil
     var onTrailing: (() -> Void)? = nil
@@ -144,15 +298,30 @@ struct NativeHeader: View {
             Group {
                 if showsBack {
                     Button { onBack?() } label: {
-                        Circle()
-                            .fill(Color.white.opacity(0.055))
-                            .frame(width: 44, height: 44)
-                            .overlay(Circle().stroke(Color.cyan.opacity(0.20), lineWidth: 0.8))
-                            .overlay(
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(Color(red: 0.35, green: 0.78, blue: 1.0))
-                            )
+                        ZStack {
+                            if circularBack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.02, green: 0.13, blue: 0.29),
+                                                Color.black.opacity(0.78)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.blue.opacity(0.34), lineWidth: 0.8)
+                                    )
+                            }
+
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: circularBack ? 20 : 22, weight: .bold))
+                                .foregroundStyle(Color(red: 0.34, green: 0.70, blue: 1.0))
+                        }
+                        .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
@@ -160,35 +329,29 @@ struct NativeHeader: View {
                     Color.clear.frame(width: 44, height: 44)
                 }
             }
+
             Spacer()
+
             Text(title)
                 .font(.system(size: 19, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
+
             Spacer()
+
             Group {
                 if let trailingIcon {
-                    if let onTrailing {
-                        Button(action: onTrailing) {
-                            Circle()
-                                .fill(Color.white.opacity(0.055))
-                                .frame(width: 44, height: 44)
-                                .overlay(
-                                    Image(systemName: trailingIcon)
-                                        .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(.cyan)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    } else {
+                    Button { onTrailing?() } label: {
                         Circle()
-                            .fill(Color.white.opacity(0.035))
+                            .fill(Color.white.opacity(0.055))
                             .frame(width: 44, height: 44)
                             .overlay(
                                 Image(systemName: trailingIcon)
                                     .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.45))
+                                    .foregroundStyle(.cyan)
                             )
                     }
+                    .buttonStyle(.plain)
+                    .disabled(onTrailing == nil)
                 } else {
                     Color.clear.frame(width: 44, height: 44)
                 }
@@ -204,7 +367,7 @@ private struct NativeWordmark: View {
             Text("Clarity").foregroundStyle(.white)
             Text("Video").foregroundStyle(ClarityNativeTheme.brand)
         }
-        .font(.system(size: 34, weight: .bold, design: .rounded))
+        .font(.system(size: 32, weight: .bold, design: .rounded))
         .minimumScaleFactor(0.85)
         .lineLimit(1)
     }
@@ -219,32 +382,36 @@ private struct NativeActionCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                ClarityIconTile(icon: icon, size: 62, iconSize: 26)
+                ClarityIconTile(icon: icon, size: 60, iconSize: 25)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
                         .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .lineLimit(1)
+
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.65))
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
                 }
+
                 Spacer(minLength: 8)
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.white.opacity(0.50))
             }
             .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
         }
         .buttonStyle(.plain)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(ClarityNativeTheme.card)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(ClarityNativeTheme.border, lineWidth: 1)
                 )
                 .shadow(color: Color.blue.opacity(0.18), radius: 18, y: 8)
@@ -260,13 +427,16 @@ struct ReferenceHomeView: View {
     var body: some View {
         ZStack {
             ClarityScreenBackdrop()
+
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     HStack {
                         roundTopButton(icon: "gearshape.fill", accessibility: "Settings") {
                             showingSettings = true
                         }
+
                         Spacer()
+
                         roundTopButton(icon: "crown.fill", accessibility: "Recent Projects", usesBrand: true) {
                             showingProjects = true
                         }
@@ -274,7 +444,8 @@ struct ReferenceHomeView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
-                    NativeWordmark().padding(.top, 10)
+                    NativeWordmark()
+                        .padding(.top, 10)
 
                     Text("Sharper.  Clearer.  Better.")
                         .font(.system(size: 12.5, weight: .medium, design: .rounded))
@@ -283,32 +454,86 @@ struct ReferenceHomeView: View {
                         .padding(.top, 5)
 
                     VStack(spacing: 12) {
-                        NativeActionCard(icon: "video.fill", title: "Enhance Video", subtitle: "Import from Photos, Files or Camera") {
+                        NativeActionCard(
+                            icon: "video.fill",
+                            title: "Enhance Video",
+                            subtitle: "Import from Photos, Files or Camera"
+                        ) {
                             state.route = .importVideo
                         }
-                        NativeActionCard(icon: "clock.fill", title: "Recent Projects", subtitle: "Continue your work") {
+
+                        NativeActionCard(
+                            icon: "clock.fill",
+                            title: "Recent Projects",
+                            subtitle: "Continue your work"
+                        ) {
                             showingProjects = true
                         }
-                        NativeActionCard(icon: "gearshape.fill", title: "Settings", subtitle: "Quality, export and advanced options") {
+
+                        NativeActionCard(
+                            icon: "gearshape.fill",
+                            title: "Settings",
+                            subtitle: "Quality, export and advanced options"
+                        ) {
                             showingSettings = true
                         }
                     }
                     .padding(.horizontal, 18)
-                    .padding(.top, 26)
+                    .padding(.top, 22)
 
-                    mountainHero
-                        .padding(.top, 18)
-                        .padding(.bottom, 4)
+                    ZStack(alignment: .bottom) {
+                        if let mountain = ClarityArt.mountain {
+                            Image(uiImage: mountain)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            LinearGradient(
+                                colors: [Color.blue.opacity(0.60), Color.black],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .overlay(
+                                Image(systemName: "mountain.2.fill")
+                                    .font(.system(size: 72))
+                                    .foregroundStyle(.white.opacity(0.16))
+                            )
+                        }
+
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                ClarityNativeTheme.background.opacity(0.10),
+                                ClarityNativeTheme.background.opacity(0.94)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+
+                        Text("TURN GOOD FOOTAGE\nINTO GREAT MEMORIES.")
+                            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                            .tracking(3.5)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white.opacity(0.94))
+                            .padding(.bottom, 20)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 255)
+                    .clipped()
+                    .padding(.top, 16)
                 }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
         .preferredColorScheme(.dark)
         .fullScreenCover(isPresented: $showingSettings) {
-            SettingsView().environment(state).preferredColorScheme(.dark)
+            SettingsView()
+                .environment(state)
+                .preferredColorScheme(.dark)
         }
         .fullScreenCover(isPresented: $showingProjects) {
-            ClarityProjectsView().environment(state).preferredColorScheme(.dark)
+            ClarityProjectsView()
+                .environment(state)
+                .preferredColorScheme(.dark)
         }
     }
 
@@ -322,66 +547,66 @@ struct ReferenceHomeView: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 0.04, green: 0.13, blue: 0.28), Color.black.opacity(0.72)],
+                        colors: [
+                            Color(red: 0.02, green: 0.13, blue: 0.29),
+                            Color(red: 0.01, green: 0.03, blue: 0.09)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
                 .frame(width: 48, height: 48)
                 .overlay(
-                    Circle().stroke(
-                        usesBrand ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.cyan.opacity(0.34)),
-                        lineWidth: 0.9
-                    )
+                    Circle()
+                        .stroke(
+                            usesBrand
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.cyan.opacity(0.34)),
+                            lineWidth: 0.9
+                        )
                 )
                 .overlay(
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(
-                            usesBrand ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color(red: 0.63, green: 0.90, blue: 1.0))
+                            usesBrand
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color(red: 0.66, green: 0.91, blue: 1.0))
                         )
+                )
+                .shadow(
+                    color: usesBrand ? Color.purple.opacity(0.30) : Color.cyan.opacity(0.18),
+                    radius: 10
                 )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibility)
     }
 
-    private var mountainHero: some View {
-        ZStack(alignment: .bottom) {
-            if let mountain = ClarityArt.mountain {
-                Image(uiImage: mountain).resizable().scaledToFill()
-            } else {
-                LinearGradient(colors: [Color.blue.opacity(0.60), Color.black], startPoint: .top, endPoint: .bottom)
-                    .overlay(
-                        Image(systemName: "mountain.2.fill")
-                            .font(.system(size: 72))
-                            .foregroundStyle(.white.opacity(0.16))
-                    )
-            }
-            LinearGradient(
-                colors: [.clear, ClarityNativeTheme.background.opacity(0.10), ClarityNativeTheme.background.opacity(0.94)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            Text("TURN GOOD FOOTAGE\nINTO GREAT MEMORIES.")
-                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                .tracking(3.5)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.white.opacity(0.94))
-                .padding(.bottom, 20)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 265)
-        .clipped()
-    }
-
     private var homeTabBar: some View {
         ZStack {
-            Rectangle()
-                .fill(ClarityNativeTheme.background.opacity(0.98))
-                .overlay(alignment: .top) {
-                    Rectangle().fill(Color.white.opacity(0.07)).frame(height: 0.7)
-                }
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.005, green: 0.025, blue: 0.065).opacity(0.99),
+                            ClarityNativeTheme.background.opacity(0.99)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.blue.opacity(0.28), Color.purple.opacity(0.18)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 0.8
+                        )
+                )
 
             HStack(spacing: 0) {
                 tab(icon: "house.fill", title: "Home", selected: true) {}
@@ -397,7 +622,10 @@ struct ReferenceHomeView: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color(red: 0.08, green: 0.33, blue: 0.86), Color(red: 0.26, green: 0.12, blue: 0.76)],
+                            colors: [
+                                Color(red: 0.08, green: 0.33, blue: 0.86),
+                                Color(red: 0.26, green: 0.12, blue: 0.76)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -415,14 +643,22 @@ struct ReferenceHomeView: View {
             .accessibilityLabel("Enhance Video")
             .offset(y: -15)
         }
-        .frame(height: 78)
+        .frame(height: 82)
+        .padding(.horizontal, 1)
     }
 
-    private func tab(icon: String, title: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
+    private func tab(
+        icon: String,
+        title: String,
+        selected: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 18, weight: .semibold))
-                Text(title).font(.system(size: 9.5, weight: .medium))
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 9.5, weight: .medium))
             }
             .foregroundStyle(selected ? Color.cyan : Color.white.opacity(0.56))
             .frame(maxWidth: .infinity)
@@ -455,6 +691,7 @@ struct ClarityProjectsView: View {
     var body: some View {
         ZStack {
             ClarityScreenBackdrop()
+
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Recent Projects")
@@ -462,48 +699,36 @@ struct ClarityProjectsView: View {
                         .foregroundStyle(.white)
                         .minimumScaleFactor(0.80)
                         .lineLimit(1)
+
                     Spacer(minLength: 14)
-                    Button("Done") { dismiss() }
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.cyan)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 11)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.055))
-                                .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.8))
-                        )
+
+                    ClarityPillButton(title: "Done") { dismiss() }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
 
                 if state.recentJobs.isEmpty {
-                    Spacer()
-                    VStack(spacing: 18) {
-                        ClarityIconTile(icon: "film.fill", size: 92, iconSize: 38)
-                        Text("No recent projects")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                        Text("Completed exports and paused enhancements will appear here.")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(ClarityNativeTheme.muted)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 290)
-                        Button {
-                            dismiss()
-                            state.route = .importVideo
-                        } label: {
-                            Label("Enhance a video", systemImage: "plus")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(ClarityNativeTheme.brand, in: Capsule())
+                    ZStack {
+                        VStack {
+                            Spacer()
+                            ClarityWaveDecoration()
+                                .frame(height: 250)
                         }
-                        .buttonStyle(.plain)
+                        .ignoresSafeArea(edges: .bottom)
+
+                        VStack(spacing: 18) {
+                            Spacer()
+
+                            ClarityIconTile(icon: "film.fill", size: 96, iconSize: 40)
+
+                            Text("No recent projects")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+
+                            Spacer()
+                            Spacer()
+                        }
                     }
-                    Spacer()
-                    Spacer()
                 } else {
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 11) {
@@ -523,11 +748,13 @@ struct ClarityProjectsView: View {
                                             size: 56,
                                             iconSize: 21
                                         )
+
                                         VStack(alignment: .leading, spacing: 5) {
                                             Text(job.assetInfo.fileName)
                                                 .font(.system(size: 15, weight: .bold, design: .rounded))
                                                 .foregroundStyle(.white)
                                                 .lineLimit(1)
+
                                             Text(
                                                 (job.configuration.resolution == .uhd8K ? "8K" : "4K")
                                                 + " · "
@@ -538,7 +765,9 @@ struct ClarityProjectsView: View {
                                             .font(.system(size: 11, weight: .medium, design: .rounded))
                                             .foregroundStyle(ClarityNativeTheme.muted)
                                         }
+
                                         Spacer()
+
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
                                             .foregroundStyle(.white.opacity(0.40))
@@ -679,13 +908,17 @@ struct ReferenceImportVideoView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
-                            item == source ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
+                            item == source
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.055)),
                             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .stroke(
-                                    item == source ? AnyShapeStyle(Color.cyan.opacity(0.65)) : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    item == source
+                                        ? AnyShapeStyle(Color.cyan.opacity(0.65))
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
                                     lineWidth: 0.8
                                 )
                         )
@@ -694,7 +927,10 @@ struct ReferenceImportVideoView: View {
             }
         }
         .padding(5)
-        .background(Color.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .background(
+            Color.white.opacity(0.025),
+            in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+        )
     }
 
     private var filterSelector: some View {
@@ -707,7 +943,9 @@ struct ReferenceImportVideoView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
                         .background(
-                            item == filter ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.05)),
+                            item == filter
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.05)),
                             in: Capsule()
                         )
                 }
@@ -747,23 +985,71 @@ struct ReferenceImportVideoView: View {
         VStack(spacing: 10) {
             if isSnapshotMode {
                 let item = NativeSnapshotVideo.samples[snapshotSelection]
-                selectionSummary(
-                    title: "1 Video Selected",
-                    detail: item.duration + " · Ready to enhance",
-                    thumbnail: AnyView(
+                NativePanel {
+                    HStack(spacing: 12) {
                         NativeSnapshotVideoThumbnail(item: item, selected: false)
                             .frame(width: 56, height: 56)
-                    )
-                )
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("1 Video Selected")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                            Text(item.duration + " · Ready to enhance")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+
+                        Spacer()
+
+                        Button("Clear") { }
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundStyle(.cyan)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.blue.opacity(0.18))
+                                    .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
+                            )
+                            .buttonStyle(.plain)
+                    }
+                    .padding(12)
+                }
+                .padding(.horizontal, 16)
             } else if let selectedAsset {
-                selectionSummary(
-                    title: "1 Video Selected",
-                    detail: durationText(selectedAsset.duration) + " · Ready to enhance",
-                    thumbnail: AnyView(
+                NativePanel {
+                    HStack(spacing: 12) {
                         NativeVideoThumbnail(asset: selectedAsset, selected: false)
                             .frame(width: 56, height: 56)
-                    )
-                )
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("1 Video Selected")
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                            Text(durationText(selectedAsset.duration) + " · Ready to enhance")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+
+                        Spacer()
+
+                        Button("Clear") {
+                            self.selectedAsset = nil
+                        }
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(.cyan)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue.opacity(0.18))
+                                .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
+                        )
+                        .buttonStyle(.plain)
+                    }
+                    .padding(12)
+                }
+                .padding(.horizontal, 16)
             }
 
             Button {
@@ -786,7 +1072,10 @@ struct ReferenceImportVideoView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                .background(
+                    ClarityNativeTheme.brand,
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
                 .shadow(color: Color.blue.opacity(0.25), radius: 15, y: 6)
                 .opacity((isSnapshotMode || selectedAsset != nil) ? 1 : 0.42)
             }
@@ -797,32 +1086,9 @@ struct ReferenceImportVideoView: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(ClarityNativeTheme.background.opacity(0.96))
-    }
-
-    private func selectionSummary(
-        title: String,
-        detail: String,
-        thumbnail: AnyView
-    ) -> some View {
-        NativePanel {
-            HStack(spacing: 12) {
-                thumbnail
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                    Text(detail)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(ClarityNativeTheme.muted)
-                }
-                Spacer()
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.cyan)
-            }
-            .padding(12)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.cyan.opacity(0.10)).frame(height: 0.7)
         }
-        .padding(.horizontal, 16)
     }
 
     @MainActor
@@ -1025,29 +1291,53 @@ struct ReferenceEditorView: View {
     var body: some View {
         ZStack {
             ClarityScreenBackdrop()
+
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 14) {
                     NativeHeader(title: "Enhance", onBack: { state.route = .importVideo })
+
                     previewShell
+
                     storageStatusCard
 
                     NativePanel {
                         VStack(alignment: .leading, spacing: 14) {
-                            settingRow(title: "Target Resolution") { resolutionControl }
-                            settingRow(title: "Enhancement Mode") { qualityControl }
-                            settingRow(title: "AI Upscaler") { upscalerControl }
+                            settingRow(title: "Target Resolution") {
+                                resolutionControl
+                            }
+
+                            settingRow(title: "Enhancement Mode") {
+                                qualityControl
+                            }
+
+                            settingRow(title: "AI Upscaler") {
+                                upscalerControl
+                            }
+
                             Divider().overlay(Color.white.opacity(0.06))
+
                             NativeValueSlider(
                                 title: "Denoise",
-                                value: Binding(get: { state.configuration.denoise }, set: { state.configuration.denoise = $0 })
+                                value: Binding(
+                                    get: { state.configuration.denoise },
+                                    set: { state.configuration.denoise = $0 }
+                                )
                             )
+
                             NativeValueSlider(
                                 title: "Detail Recovery",
-                                value: Binding(get: { state.configuration.detailRecovery }, set: { state.configuration.detailRecovery = $0 })
+                                value: Binding(
+                                    get: { state.configuration.detailRecovery },
+                                    set: { state.configuration.detailRecovery = $0 }
+                                )
                             )
+
                             NativeValueSlider(
                                 title: "Sharpen",
-                                value: Binding(get: { state.configuration.sharpening }, set: { state.configuration.sharpening = $0 })
+                                value: Binding(
+                                    get: { state.configuration.sharpening },
+                                    set: { state.configuration.sharpening = $0 }
+                                )
                             )
                         }
                         .padding(15)
@@ -1065,7 +1355,10 @@ struct ReferenceEditorView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 17)
-                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(
+                            ClarityNativeTheme.brand,
+                            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        )
                         .shadow(color: Color.blue.opacity(0.30), radius: 16, y: 8)
                     }
                     .buttonStyle(.plain)
@@ -1077,8 +1370,12 @@ struct ReferenceEditorView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { configurePlayersAndPreview() }
-        .onChange(of: state.comparisonPreview?.id) { _, _ in configurePlayersAndPreview() }
-        .onChange(of: state.configuration) { _, _ in scheduleRealPreviewRefresh() }
+        .onChange(of: state.comparisonPreview?.id) { _, _ in
+            configurePlayersAndPreview()
+        }
+        .onChange(of: state.configuration) { _, _ in
+            scheduleRealPreviewRefresh()
+        }
         .onDisappear {
             previewRefreshTask?.cancel()
             pausePlayers()
@@ -1087,7 +1384,9 @@ struct ReferenceEditorView: View {
 
     private var previewShell: some View {
         VStack(spacing: 0) {
-            comparisonCanvas.frame(height: 255)
+            comparisonCanvas
+                .frame(height: 255)
+
             playbackBar
                 .padding(.horizontal, 12)
                 .frame(height: 54)
@@ -1104,12 +1403,21 @@ struct ReferenceEditorView: View {
     private var comparisonCanvas: some View {
         GeometryReader { geometry in
             let split = geometry.size.width * reveal
+
             ZStack(alignment: .leading) {
                 comparisonLayer(player: afterPlayer ?? beforePlayer)
+
                 comparisonLayer(player: beforePlayer)
-                    .mask(alignment: .leading) { Rectangle().frame(width: max(1, split)) }
+                    .mask(alignment: .leading) {
+                        Rectangle().frame(width: max(1, split))
+                    }
                     .overlay(Color.black.opacity(0.12))
-                Rectangle().fill(Color.white.opacity(0.92)).frame(width: 2).offset(x: split - 1)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.92))
+                    .frame(width: 2)
+                    .offset(x: split - 1)
+
                 Circle()
                     .fill(Color(red: 0.03, green: 0.18, blue: 0.42))
                     .frame(width: 38, height: 38)
@@ -1132,8 +1440,11 @@ struct ReferenceEditorView: View {
 
                 if state.isGeneratingPreview {
                     VStack(spacing: 9) {
-                        ProgressView(value: state.previewProgress).tint(.cyan).frame(width: 150)
-                        Text("Generating AI preview…").font(.caption.bold())
+                        ProgressView(value: state.previewProgress)
+                            .tint(.cyan)
+                            .frame(width: 150)
+                        Text("Generating AI preview…")
+                            .font(.caption.bold())
                     }
                     .padding(14)
                     .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 14))
@@ -1154,9 +1465,10 @@ struct ReferenceEditorView: View {
             }
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0).onChanged { value in
-                    reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
-                }
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
+                    }
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Before and after comparison")
@@ -1200,11 +1512,21 @@ struct ReferenceEditorView: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            Text("00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.72))
+            .accessibilityLabel(isPlaying ? "Pause preview" : "Play preview")
+
+            Text("00:00")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.72))
+
             Capsule()
                 .fill(Color.white.opacity(0.12))
                 .frame(height: 4)
-                .overlay(alignment: .leading) { Capsule().fill(Color.cyan).frame(width: 44, height: 4) }
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.cyan)
+                        .frame(width: 44, height: 4)
+                }
+
             Text(
                 state.comparisonPreview.map { durationLabel($0.selectedDurationSeconds) }
                 ?? state.assetInfo?.durationText
@@ -1212,6 +1534,7 @@ struct ReferenceEditorView: View {
             )
             .font(.caption.monospacedDigit())
             .foregroundStyle(.white.opacity(0.72))
+
             Image(systemName: "arrow.up.left.and.arrow.down.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.76))
@@ -1222,6 +1545,7 @@ struct ReferenceEditorView: View {
     private var storageStatusCard: some View {
         let estimate = storageEstimate
         let enough = estimate.available.map { $0 >= estimate.required } ?? true
+
         return HStack(spacing: 13) {
             Circle()
                 .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
@@ -1231,14 +1555,17 @@ struct ReferenceEditorView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(.white)
                 )
+
             VStack(alignment: .leading, spacing: 3) {
                 Text("Estimated temporary storage")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.66))
+
                 Text(storageDetail(required: estimate.required, available: estimate.available))
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             }
+
             Spacer()
         }
         .padding(14)
@@ -1246,7 +1573,10 @@ struct ReferenceEditorView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [(enough ? Color.green : Color.orange).opacity(0.18), Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)],
+                        colors: [
+                            (enough ? Color.green : Color.orange).opacity(0.18),
+                            Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
+                        ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -1259,7 +1589,9 @@ struct ReferenceEditorView: View {
     }
 
     private var storageEstimate: (required: Int64, available: Int64?) {
-        guard let info = state.assetInfo else { return (0, try? StorageEstimator.availableBytes()) }
+        guard let info = state.assetInfo else {
+            return (0, try? StorageEstimator.availableBytes())
+        }
         return (
             StorageEstimator.requiredBytes(info: info, configuration: state.configuration),
             try? StorageEstimator.availableBytes()
@@ -1269,22 +1601,30 @@ struct ReferenceEditorView: View {
     private func storageDetail(required: Int64, available: Int64?) -> String {
         let requiredText = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
         guard let available else { return requiredText + " estimated" }
-        return requiredText + " • Available " + ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
+        return requiredText + " • Available "
+            + ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
     }
 
     @ViewBuilder
-    private func settingRow<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func settingRow<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         HStack(spacing: 12) {
             Text(title)
                 .font(.system(size: 13.5, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.80))
                 .frame(width: 118, alignment: .leading)
+
             content()
         }
     }
 
     private var resolutionControl: some View {
-        NativeChoiceRow(options: ["4K", "8K"], selected: state.configuration.resolution == .uhd4K ? "4K" : "8K") { value in
+        NativeChoiceRow(
+            options: ["4K", "8K"],
+            selected: state.configuration.resolution == .uhd4K ? "4K" : "8K"
+        ) { value in
             let next: OutputResolution = value == "8K" ? .uhd8K : .uhd4K
             state.configuration.resolution = next
             if next == .uhd8K, state.configuration.bitrateMbps < 55 {
@@ -1296,14 +1636,23 @@ struct ReferenceEditorView: View {
     }
 
     private var qualityControl: some View {
-        NativeChoiceRow(options: QualityPreset.allCases.map(\.rawValue), selected: state.configuration.qualityPreset.rawValue) { value in
+        NativeChoiceRow(
+            options: QualityPreset.allCases.map(\.rawValue),
+            selected: state.configuration.qualityPreset.rawValue
+        ) { value in
             guard let preset = QualityPreset(rawValue: value) else { return }
-            state.configuration.applyPreset(preset, temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable)
+            state.configuration.applyPreset(
+                preset,
+                temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+            )
         }
     }
 
     private var upscalerControl: some View {
-        NativeChoiceRow(options: ["Apple SR", "DLSS 5"], selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR") { value in
+        NativeChoiceRow(
+            options: ["Apple SR", "DLSS 5"],
+            selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+        ) { value in
             if value == "DLSS 5" {
                 guard IOSNeuralHeadService.bundledModelURL() != nil else {
                     state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
@@ -1318,15 +1667,19 @@ struct ReferenceEditorView: View {
 
     private func configurePlayersAndPreview() {
         pausePlayers()
+
         if let preview = state.comparisonPreview {
             beforePlayer = AVPlayer(url: preview.sourceURL)
             afterPlayer = AVPlayer(url: preview.enhancedURL)
             return
         }
+
         if let source = state.importedURL {
             beforePlayer = AVPlayer(url: source)
             afterPlayer = nil
-            if !state.isGeneratingPreview { state.generateComparisonPreview() }
+            if !state.isGeneratingPreview {
+                state.generateComparisonPreview()
+            }
         } else {
             beforePlayer = nil
             afterPlayer = nil
@@ -1335,13 +1688,17 @@ struct ReferenceEditorView: View {
 
     private func scheduleRealPreviewRefresh(immediate: Bool = false) {
         guard state.importedURL != nil else { return }
+
         previewRefreshTask?.cancel()
         state.cancelComparisonPreview()
         state.comparisonPreview = nil
         afterPlayer?.pause()
         afterPlayer = nil
+
         previewRefreshTask = Task { @MainActor in
-            if !immediate { try? await Task.sleep(for: .milliseconds(500)) }
+            if !immediate {
+                try? await Task.sleep(for: .milliseconds(500))
+            }
             guard !Task.isCancelled else { return }
             state.generateComparisonPreview()
         }
@@ -1467,157 +1824,256 @@ struct ReferenceExportView: View {
 
     var body: some View {
         ZStack {
-            ClarityNativeTheme.background.ignoresSafeArea()
+            ClarityScreenBackdrop()
+
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 10) {
+                VStack(spacing: 14) {
                     NativeHeader(title: "Export", onBack: { state.route = .editor })
+
                     videoSummary
+                    storageStatus
                     exportSettings
 
                     Button { state.beginExport() } label: {
-                        HStack {
-                            Spacer()
+                        HStack(spacing: 10) {
                             Text("Start Export")
-                            Spacer()
+                            Image(systemName: "arrow.right")
                         }
-                        .font(.headline)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .padding(.vertical, 14)
-                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            ClarityNativeTheme.brand,
+                            in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        )
+                        .shadow(color: Color.blue.opacity(0.28), radius: 15, y: 7)
                     }
                     .buttonStyle(.plain)
 
-                    Text("Keep Clarity open for fastest processing.\nLong exports keep checkpoints if iOS pauses them.")
-                        .font(.system(size: 10, weight: .medium))
+                    Text("Keep Clarity open for fastest processing. Long exports keep checkpoints if iOS pauses them.")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.45))
+                        .padding(.horizontal, 18)
 
                     NativePanel {
-                        HStack(spacing: 12) {
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(Color.blue.opacity(0.13))
-                                .frame(width: 40, height: 40)
-                                .overlay(Image(systemName: "camera.aperture").font(.title3).foregroundStyle(.blue))
+                        HStack(spacing: 13) {
+                            ClarityIconTile(icon: "lock.shield.fill", size: 44, iconSize: 18)
+
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("AI Powered. On Device.").font(.subheadline.bold())
-                                Text("Your privacy stays with you.").font(.caption).foregroundStyle(ClarityNativeTheme.muted)
+                                Text("AI Powered. On Device.")
+                                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                                Text("Your original and enhanced video stay local unless you share them.")
+                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                    .foregroundStyle(ClarityNativeTheme.muted)
                             }
-                            Spacer()
+
+                            Spacer(minLength: 0)
                         }
-                        .padding(11)
+                        .padding(13)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 18)
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { qualityIndex = closestQualityIndex() }
+        .onAppear {
+            state.configuration.clampBitrateToSupportedRange()
+            qualityIndex = closestQualityIndex()
+        }
     }
 
     private var videoSummary: some View {
-        NativePanel {
-            HStack(spacing: 12) {
+        let filename = state.assetInfo?.fileName ?? "My Video"
+        let duration = state.assetInfo?.durationText ?? "00:00"
+        let resolution = state.configuration.resolution == .uhd8K ? "8K" : "4K"
+        let engine = state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+        let metadata = duration + " · " + resolution + " · " + engine
+        let finalSizeText: String? = state.assetInfo.map { info in
+            let bytes = StorageEstimator.estimatedOutputBytes(
+                info: info,
+                configuration: state.configuration
+            )
+            return "~ "
+                + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+                + " final video"
+        }
+
+        return NativePanel {
+            HStack(spacing: 13) {
                 Group {
                     if let mountain = ClarityArt.mountain {
-                        Image(uiImage: mountain).resizable().scaledToFill()
+                        Image(uiImage: mountain)
+                            .resizable()
+                            .scaledToFill()
                     } else {
                         Rectangle().fill(.indigo.opacity(0.3))
                     }
                 }
-                .frame(width: 72, height: 66)
-                .clipShape(RoundedRectangle(cornerRadius: 11))
+                .frame(width: 78, height: 70)
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 0.8)
+                )
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(state.assetInfo?.fileName ?? "My Video")
-                        .font(.subheadline.bold()).lineLimit(1)
-                    Text("\(state.assetInfo?.durationText ?? "00:00") · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
-                        .font(.caption).foregroundStyle(.white.opacity(0.62))
-                    if let info = state.assetInfo {
-                        let outputBytes = StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration)
-                        let requiredBytes = StorageEstimator.requiredBytes(info: info, configuration: state.configuration)
-                        Text("~ " + ByteCountFormatter.string(fromByteCount: outputBytes, countStyle: .file) + " final video")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.58))
-                        Text("~ " + ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file) + " free while exporting")
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(Color.cyan.opacity(0.72))
+                    Text(filename)
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+
+                    Text(metadata)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.60))
+
+                    if let finalSizeText {
+                        Text(finalSizeText)
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.cyan.opacity(0.76))
                     }
                 }
-                Spacer()
+
+                Spacer(minLength: 0)
             }
-            .padding(11)
+            .padding(13)
         }
+    }
+
+    private var storageStatus: some View {
+        let required = state.assetInfo.map {
+            StorageEstimator.requiredBytes(info: $0, configuration: state.configuration)
+        } ?? 0
+        let available = try? StorageEstimator.availableBytes()
+        let enough = available.map { $0 >= required } ?? true
+
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Image(systemName: enough ? "checkmark" : "exclamationmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Temporary export storage")
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.62))
+
+                Text(storageText(required: required, available: available))
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer()
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (enough ? Color.green : Color.orange).opacity(0.16),
+                            Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke((enough ? Color.green : Color.orange).opacity(0.48), lineWidth: 0.8)
+                )
+        )
     }
 
     private var exportSettings: some View {
         NativePanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Export Settings").font(.headline)
+            VStack(alignment: .leading, spacing: 13) {
+                Text("Export Settings")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+
                 Divider().overlay(Color.white.opacity(0.07))
 
                 settingLabel("Format")
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     exportChoice("HEVC (H.265)", selected: state.configuration.codec == .hevc) {
                         state.configuration.codec = .hevc
                     }
+
                     exportChoice(
                         "H.264",
                         selected: state.configuration.codec == .h264,
-                        enabled: state.configuration.resolution == .uhd4K && !(state.assetInfo?.isHDR ?? false)
+                        enabled: state.configuration.resolution == .uhd4K
+                            && !(state.assetInfo?.isHDR ?? false)
                     ) {
                         state.configuration.codec = .h264
                     }
                 }
 
                 settingLabel("Quality")
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     ForEach(0..<3, id: \.self) { index in
                         let labels = ["Standard", "High", "Maximum"]
-                        exportChoice(labels[index], selected: index == qualityIndex) { setQuality(index) }
+                        exportChoice(labels[index], selected: index == qualityIndex) {
+                            setQuality(index)
+                        }
                     }
                 }
 
                 nativeToggle(
-                    "Preserve HDR (when available)",
+                    "Preserve HDR when available",
                     isOn: Binding(
                         get: { state.configuration.hdrBehavior == .preserve },
-                        set: { state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR }
+                        set: {
+                            state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR
+                        }
                     )
                 )
+
                 nativeToggle(
-                    "Save to Photos",
-                    isOn: Binding(
-                        get: { state.saveToPhotosAfterExport },
-                        set: { state.saveToPhotosAfterExport = $0 }
-                    )
-                )
-                nativeToggle(
-                    "Also Save to Files",
-                    isOn: Binding(
-                        get: { state.saveToFilesAfterExport },
-                        set: { state.saveToFilesAfterExport = $0 }
-                    )
+                    "Save to Photos when finished",
+                    isOn: Bindable(state).saveToPhotosAfterExport
                 )
             }
-            .padding(12)
+            .padding(15)
         }
     }
 
     private func settingLabel(_ text: String) -> some View {
-        Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.74))
+        Text(text)
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.72))
     }
 
-    private func exportChoice(_ title: String, selected: Bool, enabled: Bool = true, action: @escaping () -> Void) -> some View {
+    private func exportChoice(
+        _ title: String,
+        selected: Bool,
+        enabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11.5, weight: .bold, design: .rounded))
                 .foregroundStyle(enabled ? .white : .white.opacity(0.42))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
+                .padding(.vertical, 10)
                 .background(
-                    selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
-                    in: RoundedRectangle(cornerRadius: 9)
+                    selected
+                        ? AnyShapeStyle(ClarityNativeTheme.brand)
+                        : AnyShapeStyle(Color.white.opacity(0.055)),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(
+                            selected ? Color.cyan.opacity(0.42) : Color.white.opacity(0.04),
+                            lineWidth: 0.7
+                        )
                 )
         }
         .buttonStyle(.plain)
@@ -1626,21 +2082,32 @@ struct ReferenceExportView: View {
 
     private func nativeToggle(_ title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 12.5, weight: .medium, design: .rounded))
             .tint(.cyan)
+            .padding(.vertical, 2)
     }
 
     private func setQuality(_ index: Int) {
         qualityIndex = index
         let values = state.configuration.exportBitrateOptionsMbps
+        guard values.indices.contains(index) else { return }
         state.configuration.bitrateMbps = values[index]
     }
 
     private func closestQualityIndex() -> Int {
         let values = state.configuration.exportBitrateOptionsMbps
         return values.enumerated().min {
-            abs($0.element - state.configuration.bitrateMbps) < abs($1.element - state.configuration.bitrateMbps)
+            abs($0.element - state.configuration.bitrateMbps)
+                < abs($1.element - state.configuration.bitrateMbps)
         }?.offset ?? 1
+    }
+
+    private func storageText(required: Int64, available: Int64?) -> String {
+        let requiredText = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
+        guard let available else { return requiredText + " estimated" }
+        return requiredText
+            + " • Available "
+            + ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
     }
 }
 
