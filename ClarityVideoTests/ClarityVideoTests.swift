@@ -53,7 +53,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 3840, sourceHeight: 2160, target: .uhd4K, mode: .quality,
+            sourceWidth: 3840, sourceHeight: 2160, target: .uhd4K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .nativeEnhancement)
@@ -66,7 +66,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, mode: .quality,
+            sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .tiledSuperResolution)
@@ -78,7 +78,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
+            sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .nativeEnhancement)
@@ -90,7 +90,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 1280, sourceHeight: 720, target: .uhd4K, mode: .quality,
+            sourceWidth: 1280, sourceHeight: 720, target: .uhd4K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .tiledSuperResolution)
@@ -104,7 +104,7 @@ extension ClarityVideoTests {
         caps.lowLatencySuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, mode: .quality,
+            sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: [2]
         )
         XCTAssertEqual(plan.route, .lowLatencySuperResolution)
@@ -116,7 +116,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2, 4]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, mode: .quality,
+            sourceWidth: 1280, sourceHeight: 720, target: .uhd8K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .tiledSuperResolution)
@@ -129,7 +129,7 @@ extension ClarityVideoTests {
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [2]
         let plan = try PipelinePlanner.plan(
-            sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, mode: .quality,
+            sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
         XCTAssertEqual(plan.route, .tiledSuperResolution)
@@ -201,13 +201,46 @@ extension ClarityVideoTests {
         XCTAssertFalse(SceneCutDetector.isCut(previous: [0.20, 0.22, 0.21], current: [0.23, 0.24, 0.22]))
         XCTAssertTrue(SceneCutDetector.isCut(previous: [0.05, 0.08, 0.06], current: [0.90, 0.86, 0.92]))
     }
-    func testRestorePresetUsesStrongTemporalDenoiseWhenAvailable() {
+    func testUltraPresetChangesQualityWithoutChangingUpscaler() {
         var configuration = ExportConfiguration()
-        configuration.applyPreset(.restore, temporalDenoiseAvailable: true)
-        XCTAssertEqual(configuration.mode, .restore)
-        XCTAssertGreaterThan(configuration.denoise, 0.5)
-        configuration.applyPreset(.restore, temporalDenoiseAvailable: false)
+        configuration.upscaler = .dlss5
+        configuration.applyPreset(.ultra, temporalDenoiseAvailable: true)
+        XCTAssertEqual(configuration.qualityPreset, .ultra)
+        XCTAssertEqual(configuration.upscaler, .dlss5)
+        XCTAssertGreaterThan(configuration.detailRecovery, 0.5)
+        configuration.applyPreset(.balanced, temporalDenoiseAvailable: false)
+        XCTAssertEqual(configuration.upscaler, .dlss5)
         XCTAssertEqual(configuration.denoise, 0)
+    }
+
+    func testUpscalerCanChangeWithoutChangingResolutionOrQuality() {
+        var configuration = ExportConfiguration()
+        configuration.resolution = .uhd8K
+        configuration.qualityPreset = .quality
+        configuration.upscaler = .appleSR
+        configuration.upscaler = .dlss5
+        XCTAssertEqual(configuration.resolution, .uhd8K)
+        XCTAssertEqual(configuration.qualityPreset, .quality)
+        XCTAssertEqual(configuration.upscaler, .dlss5)
+    }
+
+    func testLegacyDLSSModeMigratesToDLSSUpscalerAndUltraPreset() throws {
+        let json = """
+        {
+          "resolution":"4K UHD",
+          "mode":"DLSS 5 (experimental)",
+          "denoise":0.0,
+          "detailRecovery":0.25,
+          "sharpening":0.1,
+          "bitrateMbps":55,
+          "codec":"HEVC",
+          "hdrBehavior":"Preserve HDR",
+          "preserveFrameRate":true
+        }
+        """.data(using: .utf8)!
+        let configuration = try JSONDecoder().decode(ExportConfiguration.self, from: json)
+        XCTAssertEqual(configuration.upscaler, .dlss5)
+        XCTAssertEqual(configuration.qualityPreset, .ultra)
     }
     func testOutputEstimateUsesSelectedBitrateAndDuration() {
         let info = VideoAssetInfo(fileName: "x.mov", encodedWidth: 1280, encodedHeight: 720, displayWidth: 1280, displayHeight: 720, frameRate: 30, codec: "hvc1", isHDR: false, duration: 8, estimatedSourceBytes: 1)
