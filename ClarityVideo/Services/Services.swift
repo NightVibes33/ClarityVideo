@@ -271,6 +271,17 @@ final class CapabilityDetector {
     }
 }
 
+struct StorageEstimateBreakdown: Equatable, Sendable {
+    var finalOutputBytes: Int64
+    var workingBytes: Int64
+    var safetyBytes: Int64
+    var usesCheckpoints: Bool
+
+    var requiredBytes: Int64 {
+        finalOutputBytes + workingBytes + safetyBytes
+    }
+}
+
 enum StorageEstimator {
     private static let minimumSafetyMargin: Int64 = 96_000_000
     private static let minimumTemporaryMovie: Int64 = 32_000_000
@@ -279,24 +290,46 @@ enum StorageEstimator {
         Int64(Double(configuration.bitrateMbps) * 1_000_000 / 8 * info.duration)
     }
 
-    static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
+    static func breakdown(
+        info: VideoAssetInfo,
+        configuration: ExportConfiguration
+    ) -> StorageEstimateBreakdown {
         let output = estimatedOutputBytes(info: info, configuration: configuration)
         let safety = max(minimumSafetyMargin, min(output / 8, 128_000_000))
+        let checkpointed = SegmentPlan.requiresSegmentation(
+            duration: info.duration,
+            configuration: configuration
+        )
 
-        if SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration) {
-            // Long jobs keep completed enhanced segments for resumability while the final
-            // movie is assembled. Only one five-second source/enhanced pair is active.
+        if checkpointed {
+            // Long jobs retain completed enhanced segments so an interrupted export can
+            // resume. The working budget is one full checkpoint set plus the current
+            // five-second source/enhanced pair. Raw frames are never written to disk.
             let activeDuration = min(SegmentPlan.defaultDuration, max(0, info.duration))
             let activeMovie = Int64(
                 Double(configuration.bitrateMbps) * 1_000_000 / 8 * activeDuration
             )
-            return output * 2 + activeMovie * 2 + safety
+            return StorageEstimateBreakdown(
+                finalOutputBytes: output,
+                workingBytes: output + activeMovie * 2,
+                safetyBytes: safety,
+                usesCheckpoints: true
+            )
         }
 
         // Short jobs stream frames directly. The only full-size duplicate is the temporary
-        // video track used while audio/metadata are remuxed into the final movie.
+        // encoded video track used while audio/metadata are remuxed into the final movie.
         let temporaryMovie = max(minimumTemporaryMovie, output)
-        return output + temporaryMovie + safety
+        return StorageEstimateBreakdown(
+            finalOutputBytes: output,
+            workingBytes: temporaryMovie,
+            safetyBytes: safety,
+            usesCheckpoints: false
+        )
+    }
+
+    static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
+        breakdown(info: info, configuration: configuration).requiredBytes
     }
 
     static func availableBytes() throws -> Int64 {
