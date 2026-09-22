@@ -75,6 +75,8 @@ struct RootView: View {
                     ClarityProjectsView()
                 case "onboarding":
                     OnboardingView { }
+                case "import":
+                    ReferenceImportSnapshotView()
                 default:
                     appNavigation
                 }
