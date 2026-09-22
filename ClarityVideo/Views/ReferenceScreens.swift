@@ -775,6 +775,16 @@ struct ClarityProjectsView: View {
                                     .padding(14)
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        state.deleteRecentJob(job)
+                                    } label: {
+                                        Label("Delete Project", systemImage: "trash")
+                                    }
+                                }
+                                .accessibilityAction(named: "Delete Project") {
+                                    state.deleteRecentJob(job)
+                                }
                                 .background(
                                     RoundedRectangle(cornerRadius: 20, style: .continuous)
                                         .fill(ClarityNativeTheme.surface)
