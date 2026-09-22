@@ -1258,10 +1258,6 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
 
             Spacer()
-
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.cyan.opacity(0.68))
         }
         .padding(.vertical, 7)
     }
