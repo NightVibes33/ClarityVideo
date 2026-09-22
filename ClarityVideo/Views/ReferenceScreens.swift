@@ -65,6 +65,18 @@ struct ClarityScreenBackdrop: View {
                 startRadius: 20,
                 endRadius: 520
             )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.02, green: 0.25, blue: 0.62).opacity(0.13),
+                    Color.purple.opacity(0.055),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.50, y: 0.72),
+                startRadius: 10,
+                endRadius: 430
+            )
+
             LinearGradient(
                 colors: [.clear, Color.purple.opacity(0.045), .clear],
                 startPoint: .topTrailing,
