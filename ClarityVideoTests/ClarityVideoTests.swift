@@ -254,11 +254,11 @@ extension ClarityVideoTests {
         configuration.resolution = .uhd8K
         configuration.bitrateMbps = 220
         configuration.clampBitrateToSupportedRange()
-        XCTAssertEqual(configuration.bitrateMbps, 100)
+        XCTAssertEqual(configuration.bitrateMbps, 85)
 
         configuration.resolution = .uhd4K
         configuration.clampBitrateToSupportedRange()
-        XCTAssertEqual(configuration.bitrateMbps, 60)
+        XCTAssertEqual(configuration.bitrateMbps, 55)
     }
 
     func testUpscalerCanChangeWithoutChangingResolutionOrQuality() {
@@ -317,9 +317,9 @@ extension ClarityVideoTests {
         let info = VideoAssetInfo(fileName: "short.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 19, estimatedSourceBytes: 25_000_000)
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd8K
-        configuration.bitrateMbps = 100
+        configuration.bitrateMbps = 85
         XCTAssertFalse(SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration))
-        XCTAssertLessThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), 550_000_000)
+        XCTAssertLessThan(StorageEstimator.requiredBytes(info: info, configuration: configuration), 500_000_000)
     }
 
     func test8KStoragePreflightAllowsFinalAndSegmentCopies() {
@@ -362,10 +362,10 @@ extension ClarityVideoTests {
     func test8KBalancedBitrateFitsConfiguredRange() {
         var configuration = ExportConfiguration()
         configuration.resolution = .uhd8K
-        configuration.bitrateMbps = 160
+        configuration.bitrateMbps = 70
         XCTAssertEqual(StorageEstimator.estimatedOutputBytes(
             info: VideoAssetInfo(fileName: "x.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 1, estimatedSourceBytes: 1),
             configuration: configuration
-        ), 20_000_000)
+        ), 8_750_000)
     }
 }
