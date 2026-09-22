@@ -358,13 +358,20 @@ struct DiagnosticsView: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.white.opacity(enabled ? 0.34 : 0.14))
+                Circle()
+                    .fill(Color.white.opacity(enabled ? 0.055 : 0.025))
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(enabled ? 0.52 : 0.18))
+                    )
             }
             .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ClarityDiagnosticButtonStyle(destructive: destructive))
         .disabled(!enabled)
     }
 
@@ -512,6 +519,24 @@ struct DiagnosticsView: View {
     }
 }
 
+private struct ClarityDiagnosticButtonStyle: ButtonStyle {
+    let destructive: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(
+                        configuration.isPressed
+                            ? (destructive ? Color.red.opacity(0.10) : Color.blue.opacity(0.12))
+                            : Color.clear
+                    )
+            )
+            .scaleEffect(configuration.isPressed ? 0.992 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct DiagnosticRow: View {
     let label: String
     let value: String
@@ -521,20 +546,54 @@ struct DiagnosticRow: View {
         self.value = value
     }
 
+    private var isStatus: Bool {
+        ["Available", "Passed", "Ready", "Unavailable", "Failed"].contains {
+            value.localizedCaseInsensitiveContains($0)
+        }
+    }
+
+    private var positiveStatus: Bool {
+        value.localizedCaseInsensitiveContains("available")
+            || value.localizedCaseInsensitiveContains("passed")
+            || value.localizedCaseInsensitiveContains("ready")
+    }
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
 
-            Text(value)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.58))
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-                .minimumScaleFactor(0.72)
+            if isStatus {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(positiveStatus ? Color.cyan : Color.orange)
+                        .frame(width: 6, height: 6)
+
+                    Text(value)
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                }
+                .foregroundStyle(positiveStatus ? Color.cyan.opacity(0.92) : Color.orange.opacity(0.92))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill((positiveStatus ? Color.cyan : Color.orange).opacity(0.09))
+                        .overlay(
+                            Capsule()
+                                .stroke((positiveStatus ? Color.cyan : Color.orange).opacity(0.22), lineWidth: 0.7)
+                        )
+                )
+            } else {
+                Text(value)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+            }
         }
         .padding(.vertical, 9)
         .overlay(alignment: .bottom) {
