@@ -56,8 +56,26 @@ final class AppState {
     var outputBytesSoFar: Int64 = 0
     var isGeneratingPreview = false
     var isPreparingModel = false
-    var saveToPhotosAfterExport = true
-    var saveToFilesAfterExport = false
+    var saveToPhotosAfterExport = UserDefaults.standard.object(
+        forKey: "clarity.export.save-to-photos"
+    ) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(
+                saveToPhotosAfterExport,
+                forKey: "clarity.export.save-to-photos"
+            )
+        }
+    }
+    var saveToFilesAfterExport = UserDefaults.standard.object(
+        forKey: "clarity.export.save-to-files"
+    ) as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(
+                saveToFilesAfterExport,
+                forKey: "clarity.export.save-to-files"
+            )
+        }
+    }
     var pendingFilesExportURL: URL?
     private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
