@@ -1,0 +1,61 @@
+name: Verify exact Clarity reference UI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [neural-ios-port]
+    paths:
+      - 'ClarityVideo/Views/**'
+      - 'ClarityVideo/App/AppState.swift'
+      - 'ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset/**'
+      - '.github/workflows/ui-reference.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clarity-reference-ui
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          SELECTED="$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' -print | sort -Vr | head -1)"
+          test -n "$SELECTED"
+          sudo xcode-select --switch "$SELECTED/Contents/Developer"
+
+      - name: Build simulator app
+        run: |
+          set -euo pipefail
+          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo             -sdk iphonesimulator -configuration Release             -derivedDataPath "$RUNNER_TEMP/UIReference"             CODE_SIGNING_ALLOWED=NO build
+
+      - name: Capture all reference screens
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ui-reference
+          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+          test -n "$DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP="$RUNNER_TEMP/UIReference/Build/Products/Release-iphonesimulator/ClarityVideo.app"
+          test -d "$APP"
+          xcrun simctl install "$DEVICE" "$APP"
+
+          for route in home import enhance export; do
+            SIMCTL_CHILD_CLARITY_UI_ROUTE="$route"               xcrun simctl launch --terminate-running-process "$DEVICE" com.nightvibes33.clarityvideo >/dev/null
+            sleep 2
+            xcrun simctl io "$DEVICE" screenshot "artifacts/ui-reference/$route.png"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clarity-reference-ui-snapshots
+          path: artifacts/ui-reference
+          retention-days: 7
