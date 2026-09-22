@@ -79,9 +79,54 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/ui-reference
-          DEVICE="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')"
+
+          # Use a fresh simulator owned by this workflow. Reusing a pre-created
+          # hosted-runner device occasionally leaves simctl blocked behind
+          # LaunchServices migration and makes screenshot QA fail randomly.
+          read DEVICE_TYPE RUNTIME < <(python3 - <<'PY'
+          import json, subprocess
+
+          runtimes = json.loads(
+              subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "available", "-j"])
+          )["runtimes"]
+          ios = [
+              r for r in runtimes
+              if r.get("isAvailable", True)
+              and "SimRuntime.iOS-" in r.get("identifier", "")
+          ]
+          if not ios:
+              raise SystemExit("No available iOS simulator runtime")
+
+          def version_key(runtime):
+              version = str(runtime.get("version", "0"))
+              return tuple(int(part) if part.isdigit() else 0 for part in version.split("."))
+
+          runtime = sorted(ios, key=version_key, reverse=True)[0]
+
+          device_types = json.loads(
+              subprocess.check_output(["xcrun", "simctl", "list", "devicetypes", "-j"])
+          )["devicetypes"]
+          iphones = [d for d in device_types if d.get("name", "").startswith("iPhone")]
+          if not iphones:
+              raise SystemExit("No iPhone simulator device type")
+
+          preferred = next(
+              (d for d in iphones if d.get("name") in {"iPhone 17 Pro", "iPhone 17"}),
+              iphones[0]
+          )
+          print(preferred["identifier"], runtime["identifier"])
+          PY
+          )
+
+          DEVICE="$(xcrun simctl create "Clarity-QA-$GITHUB_RUN_ID" "$DEVICE_TYPE" "$RUNTIME")"
           test -n "$DEVICE"
-          xcrun simctl boot "$DEVICE" || true
+          cleanup_simulator() {
+            xcrun simctl shutdown "$DEVICE" >/dev/null 2>&1 || true
+            xcrun simctl delete "$DEVICE" >/dev/null 2>&1 || true
+          }
+          trap cleanup_simulator EXIT
+
+          xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
           APP="$RUNNER_TEMP/UIReference/Build/Products/Release-iphonesimulator/ClarityVideo.app"
           test -d "$APP"
@@ -116,8 +161,8 @@ jobs:
           for attempt in range(2):
               try:
                   subprocess.run(
-                      ["xcrun", "simctl", "launch", device, "com.nightvibes33.clarityvideo"],
-                      env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=45
+                      ["xcrun", "simctl", "launch", "--terminate-running-process", device, "com.nightvibes33.clarityvideo"],
+                      env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=60
                   )
                   break
               except subprocess.TimeoutExpired:
