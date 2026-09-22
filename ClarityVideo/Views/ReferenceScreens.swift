@@ -127,15 +127,20 @@ private struct NativeActionCard: View {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
+                        .lineLimit(1)
                     Text(subtitle)
                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.62))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
                 }
                 Spacer(minLength: 0)
             }
             .padding(15)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(ClarityNativeTheme.card)
@@ -217,6 +222,7 @@ struct ReferenceHomeView: View {
                 .frame(height: 225)
                 .clipped()
             }
+            .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
         .preferredColorScheme(.dark)
@@ -257,14 +263,15 @@ struct ReferenceHomeView: View {
             Rectangle().fill(ClarityNativeTheme.background.opacity(0.97))
                 .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1) }
 
-            HStack {
+            HStack(spacing: 0) {
                 tab(icon: "house.fill", title: "Home", selected: true) {}
                 tab(icon: "folder.fill", title: "Projects") { showingProjects = true }
-                Spacer().frame(width: 78)
+                Color.clear.frame(width: 78)
                 tab(icon: "bolt.fill", title: "Tools") { state.showDiagnostics = true }
                 tab(icon: "gearshape.fill", title: "Settings") { showingSettings = true }
             }
-            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
 
             Button { state.route = .importVideo } label: {
                 Circle()
