@@ -40,7 +40,7 @@ jobs:
           PYTHONPATH=PortTools "$RUNNER_TEMP/port-venv/bin/python" PortTools/convert_model_for_ios.py \
             "$RUNNER_TEMP/weights.safetensors" artifacts/DLSSNeuralHead128.mlpackage
           test -s artifacts/DLSSNeuralHead128.mlpackage/Manifest.json
-      - name: Bundle model and run iOS simulator inference smoke test
+      - name: Bundle model and validate iOS simulator Core ML load
         run: |
           set -euo pipefail
           cp -R artifacts/DLSSNeuralHead128.mlpackage ClarityVideo/Resources/
