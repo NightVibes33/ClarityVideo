@@ -51,7 +51,7 @@ jobs:
           grep -q 'Toggle' ClarityVideo/Views/ReferenceScreens.swift
           grep -q 'Slider' ClarityVideo/Views/ReferenceScreens.swift
 
-          test "$(git hash-object ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png)" = "a1a55d8c07329fd6a50670c8e346341aa62ea40a"
+          test "$(git hash-object ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png)" = "5df3af193b356981869fcabfa36faf5a978df149"
           test "$(git hash-object ClarityVideo/Resources/Assets.xcassets/MountainReference.imageset/MountainReference.png)" = "a8fb84ef58e112d8ff9c6210285c81cd5a28db65"
 
           test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
