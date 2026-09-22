@@ -1115,6 +1115,7 @@ struct ClarityProjectsView: View {
     }
 }
 
+#if targetEnvironment(simulator)
 struct ReferenceImportSnapshotView: View {
     @Environment(AppState.self) private var state
     @State private var selection = 4
@@ -1264,6 +1265,7 @@ struct ReferenceImportSnapshotView: View {
             )
     }
 }
+#endif
 
 struct ReferenceImportVideoView: View {
     @Environment(AppState.self) private var state
@@ -1274,16 +1276,6 @@ struct ReferenceImportVideoView: View {
     @State private var showingFiles = false
     @State private var showingCamera = false
     @State private var authorizationDenied = false
-    @State private var snapshotSelection = 4
-
-    private var isSnapshotMode: Bool {
-#if targetEnvironment(simulator)
-        ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1"
-#else
-        false
-#endif
-    }
-
     private let grid = [
         GridItem(.flexible(), spacing: 6),
         GridItem(.flexible(), spacing: 6),
@@ -1300,9 +1292,7 @@ struct ReferenceImportVideoView: View {
                 sourceSelector.padding(.horizontal, 16)
                 filterSelector.padding(.horizontal, 16)
 
-                if isSnapshotMode {
-                    snapshotGrid
-                } else if authorizationDenied {
+                if authorizationDenied {
                     Spacer(minLength: 18)
                     importStateCard(
                         icon: "photo.badge.exclamationmark",
@@ -1350,7 +1340,6 @@ struct ReferenceImportVideoView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { selectionFooter }
         .preferredColorScheme(.dark)
         .task {
-            guard !isSnapshotMode else { return }
             await loadPhotoAssets()
         }
         .onChange(of: source) { _, newValue in
@@ -1517,57 +1506,9 @@ struct ReferenceImportVideoView: View {
         }
     }
 
-    private var snapshotGrid: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVGrid(columns: grid, spacing: 6) {
-                ForEach(Array(NativeSnapshotVideo.samples.enumerated()), id: \.offset) { index, item in
-                    Button { snapshotSelection = index } label: {
-                        NativeSnapshotVideoThumbnail(item: item, selected: snapshotSelection == index)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-        }
-    }
-
     private var selectionFooter: some View {
         VStack(spacing: 10) {
-            if isSnapshotMode {
-                let item = NativeSnapshotVideo.samples[snapshotSelection]
-                NativePanel {
-                    HStack(spacing: 12) {
-                        NativeSnapshotVideoThumbnail(item: item, selected: false)
-                            .frame(width: 56, height: 56)
-                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("1 Video Selected")
-                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                            Text(item.duration + " · Ready to enhance")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(ClarityNativeTheme.muted)
-                        }
-
-                        Spacer()
-
-                        Button("Clear") { }
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(.cyan)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue.opacity(0.18))
-                                    .overlay(Capsule().stroke(Color.blue.opacity(0.42), lineWidth: 0.8))
-                            )
-                            .buttonStyle(.plain)
-                    }
-                    .padding(12)
-                }
-                .padding(.horizontal, 16)
-            } else if let selectedAsset {
+            if let selectedAsset {
                 NativePanel {
                     HStack(spacing: 12) {
                         NativeVideoThumbnail(asset: selectedAsset, selected: false)
@@ -1604,7 +1545,6 @@ struct ReferenceImportVideoView: View {
             }
 
             Button {
-                if isSnapshotMode { return }
                 guard let selectedAsset else { return }
                 Task {
                     do {
@@ -1628,10 +1568,10 @@ struct ReferenceImportVideoView: View {
                     in: RoundedRectangle(cornerRadius: 17, style: .continuous)
                 )
                 .shadow(color: Color.blue.opacity(0.25), radius: 15, y: 6)
-                .opacity((isSnapshotMode || selectedAsset != nil) ? 1 : 0.42)
+                .opacity(selectedAsset != nil ? 1 : 0.42)
             }
             .buttonStyle(.plain)
-            .disabled((!isSnapshotMode && selectedAsset == nil) || state.isImporting)
+            .disabled(selectedAsset == nil || state.isImporting)
             .padding(.horizontal, 16)
         }
         .padding(.top, 10)
@@ -1665,6 +1605,7 @@ struct ReferenceImportVideoView: View {
     }
 }
 
+#if targetEnvironment(simulator)
 private struct NativeSnapshotVideo {
     let duration: String
     let symbol: String
@@ -1741,6 +1682,7 @@ private struct NativeSnapshotVideoThumbnail: View {
         .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 }
+#endif
 
 private struct NativeVideoThumbnail: View {
     let asset: PHAsset
