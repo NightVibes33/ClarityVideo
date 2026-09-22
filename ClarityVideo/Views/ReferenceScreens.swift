@@ -293,182 +293,163 @@ struct ReferenceEditorView: View {
     @State private var isPlaying = false
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                ZStack {
-                    ExactReferenceBackground(screen: .enhance)
+        ZStack {
+            ExactReferenceBackground(screen: .enhance)
 
-                    // Back.
-                    ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.14, height: 0.075)) {
-                        sourcePlayer?.pause()
-                        state.route = .importVideo
-                    }
+            // Back.
+            ExactHotspot(rect: CGRect(x: 0.00, y: 0.045, width: 0.14, height: 0.075)) {
+                sourcePlayer?.pause()
+                state.route = .importVideo
+            }
 
-                    // Real imported video is rendered in the exact reference preview
-                    // rectangle. The rest of the chrome remains reference-perfect.
-                    GeometryReader { geometry in
-                        if let sourcePlayer {
-                            VideoPlayer(player: sourcePlayer)
-                                .allowsHitTesting(false)
-                                .frame(
-                                    width: 0.935 * geometry.size.width,
-                                    height: 0.305 * geometry.size.height
-                                )
-                                .clipped()
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .position(
-                                    x: 0.502 * geometry.size.width,
-                                    y: 0.265 * geometry.size.height
-                                )
-                        }
-                    }
-
-                    // Recreate the divider and badges over the real preview so the
-                    // dynamic video keeps the exact reference chrome.
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(Color.white)
-                            .frame(width: max(1.5, geometry.size.width * 0.006))
-                            .frame(height: geometry.size.height * 0.305)
-                            .position(
-                                x: geometry.size.width * 0.548,
-                                y: geometry.size.height * 0.265
-                            )
-                            .allowsHitTesting(false)
-
-                        Circle()
-                            .fill(Color.white)
-                            .frame(
-                                width: geometry.size.width * 0.105,
-                                height: geometry.size.width * 0.105
-                            )
-                            .overlay(
-                                Image(systemName: "chevron.left.2")
-                                    .font(.system(size: 10, weight: .black))
-                                    .foregroundStyle(Color.black)
-                                    .rotationEffect(.degrees(180))
-                            )
-                            .position(
-                                x: geometry.size.width * 0.548,
-                                y: geometry.size.height * 0.265
-                            )
-                            .allowsHitTesting(false)
-                    }
-
-                    // Play / pause.
-                    ExactHotspot(rect: CGRect(x: 0.035, y: 0.425, width: 0.13, height: 0.075)) {
-                        guard let sourcePlayer else { return }
-                        if isPlaying {
-                            sourcePlayer.pause()
-                        } else {
-                            sourcePlayer.play()
-                        }
-                        isPlaying.toggle()
-                    }
-
-                    // Target resolution.
-                    ExactHotspot(rect: CGRect(x: 0.39, y: 0.585, width: 0.27, height: 0.060)) {
-                        state.configuration.resolution = .uhd4K
-                    }
-                    ExactHotspot(rect: CGRect(x: 0.67, y: 0.585, width: 0.30, height: 0.060)) {
-                        state.configuration.resolution = .uhd8K
-                    }
-
-                    // Enhancement mode.
-                    ExactHotspot(rect: CGRect(x: 0.035, y: 0.690, width: 0.31, height: 0.060)) {
-                        state.configuration.applyPreset(
-                            .fast,
-                            temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+            // Real imported video is rendered in the exact reference preview
+            // rectangle. With no imported asset, the reference pixels remain
+            // completely unobscured for snapshot verification.
+            GeometryReader { geometry in
+                if let sourcePlayer {
+                    VideoPlayer(player: sourcePlayer)
+                        .allowsHitTesting(false)
+                        .frame(
+                            width: 0.935 * geometry.size.width,
+                            height: 0.305 * geometry.size.height
                         )
-                    }
-                    ExactHotspot(rect: CGRect(x: 0.35, y: 0.690, width: 0.31, height: 0.060)) {
-                        state.configuration.applyPreset(
-                            .quality,
-                            temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .position(
+                            x: 0.502 * geometry.size.width,
+                            y: 0.265 * geometry.size.height
                         )
-                    }
-                    ExactHotspot(rect: CGRect(x: 0.67, y: 0.690, width: 0.30, height: 0.060)) {
-                        let mode: EnhancementMode =
-                            IOSNeuralHeadService.bundledModelURL() != nil ? .dlss5 : .restore
-                        state.configuration.applyPreset(
-                            mode,
-                            temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+
+                    Rectangle()
+                        .fill(Color.white)
+                        .frame(
+                            width: max(1.5, geometry.size.width * 0.006),
+                            height: geometry.size.height * 0.305
                         )
-                    }
-
-                    // AI Super Resolution toggle.
-                    ExactHotspot(rect: CGRect(x: 0.82, y: 0.760, width: 0.18, height: 0.060)) {
-                        let enabled = state.configuration.mode != .fast
-                        state.configuration.applyPreset(
-                            enabled ? .fast : .quality,
-                            temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                        .position(
+                            x: geometry.size.width * 0.548,
+                            y: geometry.size.height * 0.265
                         )
-                    }
+                        .allowsHitTesting(false)
 
-                    // Real parameter drags mapped to the exact slider tracks.
-                    ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.818, width: 0.40, height: 0.050)) {
-                        state.configuration.denoise = $0
-                    }
-                    ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.865, width: 0.40, height: 0.050)) {
-                        state.configuration.detailRecovery = $0
-                    }
-                    ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.912, width: 0.40, height: 0.050)) {
-                        state.configuration.sharpening = $0
-                    }
-
-                    // Overlay the live numeric values on the reference value positions.
-                    if state.importedURL != nil {
-                        GeometryReader { geometry in
-                            liveValue(
-                                Int((state.configuration.denoise * 100).rounded()),
-                                x: 0.945, y: 0.842, geometry: geometry
-                            )
-                            liveValue(
-                                Int((state.configuration.detailRecovery * 100).rounded()),
-                                x: 0.945, y: 0.889, geometry: geometry
-                            )
-                            liveValue(
-                                Int((state.configuration.sharpening * 100).rounded()),
-                                x: 0.945, y: 0.936, geometry: geometry
-                            )
-                        }
-                    }
+                    Circle()
+                        .fill(Color.white)
+                        .frame(
+                            width: geometry.size.width * 0.105,
+                            height: geometry.size.width * 0.105
+                        )
+                        .overlay(
+                            Image(systemName: "chevron.left.2")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundStyle(Color.black)
+                                .rotationEffect(.degrees(180))
+                        )
+                        .position(
+                            x: geometry.size.width * 0.548,
+                            y: geometry.size.height * 0.265
+                        )
+                        .allowsHitTesting(false)
                 }
-                .containerRelativeFrame(.vertical)
-                .frame(minHeight: UIScreen.main.bounds.height)
+            }
 
-                // The supplied reference ends at the final slider. Keep the exact
-                // initial viewport untouched; export remains reachable by scrolling.
-                Button {
-                    sourcePlayer?.pause()
-                    state.route = .exportSetup
-                } label: {
-                    HStack {
-                        Spacer()
-                        Text("Continue to Export")
-                            .font(.headline)
-                        Image(systemName: "arrow.right")
-                        Spacer()
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [.purple, .blue, .cyan],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        in: RoundedRectangle(cornerRadius: 16)
+            // Play / pause.
+            ExactHotspot(rect: CGRect(x: 0.035, y: 0.425, width: 0.13, height: 0.075)) {
+                guard let sourcePlayer else { return }
+                if isPlaying {
+                    sourcePlayer.pause()
+                } else {
+                    sourcePlayer.play()
+                }
+                isPlaying.toggle()
+            }
+
+            // Target resolution.
+            ExactHotspot(rect: CGRect(x: 0.39, y: 0.585, width: 0.27, height: 0.060)) {
+                state.configuration.resolution = .uhd4K
+            }
+            ExactHotspot(rect: CGRect(x: 0.67, y: 0.585, width: 0.30, height: 0.060)) {
+                state.configuration.resolution = .uhd8K
+            }
+
+            // Enhancement mode.
+            ExactHotspot(rect: CGRect(x: 0.035, y: 0.690, width: 0.31, height: 0.060)) {
+                state.configuration.applyPreset(
+                    .fast,
+                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                )
+            }
+            ExactHotspot(rect: CGRect(x: 0.35, y: 0.690, width: 0.31, height: 0.060)) {
+                state.configuration.applyPreset(
+                    .quality,
+                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                )
+            }
+            ExactHotspot(rect: CGRect(x: 0.67, y: 0.690, width: 0.30, height: 0.060)) {
+                let mode: EnhancementMode =
+                    IOSNeuralHeadService.bundledModelURL() != nil ? .dlss5 : .restore
+                state.configuration.applyPreset(
+                    mode,
+                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                )
+            }
+
+            // AI Super Resolution toggle.
+            ExactHotspot(rect: CGRect(x: 0.82, y: 0.760, width: 0.18, height: 0.060)) {
+                let enabled = state.configuration.mode != .fast
+                state.configuration.applyPreset(
+                    enabled ? .fast : .quality,
+                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                )
+            }
+
+            // Real parameter drags mapped to the exact slider tracks.
+            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.818, width: 0.40, height: 0.050)) {
+                state.configuration.denoise = $0
+            }
+            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.865, width: 0.40, height: 0.050)) {
+                state.configuration.detailRecovery = $0
+            }
+            ExactDragHotspot(rect: CGRect(x: 0.47, y: 0.912, width: 0.40, height: 0.050)) {
+                state.configuration.sharpening = $0
+            }
+
+            if state.importedURL != nil {
+                GeometryReader { geometry in
+                    liveValue(
+                        Int((state.configuration.denoise * 100).rounded()),
+                        x: 0.945, y: 0.842, geometry: geometry
+                    )
+                    liveValue(
+                        Int((state.configuration.detailRecovery * 100).rounded()),
+                        x: 0.945, y: 0.889, geometry: geometry
+                    )
+                    liveValue(
+                        Int((state.configuration.sharpening * 100).rounded()),
+                        x: 0.945, y: 0.936, geometry: geometry
                     )
                 }
-                .buttonStyle(.plain)
-                .padding(16)
             }
         }
-        .background(Color(red: 0.006, green: 0.014, blue: 0.028).ignoresSafeArea())
         .navigationBarHidden(true)
         .statusBarHidden(true)
         .preferredColorScheme(.dark)
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 30)
+                .onEnded { value in
+                    // The reference has no visible export CTA on this viewport.
+                    // Preserve that exact appearance while keeping navigation real:
+                    // swipe upward anywhere to continue to Export.
+                    if value.translation.height < -80 {
+                        sourcePlayer?.pause()
+                        state.route = .exportSetup
+                    }
+                }
+        )
+        .accessibilityAction(named: "Continue to Export") {
+            sourcePlayer?.pause()
+            state.route = .exportSetup
+        }
         .onAppear {
             if sourcePlayer == nil, let url = state.importedURL {
                 sourcePlayer = AVPlayer(url: url)
