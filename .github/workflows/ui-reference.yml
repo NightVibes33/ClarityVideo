@@ -75,8 +75,11 @@ jobs:
           # Keep system privacy sheets out of visual QA. Import behavior itself
           # is covered by the app's real PHPhotoLibrary code path.
           xcrun simctl privacy "$DEVICE" grant photos com.nightvibes33.clarityvideo || true
+          xcrun simctl status_bar "$DEVICE" override --time 9:41 --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
 
-          for route in home import enhance export; do
+          # Capture Import last. Its simulator-only fixture exercises the exact
+          # native layout without invoking the Photos permission UI.
+          for route in home enhance export import; do
             echo "Capturing $route"
             ROUTE="$route" DEVICE="$DEVICE" python3 - <<'PY'
           import os, subprocess, sys, time
@@ -84,6 +87,7 @@ jobs:
           device = os.environ["DEVICE"]
           env = os.environ.copy()
           env["SIMCTL_CHILD_CLARITY_UI_ROUTE"] = route
+          env["SIMCTL_CHILD_CLARITY_UI_SNAPSHOT"] = "1"
 
           try:
               subprocess.run(
