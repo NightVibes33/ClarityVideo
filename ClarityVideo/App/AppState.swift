@@ -253,6 +253,84 @@ final class AppState {
     }
 
 
+    func runRecoveredNeuralHeadSelfTest() async {
+#if targetEnvironment(simulator)
+        diagnosticStatus = "Recovered neural inference must be validated on a physical iPhone."
+        return
+#else
+        guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
+            diagnosticStatus = "Recovered neural model is not bundled in this build."
+            return
+        }
+
+        isPreparingModel = true
+        diagnosticStatus = "Loading recovered neural model..."
+        defer { isPreparingModel = false }
+
+        do {
+            let renderer = try IOSNeuralHeadService(modelURL: modelURL)
+            let attributes: [String: Any] = [
+                kCVPixelBufferIOSurfacePropertiesKey as String: [String: String](),
+                kCVPixelBufferMetalCompatibilityKey as String: true
+            ]
+            var source: CVPixelBuffer?
+            let status = CVPixelBufferCreate(
+                kCFAllocatorDefault,
+                IOSNeuralHeadService.tileSize,
+                IOSNeuralHeadService.tileSize,
+                kCVPixelFormatType_32BGRA,
+                attributes as CFDictionary,
+                &source
+            )
+            guard status == kCVReturnSuccess, let source else {
+                throw IOSNeuralHeadService.Failure.pixelBuffer(status)
+            }
+
+            CVPixelBufferLockBaseAddress(source, [])
+            if let base = CVPixelBufferGetBaseAddress(source)?.assumingMemoryBound(to: UInt8.self) {
+                let stride = CVPixelBufferGetBytesPerRow(source)
+                for y in 0..<IOSNeuralHeadService.tileSize {
+                    for x in 0..<IOSNeuralHeadService.tileSize {
+                        let offset = y * stride + x * 4
+                        base[offset] = UInt8(48 + (x * 160 / IOSNeuralHeadService.tileSize))
+                        base[offset + 1] = UInt8(48 + (y * 160 / IOSNeuralHeadService.tileSize))
+                        base[offset + 2] = 160
+                        base[offset + 3] = 255
+                    }
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(source, [])
+
+            let start = ContinuousClock.now
+            let output = try await renderer.render(source: source, frameNumber: 0)
+            let elapsed = start.duration(to: .now)
+
+            guard CVPixelBufferGetWidth(output) == IOSNeuralHeadService.tileSize,
+                  CVPixelBufferGetHeight(output) == IOSNeuralHeadService.tileSize else {
+                throw IOSNeuralHeadService.Failure.incompatibleModel
+            }
+
+            let components = elapsed.components
+            let seconds = Double(components.seconds)
+                + Double(components.attoseconds) / 1_000_000_000_000_000_000
+            diagnosticStatus = String(
+                format: "Recovered neural head passed: 128x128 tile in %.3f s (%.2f tiles/s)",
+                seconds,
+                1 / max(seconds, 0.000_001)
+            )
+            lastSuccessfulSelfTest = Date()
+            CapabilitySnapshotStore.save(
+                capabilities: capabilities,
+                lastSuccessfulSelfTest: lastSuccessfulSelfTest
+            )
+        } catch {
+            diagnosticStatus = "Recovered neural head failed: " + error.localizedDescription
+            errorMessage = error.localizedDescription
+        }
+#endif
+    }
+
+
     func runFiveSecondDiagnostic(resolution: OutputResolution = .uhd4K) {
         guard let importedURL, let assetInfo else {
             errorMessage = "Import a test video first, then return to Diagnostics."
