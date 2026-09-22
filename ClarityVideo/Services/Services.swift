@@ -258,7 +258,7 @@ final class CapabilityDetector {
 }
 
 enum StorageEstimator {
-    private static let minimumSafetyMargin: Int64 = 64_000_000
+    private static let minimumSafetyMargin: Int64 = 96_000_000
     private static let minimumTemporaryMovie: Int64 = 32_000_000
 
     static func estimatedOutputBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
