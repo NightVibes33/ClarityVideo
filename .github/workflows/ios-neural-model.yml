@@ -4,16 +4,16 @@ on:
   push:
     branches: [neural-ios-port]
     paths:
-      - 'ClarityVideo/Processing/RecoveredDLSSCore/**'
-      - 'ClarityVideo/Processing/IOSNeuralHeadService.swift'
+      - 'ClarityVideo/**'
+      - 'ClarityVideoTests/**'
       - 'PortTools/**'
       - 'ClarityVideo.xcodeproj/project.pbxproj'
       - '.github/workflows/ios-neural-model.yml'
 permissions:
   contents: read
 concurrency:
-  group: neural-ios-port-v2-${{ github.workflow }}
-  cancel-in-progress: true
+  group: neural-ios-port-${{ github.sha }}
+  cancel-in-progress: false
 jobs:
   convert:
     runs-on: macos-26
