@@ -83,6 +83,25 @@ final class ClarityVideoTests: XCTestCase {
         XCTAssertEqual(required, 286_000_000)
     }
 
+    @MainActor
+    func testComparisonPreviewCacheDoesNotAccumulate() throws {
+        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ComparisonPreviews", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let stale = folder.appendingPathComponent("stale-preview.mov")
+        try Data(repeating: 0x41, count: 1024).write(to: stale)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stale.path))
+
+        let coordinator = ComparisonPreviewCoordinator()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data(repeating: 0x42, count: 1024).write(to: stale)
+        coordinator.clearCache()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+    }
+
     func testPortraitDetectionUsesDisplayDimensions() {
         let info = VideoAssetInfo(fileName: "portrait.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1080, displayHeight: 1920, frameRate: 30, codec: "hvc1", isHDR: true, duration: 5, estimatedSourceBytes: 1)
         XCTAssertTrue(info.isPortrait)
