@@ -365,16 +365,32 @@ struct ClarityProjectsView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack {
-                    Text("Recent Projects")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(ClarityNativeTheme.card)
+                            .frame(width: 46, height: 46)
+                        Image(systemName: "rectangle.stack.fill")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(.cyan)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Projects")
+                            .font(.system(size: 23, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text("RECENT ENHANCEMENTS")
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .tracking(1.45)
+                            .foregroundStyle(.white.opacity(0.38))
+                    }
                     Spacer()
                     Button("Done") { dismiss() }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.cyan)
-                        .padding(.horizontal, 15)
+                        .padding(.horizontal, 14)
                         .padding(.vertical, 9)
-                        .background(Color.white.opacity(0.06), in: Capsule())
+                        .background(Color.white.opacity(0.055), in: Capsule())
+                        .overlay(Capsule().stroke(Color.cyan.opacity(0.16), lineWidth: 0.8))
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
@@ -382,23 +398,41 @@ struct ClarityProjectsView: View {
 
                 if state.recentJobs.isEmpty {
                     Spacer()
-                    VStack(spacing: 15) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.blue.opacity(0.10))
-                                .frame(width: 76, height: 76)
-                            Image(systemName: "film.stack.fill")
-                                .font(.system(size: 31, weight: .semibold))
-                                .foregroundStyle(ClarityNativeTheme.brand)
+                    NativePanel {
+                        VStack(spacing: 13) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                    .fill(ClarityNativeTheme.card)
+                                    .frame(width: 62, height: 62)
+                                Image(systemName: "film.stack.fill")
+                                    .font(.system(size: 25, weight: .semibold))
+                                    .foregroundStyle(.cyan)
+                            }
+                            Text("No projects yet")
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                            Text("Enhanced videos and paused jobs will show up here.")
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                                .frame(maxWidth: 250)
+                            Button {
+                                dismiss()
+                                state.route = .importVideo
+                            } label: {
+                                Label("Enhance a video", systemImage: "plus")
+                                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(ClarityNativeTheme.brand, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        Text("No recent projects")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        Text("Your finished and paused enhancements will appear here.")
-                            .font(.system(size: 12, weight: .medium))
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(ClarityNativeTheme.muted)
-                            .frame(maxWidth: 260)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                        .padding(.horizontal, 18)
                     }
+                    .padding(.horizontal, 20)
                     Spacer()
                 } else {
                     ScrollView(showsIndicators: false) {
