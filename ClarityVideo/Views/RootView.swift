@@ -845,29 +845,41 @@ struct SettingsView: View {
 
                         NativePanel {
                             VStack(spacing: 0) {
-                                HStack {
-                                    Label("Free storage", systemImage: "externaldrive.fill")
+                                HStack(spacing: 13) {
+                                    ClarityIconTile(icon: "externaldrive.fill", size: 40, iconSize: 16)
+
+                                    Text("Free storage")
                                         .font(.system(size: 13.5, weight: .semibold, design: .rounded))
                                         .foregroundStyle(.white)
+
                                     Spacer()
+
                                     Text(freeStorageText)
                                         .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                                         .foregroundStyle(.cyan.opacity(0.80))
                                 }
-                                .padding(.vertical, 13)
+                                .padding(.vertical, 10)
 
                                 divider
 
                                 Button {
                                     state.clearProcessingCache()
                                 } label: {
-                                    HStack {
-                                        Label("Clear processing cache", systemImage: "trash.fill")
+                                    HStack(spacing: 13) {
+                                        ClarityIconTile(
+                                            icon: "trash.fill",
+                                            size: 40,
+                                            iconSize: 16,
+                                            destructive: true
+                                        )
+
+                                        Text("Clear processing cache")
                                             .font(.system(size: 13.5, weight: .semibold, design: .rounded))
                                             .foregroundStyle(.red)
+
                                         Spacer()
                                     }
-                                    .padding(.vertical, 13)
+                                    .padding(.vertical, 10)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1058,16 +1070,7 @@ struct SettingsView: View {
 
             Spacer(minLength: 12)
 
-            Button("Done") { dismiss() }
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundStyle(.cyan)
-                .padding(.horizontal, 19)
-                .padding(.vertical, 11)
-                .background(
-                    Capsule()
-                        .fill(Color.white.opacity(0.055))
-                        .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.8))
-                )
+            ClarityPillButton(title: "Done") { dismiss() }
         }
     }
 
