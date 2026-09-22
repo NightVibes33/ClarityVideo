@@ -88,3 +88,5 @@ jobs:
           name: raw-torchscript-coreml-diagnostic
           path: artifacts/RawTorchScriptDLSS128.mlpackage
           retention-days: 2
+
+# workflow trigger after initial registration
