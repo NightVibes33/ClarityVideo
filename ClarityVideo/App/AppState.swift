@@ -110,9 +110,12 @@ final class AppState {
             capabilities = snapshotCapabilities
 
             let routeName = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"]
-            if routeName == "enhance" || routeName == "export" {
-                assetInfo = VideoAssetInfo(
-                    fileName: "My Video",
+            if routeName == "enhance"
+                || routeName == "export"
+                || routeName == "processing"
+                || routeName == "results" {
+                let fixtureInfo = VideoAssetInfo(
+                    fileName: "My Video.mov",
                     encodedWidth: 1920,
                     encodedHeight: 1080,
                     displayWidth: 1920,
@@ -123,6 +126,36 @@ final class AppState {
                     duration: 19,
                     estimatedSourceBytes: 25_000_000
                 )
+                assetInfo = fixtureInfo
+
+                if routeName == "processing" || routeName == "results" {
+                    let source = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("Clarity-UI-source.mov")
+                    let output = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("Clarity-UI-output.mov")
+                    var job = ProcessingJob(
+                        sourceURL: source,
+                        assetInfo: fixtureInfo,
+                        configuration: configuration
+                    )
+                    job.outputURL = output
+                    job.totalFrames = 570
+                    job.outputCodec = "HEVC (Apple AI upscale)"
+                    job.denoiseMethod = "Apple temporal"
+
+                    if routeName == "processing" {
+                        job.status = .processing
+                        job.progress = 0.62
+                        job.processedFrames = 353
+                        outputBytesSoFar = 61_000_000
+                    } else {
+                        job.status = .completed
+                        job.progress = 1
+                        job.processedFrames = 570
+                        job.processingDuration = 41.8
+                    }
+                    activeJob = job
+                }
             }
         }
 
@@ -146,6 +179,8 @@ final class AppState {
             case "import": route = .importVideo
             case "enhance": route = .editor
             case "export": route = .exportSetup
+            case "processing": route = .processing
+            case "results": route = .results
             default: break
             }
         }
