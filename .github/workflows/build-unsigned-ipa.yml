@@ -3,6 +3,12 @@ on:
   workflow_dispatch:
   push:
     branches: [main, temp-appstore-ui-final]
+    paths:
+      - 'ClarityVideo/**'
+      - 'ClarityVideoTests/**'
+      - 'ClarityVideo.xcodeproj/**'
+      - '.github/scripts/**'
+      - '.github/workflows/build-unsigned-ipa.yml'
 permissions:
   contents: read
 concurrency:

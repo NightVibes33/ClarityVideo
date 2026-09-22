@@ -7,7 +7,6 @@ on:
       - 'ClarityVideo/Processing/RecoveredDLSSCore/**'
       - 'ClarityVideo/Processing/IOSNeuralHeadService.swift'
       - 'PortTools/**'
-      - 'ClarityVideo.xcodeproj/project.pbxproj'
       - '.github/workflows/ios-neural-model.yml'
 permissions:
   contents: read
