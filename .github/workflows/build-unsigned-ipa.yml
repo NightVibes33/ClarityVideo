@@ -12,8 +12,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: clarity-video-${{ github.ref }}
-  cancel-in-progress: true
+  group: clarity-video-${{ github.sha }}
+  cancel-in-progress: false
 jobs:
   test-and-build:
     name: Build arm64 IPA
