@@ -6,13 +6,33 @@ import CoreImage
 import UIKit
 import CoreMedia
 
+private enum ConfigurationDefaultsStore {
+    private static let key = "clarity.export-configuration.v2"
+
+    static func load() -> ExportConfiguration {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              var configuration = try? JSONDecoder().decode(ExportConfiguration.self, from: data) else {
+            return ExportConfiguration()
+        }
+        configuration.clampBitrateToSupportedRange()
+        return configuration
+    }
+
+    static func save(_ configuration: ExportConfiguration) {
+        guard let data = try? JSONEncoder().encode(configuration) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
 @MainActor @Observable
 final class AppState {
     enum Route { case home, importVideo, editor, exportSetup, processing, results }
     var route: Route = .home
     var importedURL: URL?
     var assetInfo: VideoAssetInfo?
-    var configuration = ExportConfiguration()
+    var configuration = ConfigurationDefaultsStore.load() {
+        didSet { ConfigurationDefaultsStore.save(configuration) }
+    }
     var capabilities = DeviceEnhancementCapabilities()
     var activeJob: ProcessingJob?
     var recentJobs: [ProcessingJob] = []
