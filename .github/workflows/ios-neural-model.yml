@@ -29,7 +29,7 @@ jobs:
             -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
       - name: Restore converted neural model cache
         id: neural-model-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: artifacts/DLSSNeuralHead128.mlpackage
           key: dlss-neural-head-ios26-v016-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('PortTools/convert_model_for_ios.py', 'PortTools/mlxdlss/**/*.py') }}
@@ -50,6 +50,12 @@ jobs:
       - name: Validate converted neural model artifact
         run: |
           test -s artifacts/DLSSNeuralHead128.mlpackage/Manifest.json
+      - name: Save converted neural model cache
+        if: steps.neural-model-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/DLSSNeuralHead128.mlpackage
+          key: dlss-neural-head-ios26-v016-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('PortTools/convert_model_for_ios.py', 'PortTools/mlxdlss/**/*.py') }}
       - name: Bundle model and validate iOS simulator Core ML load
         run: |
           set -euo pipefail
