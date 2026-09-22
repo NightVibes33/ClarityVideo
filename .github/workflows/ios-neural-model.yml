@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: [neural-ios-port]
+    paths-ignore:
+      - '.github/workflows/ui-reference.yml'
 permissions:
   contents: read
 concurrency:
