@@ -73,6 +73,8 @@ struct RootView: View {
                     NavigationStack { DiagnosticsView() }
                 case "projects":
                     ClarityProjectsView()
+                case "onboarding":
+                    OnboardingView { }
                 default:
                     appNavigation
                 }
