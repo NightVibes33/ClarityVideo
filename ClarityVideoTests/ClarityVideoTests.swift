@@ -83,6 +83,24 @@ final class ClarityVideoTests: XCTestCase {
         XCTAssertEqual(required, 286_000_000)
     }
 
+    func testImportedWorkspaceCleanupKeepsOnlyResumableSources() throws {
+        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Imports", isDirectory: true)
+        try? FileManager.default.removeItem(at: folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        let keep = folder.appendingPathComponent("keep.mov")
+        let stale = folder.appendingPathComponent("stale.mov")
+        try Data(repeating: 0x4B, count: 32).write(to: keep)
+        try Data(repeating: 0x53, count: 32).write(to: stale)
+
+        SecurityScopedFileManager.cleanupWorkspace(keeping: Set([keep]))
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: keep.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+        try? FileManager.default.removeItem(at: folder)
+    }
+
     @MainActor
     func testComparisonPreviewCacheDoesNotAccumulate() throws {
         let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
