@@ -1365,14 +1365,40 @@ struct ReferenceImportVideoView: View {
         .overlay {
             if state.isImporting {
                 ZStack {
-                    Color.black.opacity(0.62).ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        ProgressView().controlSize(.large).tint(.cyan)
-                        Text(state.importStatus ?? "Importing video…").font(.subheadline.bold())
+                    Color.black.opacity(0.66)
+                        .ignoresSafeArea()
+
+                    NativePanel {
+                        VStack(spacing: 14) {
+                            ClarityIconTile(
+                                icon: "arrow.down.circle.fill",
+                                size: 54,
+                                iconSize: 22
+                            )
+
+                            VStack(spacing: 5) {
+                                Text("Preparing Video")
+                                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.white)
+
+                                Text(state.importStatus ?? "Importing video…")
+                                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                    .foregroundStyle(ClarityNativeTheme.muted)
+                                    .multilineTextAlignment(.center)
+                            }
+
+                            ProgressView()
+                                .controlSize(.regular)
+                                .tint(.cyan)
+                        }
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 22)
                     }
-                    .padding(24)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .frame(maxWidth: 320)
+                    .padding(.horizontal, 24)
                 }
+                .transition(.opacity)
+                .zIndex(80)
             }
         }
     }
