@@ -17,6 +17,9 @@ final class VideoProcessingCoordinator {
             throw AppError.exportFailed("DLSS 5 model is not installed in this build.")
         }
         let probe = AppleFrameProcessorService.probe()
+        if job.configuration.mode == .dlss5 && !probe.fullSupported && !probe.lowLatencySupported {
+            throw AppError.unsupported("The neural renderer needs Apple Super Resolution to reach the selected 4K or 8K output on this device.")
+        }
         if probe.fullSupported || probe.lowLatencySupported {
             do {
                 if SegmentPlan.requiresSegmentation(duration: job.assetInfo.duration, configuration: job.configuration) {

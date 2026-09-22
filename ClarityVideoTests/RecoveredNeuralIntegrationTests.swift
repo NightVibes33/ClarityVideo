@@ -4,6 +4,27 @@ import XCTest
 
 @MainActor
 final class RecoveredNeuralIntegrationTests: XCTestCase {
+    func testRecoveredFeaturePreparationMatchesUpstreamNumbers() throws {
+        let values: [Float] = [0.25, 0.5, 0.75, 1, 0, 0.5]
+        let color = try HostTensor(
+            descriptor: TensorDescriptor(name: "color", shape: [1, 1, 2, 3], dataType: .float32, layout: .nhwc),
+            bytes: values.withUnsafeBytes { Data($0) }
+        )
+        let features = try NeuralRenderingFirstFramePreprocessor.makeFeatureTensor(from: color)
+        let actual = features.bytes.withUnsafeBytes { bytes in
+            stride(from: 0, to: bytes.count, by: MemoryLayout<Float>.size).map {
+                bytes.loadUnaligned(fromByteOffset: $0, as: Float.self)
+            }
+        }
+        XCTAssertEqual(actual, [
+            -0.219_604_492_187_5, 1.028_320_312_5, 0.127_319_335_937_5, 1,
+            -0.031_25, 0, 0.031_25, -0.031_25, 0, 0.031_25, 0, 1, 1, -1, -1, 0,
+            0.170_166_015_625, 1.937_5, 0.325_439_453_125, 1,
+            0.062_5, -0.062_5, 0, 0.062_5, -0.062_5, 0,
+            0, 1, 1, -1, -1, 0
+        ])
+    }
+
     func testRecoveredModelProcessesARealPixelBuffer() async throws {
         guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
             throw XCTSkip("The optional recovered model is not bundled with this build.")

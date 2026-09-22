@@ -23,7 +23,9 @@ final class IOSNeuralHeadService {
     }
 
     static let tileSize = 128
-    private let model: MLModel
+    // Core ML serializes predictions for this session. This instance is used by
+    // one export task at a time; the framework's async prediction runs off actor.
+    nonisolated(unsafe) private let model: MLModel
     private let context = CIContext(options: [.cacheIntermediates: false])
 
     init(modelURL: URL) throws {
@@ -118,7 +120,7 @@ final class IOSNeuralHeadService {
                     }
                 }
                 let provider = try MLDictionaryFeatureProvider(dictionary: ["color": MLFeatureValue(multiArray: input)])
-                let predicted = try model.prediction(from: provider, options: MLPredictionOptions())
+                let predicted = try await model.prediction(from: provider, options: MLPredictionOptions())
                 guard let head = predicted.featureValue(for: "restored")?.multiArrayValue,
                       head.dataType == .float32 else { throw Failure.incompatibleModel }
                 let headValues = head.dataPointer.assumingMemoryBound(to: Float.self)
