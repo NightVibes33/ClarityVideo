@@ -80,7 +80,7 @@ final class ClarityVideoTests: XCTestCase {
         let required = StorageEstimator.requiredBytes(info: info, configuration: configuration)
 
         XCTAssertEqual(output, 95_000_000)
-        XCTAssertLessThan(required, 300_000_000)
+        XCTAssertEqual(required, 286_000_000)
     }
 
     func testPortraitDetectionUsesDisplayDimensions() {
