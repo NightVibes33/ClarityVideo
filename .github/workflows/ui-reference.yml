@@ -1,4 +1,4 @@
-name: Verify exact Clarity reference UI
+name: Verify native Clarity reference UI
 
 on:
   workflow_dispatch:
@@ -8,13 +8,16 @@ on:
       - 'ClarityVideo/Views/**'
       - 'ClarityVideo/App/AppState.swift'
       - 'ClarityVideo/Resources/Assets.xcassets/ReferenceArtwork.imageset/**'
+      - 'ClarityVideo/Resources/Assets.xcassets/MountainReference.imageset/**'
+      - 'ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/**'
+      - 'ClarityVideo.xcodeproj/project.pbxproj'
       - '.github/workflows/ui-reference.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: clarity-reference-ui
+  group: clarity-native-reference-ui-v2
   cancel-in-progress: true
 
 jobs:
