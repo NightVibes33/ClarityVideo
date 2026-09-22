@@ -1056,25 +1056,46 @@ struct ReferenceImportVideoView: View {
                 if isSnapshotMode {
                     snapshotGrid
                 } else if authorizationDenied {
-                    Spacer()
-                    ContentUnavailableView(
-                        "Photos Access Needed",
-                        systemImage: "photo.badge.exclamationmark",
-                        description: Text("Allow Photos access in Settings, or choose Files or Camera.")
-                    )
+                    Spacer(minLength: 18)
+                    importStateCard(
+                        icon: "photo.badge.exclamationmark",
+                        title: "Photos Access Needed",
+                        detail: "Allow Photos access in Settings, or import a video from Files or Camera.",
+                        actionTitle: "Open Settings"
+                    ) {
+                        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                        UIApplication.shared.open(url)
+                    }
+                    .padding(.horizontal, 18)
                     Spacer()
                 } else {
                     ScrollView(showsIndicators: false) {
-                        LazyVGrid(columns: grid, spacing: 6) {
-                            ForEach(filteredAssets, id: \.localIdentifier) { asset in
-                                Button { selectedAsset = asset } label: {
-                                    NativeVideoThumbnail(asset: asset, selected: selectedAsset?.localIdentifier == asset.localIdentifier)
-                                }
-                                .buttonStyle(.plain)
+                        if filteredAssets.isEmpty {
+                            importStateCard(
+                                icon: "film.stack",
+                                title: emptyLibraryTitle,
+                                detail: emptyLibraryDetail,
+                                actionTitle: "Choose from Files"
+                            ) {
+                                source = .files
                             }
+                            .padding(.horizontal, 18)
+                            .padding(.top, 28)
+                        } else {
+                            LazyVGrid(columns: grid, spacing: 6) {
+                                ForEach(filteredAssets, id: \.localIdentifier) { asset in
+                                    Button { selectedAsset = asset } label: {
+                                        NativeVideoThumbnail(
+                                            asset: asset,
+                                            selected: selectedAsset?.localIdentifier == asset.localIdentifier
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
                     }
                 }
             }
@@ -1173,6 +1194,67 @@ struct ReferenceImportVideoView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func importStateCard(
+        icon: String,
+        title: String,
+        detail: String,
+        actionTitle: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        NativePanel {
+            VStack(spacing: 14) {
+                ClarityIconTile(icon: icon, size: 62, iconSize: 25)
+
+                VStack(spacing: 5) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text(detail)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(ClarityNativeTheme.muted)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(
+                            ClarityNativeTheme.brand,
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 22)
+        }
+    }
+
+    private var emptyLibraryTitle: String {
+        switch filter {
+        case .favorites: "No Favorite Videos"
+        case .recents: "No Recent Videos"
+        case .all, .videos: "No Videos Found"
+        }
+    }
+
+    private var emptyLibraryDetail: String {
+        switch filter {
+        case .favorites:
+            "Favorite a video in Photos or choose one from Files."
+        case .recents:
+            "No videos from the last 30 days are available in Photos."
+        case .all, .videos:
+            "Your Photos library has no videos available to Clarity."
         }
     }
 
