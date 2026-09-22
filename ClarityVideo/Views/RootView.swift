@@ -678,213 +678,157 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ClarityNativeTheme.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [Color.blue.opacity(0.18), Color.cyan.opacity(0.035), .clear],
-                    center: .top,
-                    startRadius: 20,
-                    endRadius: 430
-                )
-                .ignoresSafeArea()
-                LinearGradient(
-                    colors: [.clear, Color.purple.opacity(0.04), .clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                ClarityScreenBackdrop()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(alignment: .leading, spacing: 22) {
                         header
 
-                        settingsSection("DEFAULT ENHANCEMENT") {
-                            settingGroup("Target Resolution") {
-                                SettingsChoiceRow(
-                                    options: ["4K", "8K"],
-                                    selected: state.configuration.resolution == .uhd8K ? "8K" : "4K"
-                                ) { value in
-                                    let next: OutputResolution = value == "8K" ? .uhd8K : .uhd4K
-                                    state.configuration.resolution = next
-                                    if next == .uhd8K, state.configuration.bitrateMbps < 55 {
-                                        state.configuration.bitrateMbps = 70
-                                    } else if next == .uhd4K, state.configuration.bitrateMbps > 55 {
-                                        state.configuration.bitrateMbps = 40
-                                    }
-                                }
-                            }
-
+                        settingsSection("About Clarity") {
+                            infoRow(
+                                icon: "info.circle.fill",
+                                title: "Version",
+                                value: appVersion
+                            )
                             divider
-
-                            settingGroup("AI Upscaler") {
-                                SettingsChoiceRow(
-                                    options: ["Apple SR", "DLSS 5"],
-                                    selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
-                                ) { value in
-                                    if value == "DLSS 5" {
-                                        guard IOSNeuralHeadService.bundledModelURL() != nil else {
-                                            state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
-                                            return
-                                        }
-                                        state.configuration.upscaler = .dlss5
-                                    } else {
-                                        state.configuration.upscaler = .appleSR
-                                    }
-                                }
-                            }
-
+                            infoRow(
+                                icon: "cpu.fill",
+                                title: "Processing",
+                                value: "On-device"
+                            )
                             divider
+                            infoRow(
+                                icon: "person.fill",
+                                title: "Account",
+                                value: "Not required"
+                            )
+                        }
 
-                            settingGroup("Quality") {
-                                SettingsChoiceRow(
-                                    options: QualityPreset.allCases.map(\.rawValue),
-                                    selected: state.configuration.qualityPreset.rawValue
-                                ) { value in
-                                    guard let preset = QualityPreset(rawValue: value) else { return }
-                                    state.configuration.applyPreset(
-                                        preset,
-                                        temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
-                                    )
+                        Text("Clarity enhances video locally using Apple media and machine-learning technologies supported by your device.")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.58))
+                            .lineSpacing(4)
+                            .padding(.horizontal, 10)
+
+                        settingsSection("Your privacy") {
+                            featureRow(icon: "icloud.slash.fill", title: "No cloud uploads")
+                            divider
+                            featureRow(icon: "eye.slash.fill", title: "No analytics or tracking")
+                            divider
+                            featureRow(icon: "person.crop.circle.badge.xmark", title: "No account or cloud credits")
+                        }
+
+                        settingsSection("Help and learning") {
+                            Button {
+                                hasCompletedOnboarding = false
+                                dismiss()
+                            } label: {
+                                actionRow(icon: "play.circle.fill", title: "Replay introduction")
+                            }
+                            .buttonStyle(.plain)
+
+                            divider.padding(.leading, 62)
+
+                            NavigationLink {
+                                DiagnosticsView()
+                            } label: {
+                                actionRow(
+                                    icon: "stethoscope",
+                                    title: "Video engine diagnostics",
+                                    showsChevron: true
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Good to know")
+                                .font(.system(size: 22, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.68))
+                                .padding(.leading, 8)
+
+                            NativePanel {
+                                HStack(alignment: .top, spacing: 16) {
+                                    ClarityIconTile(icon: "lightbulb.fill", size: 56, iconSize: 22)
+
+                                    Text("Long exports and 8K video can use significant storage, power, and time. Clarity monitors temperature, creates checkpoints where appropriate, and never replaces your original video.")
+                                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                                        .foregroundStyle(.white.opacity(0.62))
+                                        .lineSpacing(4)
+
+                                    Spacer(minLength: 0)
                                 }
+                                .padding(16)
                             }
                         }
 
-                        settingsSection("EXPORT") {
-                            settingGroup("Codec") {
-                                SettingsChoiceRow(
-                                    options: ["HEVC", "H.264"],
-                                    selected: state.configuration.codec == .hevc ? "HEVC" : "H.264"
-                                ) { value in
-                                    state.configuration.codec = value == "H.264" ? .h264 : .hevc
-                                }
-                            }
-
-                            divider
-
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Preserve HDR")
+                        NativePanel {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Label("Free storage", systemImage: "externaldrive.fill")
                                         .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                                    Text("Keep HDR when the source and encoder support it.")
-                                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                                        .foregroundStyle(ClarityNativeTheme.muted)
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Text(freeStorageText)
+                                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.cyan.opacity(0.80))
                                 }
-                                Spacer()
-                                Toggle("", isOn: Binding(
-                                    get: { state.configuration.hdrBehavior == .preserve },
-                                    set: { state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR }
-                                ))
-                                .labelsHidden()
-                                .tint(.cyan)
-                            }
-                            .padding(.vertical, 13)
-                        }
+                                .padding(.vertical, 13)
 
-                        settingsSection("ON THIS IPHONE") {
-                            infoRow("Processing", value: "100% on-device")
-                            divider
-                            infoRow("Free storage", value: freeStorageText)
-                            divider
-                            infoRow("Apple SR", value: state.capabilities.fullSuperResolutionAvailable ? "Available" : "Unavailable")
-                            divider
-                            infoRow("8K HEVC", value: state.capabilities.supports8KHEVCEncode ? "Available" : "Unavailable")
-                        }
+                                divider
 
-                        settingsSection("PRIVACY") {
-                            iconRow("icloud.slash.fill", title: "No cloud uploads")
-                            divider
-                            iconRow("eye.slash.fill", title: "No analytics or tracking")
-                            divider
-                            iconRow("person.crop.circle.badge.xmark", title: "No account required")
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionLabel("TOOLS")
-                            NativePanel {
-                                VStack(spacing: 0) {
-                                    NavigationLink {
-                                        DiagnosticsView()
-                                    } label: {
-                                        actionRow("waveform.path.ecg.rectangle.fill", title: "Video engine diagnostics", showsChevron: true)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    divider.padding(.leading, 47)
-
-                                    Button {
-                                        state.clearProcessingCache()
-                                    } label: {
-                                        actionRow("trash.fill", title: "Clear processing cache")
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.horizontal, 14)
-                            }
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            sectionLabel("HELP")
-                            NativePanel {
                                 Button {
-                                    hasCompletedOnboarding = false
-                                    dismiss()
+                                    state.clearProcessingCache()
                                 } label: {
-                                    actionRow("play.circle.fill", title: "Replay introduction")
-                                        .padding(.horizontal, 14)
+                                    HStack {
+                                        Label("Clear processing cache", systemImage: "trash.fill")
+                                            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                                            .foregroundStyle(.red)
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 13)
                                 }
                                 .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, 15)
                         }
 
-                        Text("Clarity never replaces your original video. Short exports use a streaming path so temporary storage stays close to the actual output size.")
+                        Text("Processing stays on this iPhone unless you explicitly share an exported file.")
                             .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.42))
-                            .lineSpacing(3)
-                            .padding(.horizontal, 5)
-                            .padding(.bottom, 8)
+                            .foregroundStyle(.white.opacity(0.34))
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 10)
+                            .padding(.bottom, 12)
                     }
                     .padding(.horizontal, 18)
+                    .padding(.top, 10)
                     .padding(.bottom, 28)
                 }
             }
             .navigationBarHidden(true)
         }
         .preferredColorScheme(.dark)
-        .task { await state.refreshCapabilities() }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(ClarityNativeTheme.card)
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.cyan.opacity(0.32), lineWidth: 0.8)
-                    )
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 21, weight: .bold))
-                    .foregroundStyle(.cyan)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Settings")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                Text("CLARITYVIDEO")
-                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .tracking(1.6)
-                    .foregroundStyle(.white.opacity(0.38))
-            }
-            Spacer()
+        HStack(alignment: .firstTextBaseline) {
+            Text("Settings")
+                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer(minLength: 12)
+
             Button("Done") { dismiss() }
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundStyle(.cyan)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(Color.white.opacity(0.055), in: Capsule())
-                .overlay(Capsule().stroke(Color.cyan.opacity(0.18), lineWidth: 0.8))
+                .padding(.horizontal, 19)
+                .padding(.vertical, 11)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(0.055))
+                        .overlay(Capsule().stroke(ClarityNativeTheme.border, lineWidth: 0.8))
+                )
         }
-        .padding(.top, 8)
     }
 
     @ViewBuilder
@@ -892,90 +836,86 @@ struct SettingsView: View {
         _ title: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel(title)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.68))
+                .padding(.leading, 8)
+
             NativePanel {
                 VStack(spacing: 0) {
                     content()
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 15)
             }
         }
     }
 
-    @ViewBuilder
-    private func settingGroup<Content: View>(
-        _ title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text(title)
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.82))
-            content()
-        }
-        .padding(.vertical, 13)
-    }
+    private func infoRow(icon: String, title: String, value: String) -> some View {
+        HStack(spacing: 14) {
+            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10.5, weight: .bold, design: .rounded))
-            .tracking(1.4)
-            .foregroundStyle(.white.opacity(0.40))
-            .padding(.leading, 3)
-    }
-
-    private func infoRow(_ title: String, value: String) -> some View {
-        HStack {
             Text(title)
-                .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+
             Spacer()
+
             Text(value)
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.cyan.opacity(0.76))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.58))
         }
-        .padding(.vertical, 13)
+        .padding(.vertical, 11)
     }
 
-    private func iconRow(_ icon: String, title: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.cyan)
-                .frame(width: 30)
+    private func featureRow(icon: String, title: String) -> some View {
+        HStack(spacing: 14) {
+            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+
             Text(title)
-                .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+
             Spacer()
+
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.cyan.opacity(0.66))
+                .foregroundStyle(.cyan.opacity(0.68))
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 11)
     }
 
-    private func actionRow(_ icon: String, title: String, showsChevron: Bool = false) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.cyan)
-                .frame(width: 30)
+    private func actionRow(
+        icon: String,
+        title: String,
+        showsChevron: Bool = false
+    ) -> some View {
+        HStack(spacing: 14) {
+            ClarityIconTile(icon: icon, size: 42, iconSize: 17)
+
             Text(title)
-                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
+
             Spacer()
+
             if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.white.opacity(0.34))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.40))
             }
         }
-        .padding(.vertical, 13)
+        .padding(.vertical, 11)
     }
 
     private var divider: some View {
         Rectangle()
             .fill(Color.white.opacity(0.07))
             .frame(height: 0.7)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 
     private var freeStorageText: String {
