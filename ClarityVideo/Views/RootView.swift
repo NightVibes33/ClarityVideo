@@ -87,7 +87,7 @@ struct RootView: View {
                 }
             }
             .navigationDestination(isPresented: Bindable(state).showDiagnostics) { DiagnosticsView() }
-            .alert("Something needs your attention", isPresented: Binding(
+            .alert(alertTitle, isPresented: Binding(
                 get: { state.errorMessage != nil },
                 set: { if !$0 { state.errorMessage = nil } }
             )) {
@@ -96,6 +96,20 @@ struct RootView: View {
                 Text(state.errorMessage ?? "")
             }
         }
+    }
+
+    private var alertTitle: String {
+        guard let message = state.errorMessage else { return "ClarityVideo" }
+        if message.localizedCaseInsensitiveContains("storage") {
+            return "Not Enough Storage"
+        }
+        if message.localizedCaseInsensitiveContains("HDR") {
+            return "HDR Setting Needs Attention"
+        }
+        if message.localizedCaseInsensitiveContains("encoder") {
+            return "Export Not Supported"
+        }
+        return "Unable to Continue"
     }
 }
 

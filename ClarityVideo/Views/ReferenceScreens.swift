@@ -962,6 +962,22 @@ struct ReferenceEditorView: View {
                     .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 12))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
+
+                if let previewError = state.previewErrorMessage, !state.isGeneratingPreview {
+                    HStack(spacing: 7) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text("Preview unavailable")
+                            .font(.caption.bold())
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .accessibilityLabel("Preview unavailable. \(previewError)")
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.09), lineWidth: 1))
@@ -1151,16 +1167,54 @@ private struct NativeValueSlider: View {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
                 .frame(width: 104, alignment: .leading)
-            Slider(value: $value, in: 0...1)
-                .tint(.cyan)
-                .frame(height: 28)
+
+            GeometryReader { geometry in
+                let width = max(1, geometry.size.width)
+                let clamped = max(0, min(1, value))
+                let thumbX = max(7, min(width - 7, width * clamped))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.10))
+                        .frame(height: 4)
+
+                    Capsule()
+                        .fill(ClarityNativeTheme.brand)
+                        .frame(width: max(4, width * clamped), height: 4)
+
+                    Circle()
+                        .fill(Color(red: 0.12, green: 0.74, blue: 1.0))
+                        .frame(width: 14, height: 14)
+                        .shadow(color: .cyan.opacity(0.42), radius: 4)
+                        .position(x: thumbX, y: 22)
+                }
+                .frame(height: 44)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            value = max(0, min(1, drag.location.x / width))
+                        }
+                )
+                .accessibilityElement()
                 .accessibilityLabel(title)
-                .accessibilityValue("\(Int((value * 100).rounded())) percent")
+                .accessibilityValue("\(Int((clamped * 100).rounded())) percent")
+                .accessibilityAdjustableAction { direction in
+                    switch direction {
+                    case .increment: value = min(1, value + 0.05)
+                    case .decrement: value = max(0, value - 0.05)
+                    @unknown default: break
+                    }
+                }
+            }
+            .frame(height: 44)
+
             Text("\(Int((value * 100).rounded()))")
                 .font(.caption.monospacedDigit())
                 .frame(width: 30, alignment: .trailing)
                 .foregroundStyle(.white.opacity(0.72))
         }
+        .frame(minHeight: 44)
     }
 }
 

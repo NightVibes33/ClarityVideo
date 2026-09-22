@@ -30,6 +30,7 @@ final class AppState {
     var thermalTransitions: [String] = []
     var comparisonPreview: ComparisonPreview?
     var previewProgress = 0.0
+    var previewErrorMessage: String?
     var previewStartSeconds = 0.0
     var previewDurationSeconds = 3.0
     var outputBytesSoFar: Int64 = 0
@@ -68,6 +69,8 @@ final class AppState {
         CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
     }
     func importVideo(from url: URL, sourceLabel: String = "video") async {
+        errorMessage = nil
+        previewErrorMessage = nil
         lastImportError = nil
         isImporting = true
         importStatus = "Copying " + sourceLabel + " into Clarity..."
@@ -105,6 +108,7 @@ final class AppState {
         guard let importedURL, let assetInfo else { return }
         isGeneratingPreview = true
         previewProgress = 0
+        previewErrorMessage = nil
         Task {
             defer { isGeneratingPreview = false }
             do {
@@ -119,7 +123,7 @@ final class AppState {
                 // Expected when the user changes enhancement controls and the
                 // native comparison schedules a replacement preview.
             } catch {
-                errorMessage = error.localizedDescription
+                previewErrorMessage = error.localizedDescription
             }
         }
     }
