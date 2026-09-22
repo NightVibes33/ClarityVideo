@@ -102,7 +102,11 @@ private struct ReferenceHeader: View {
 }
 
 private struct ReferencePanel<Content: View>: View {
-    @ViewBuilder var content: Content
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
 
     var body: some View {
         content
