@@ -1,4 +1,5 @@
 name: Verify native Clarity reference UI
+# Native UI verification includes the supplied production icon and standalone mountain asset.
 
 on:
   workflow_dispatch:
