@@ -248,8 +248,8 @@ final class CapabilityDetector {
 }
 
 enum StorageEstimator {
-    private static let minimumSafetyMargin: Int64 = 96_000_000
-    private static let minimumWorkingSpace: Int64 = 64_000_000
+    private static let minimumSafetyMargin: Int64 = 64_000_000
+    private static let minimumTemporaryMovie: Int64 = 32_000_000
 
     static func estimatedOutputBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
         Int64(Double(configuration.bitrateMbps) * 1_000_000 / 8 * info.duration)
@@ -257,35 +257,38 @@ enum StorageEstimator {
 
     static func requiredBytes(info: VideoAssetInfo, configuration: ExportConfiguration) -> Int64 {
         let output = estimatedOutputBytes(info: info, configuration: configuration)
-        let safety = max(minimumSafetyMargin, min(output / 4, 256_000_000))
+        let safety = max(minimumSafetyMargin, min(output / 8, 128_000_000))
 
         if SegmentPlan.requiresSegmentation(duration: info.duration, configuration: configuration) {
-            // Peak segmented export storage is the retained segment set + final
-            // assembled movie + at most one active five-second segment + margin.
-            let activeSegmentDuration = min(5, max(0, info.duration))
-            let activeSegment = Int64(
-                Double(configuration.bitrateMbps) * 1_000_000 / 8 * activeSegmentDuration
+            // Long jobs keep completed enhanced segments for resumability while the final
+            // movie is assembled. Only one five-second source/enhanced pair is active.
+            let activeDuration = min(SegmentPlan.defaultDuration, max(0, info.duration))
+            let activeMovie = Int64(
+                Double(configuration.bitrateMbps) * 1_000_000 / 8 * activeDuration
             )
-            return output * 2 + activeSegment + safety
+            return output * 2 + activeMovie * 2 + safety
         }
 
-        // Single-pass exports do not need a second full-size copy. Reserve a
-        // bounded writer/processing workspace plus a real safety margin.
-        let working = max(minimumWorkingSpace, min(output / 3, 256_000_000))
-        return output + working + safety
+        // Short jobs stream frames directly. The only full-size duplicate is the temporary
+        // video track used while audio/metadata are remuxed into the final movie.
+        let temporaryMovie = max(minimumTemporaryMovie, output)
+        return output + temporaryMovie + safety
+    }
+
+    static func availableBytes() throws -> Int64 {
+        let home = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let values = try home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        return values.volumeAvailableCapacityForImportantUsage ?? 0
     }
 
     static func validate(info: VideoAssetInfo, configuration: ExportConfiguration) throws {
         let required = requiredBytes(info: info, configuration: configuration)
-        let home = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let values = try home.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-        let available = values.volumeAvailableCapacityForImportantUsage ?? 0
+        let available = try availableBytes()
         guard available >= required else {
             throw AppError.insufficientStorage(required: required, available: available)
         }
     }
 }
-
 enum TemporaryFileManager {
     static func outputURL(for resolution: OutputResolution) -> URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
