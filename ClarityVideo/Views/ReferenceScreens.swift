@@ -276,6 +276,7 @@ struct ClarityWaveDecoration: View {
 struct NativeHeader: View {
     let title: String
     var showsBack = true
+    var circularBack = false
     var trailingIcon: String? = nil
     var onBack: (() -> Void)? = nil
     var onTrailing: (() -> Void)? = nil
@@ -285,15 +286,30 @@ struct NativeHeader: View {
             Group {
                 if showsBack {
                     Button { onBack?() } label: {
-                        Circle()
-                            .fill(Color.white.opacity(0.055))
-                            .frame(width: 44, height: 44)
-                            .overlay(Circle().stroke(Color.cyan.opacity(0.20), lineWidth: 0.8))
-                            .overlay(
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(Color(red: 0.35, green: 0.78, blue: 1.0))
-                            )
+                        ZStack {
+                            if circularBack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.02, green: 0.13, blue: 0.29),
+                                                Color.black.opacity(0.78)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.blue.opacity(0.34), lineWidth: 0.8)
+                                    )
+                            }
+
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: circularBack ? 20 : 22, weight: .bold))
+                                .foregroundStyle(Color(red: 0.34, green: 0.70, blue: 1.0))
+                        }
+                        .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Back")
