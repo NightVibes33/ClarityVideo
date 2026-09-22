@@ -11,6 +11,9 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Select Xcode 26
         run: |
           set -euo pipefail
@@ -23,9 +26,9 @@ jobs:
             -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
       - name: Install model conversion dependencies
         run: |
-          python3 -m venv "$RUNNER_TEMP/port-venv"
+          python -m venv "$RUNNER_TEMP/port-venv"
           "$RUNNER_TEMP/port-venv/bin/python" -m pip install --upgrade pip
-          "$RUNNER_TEMP/port-venv/bin/python" -m pip install 'torch>=2.1' 'coremltools>=9' 'safetensors>=0.4' numpy
+          "$RUNNER_TEMP/port-venv/bin/python" -m pip install 'torch==2.6.0' 'coremltools==9.0' 'safetensors>=0.4' numpy
       - name: Extract recovered model weights and convert for iOS
         run: |
           set -euo pipefail

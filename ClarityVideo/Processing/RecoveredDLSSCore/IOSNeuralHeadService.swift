@@ -111,23 +111,31 @@ final class IOSNeuralHeadService {
                     }
                 }
                 let inputValues = input.dataPointer.assumingMemoryBound(to: Float.self)
+                let inputStrides = input.strides.map(\.intValue)
                 for y in 0..<Self.tileSize {
                     for x in 0..<Self.tileSize {
                         let pixel = y * Self.tileSize + x
                         for channel in 0..<16 {
-                            inputValues[channel * Self.tileSize * Self.tileSize + pixel] = featureValues[pixel * 16 + channel]
+                            inputValues[channel * inputStrides[1] + y * inputStrides[2] + x * inputStrides[3]]
+                                = featureValues[pixel * 16 + channel]
                         }
                     }
                 }
                 let provider = try MLDictionaryFeatureProvider(dictionary: ["color": MLFeatureValue(multiArray: input)])
                 let predicted = try await model.prediction(from: provider, options: MLPredictionOptions())
                 guard let head = predicted.featureValue(for: "restored")?.multiArrayValue,
-                      head.dataType == .float32 else { throw Failure.incompatibleModel }
+                      head.dataType == .float32,
+                      head.shape.map(\.intValue) == [1, 4, Self.tileSize, Self.tileSize],
+                      head.strides.count == 4 else { throw Failure.incompatibleModel }
                 let headValues = head.dataPointer.assumingMemoryBound(to: Float.self)
+                let headStrides = head.strides.map(\.intValue)
                 var output = [Float](repeating: 0, count: Self.tileSize * Self.tileSize * 4)
-                for pixel in 0..<(Self.tileSize * Self.tileSize) {
-                    for channel in 0..<4 {
-                        output[pixel * 4 + channel] = headValues[channel * Self.tileSize * Self.tileSize + pixel]
+                for y in 0..<Self.tileSize {
+                    for x in 0..<Self.tileSize {
+                        for channel in 0..<4 {
+                            output[(y * Self.tileSize + x) * 4 + channel]
+                                = headValues[channel * headStrides[1] + y * headStrides[2] + x * headStrides[3]]
+                        }
                     }
                 }
                 let neuralHead = try HostTensor(
@@ -136,12 +144,14 @@ final class IOSNeuralHeadService {
                     bytes: output.withUnsafeBytes { Data($0) }
                 )
                 let composed = try NeuralRenderingFirstFramePostprocessor.compose(head: neuralHead, over: color)
-                composed.bytes.withUnsafeBytes { raw in
+                try composed.bytes.withUnsafeBytes { raw in
                     let rendered = raw.bindMemory(to: Float.self)
                     for y in 0..<min(Self.tileSize, height - tileY) {
                         for x in 0..<min(Self.tileSize, width - tileX) {
                             let pixel = (y * Self.tileSize + x) * 3
                             let destination = (tileY + y) * outputStride + (tileX + x) * 4
+                            guard rendered[pixel].isFinite, rendered[pixel + 1].isFinite,
+                                  rendered[pixel + 2].isFinite else { throw Failure.incompatibleModel }
                             outputBase[destination] = UInt8(clamping: Int((rendered[pixel + 2] * 255).rounded()))
                             outputBase[destination + 1] = UInt8(clamping: Int((rendered[pixel + 1] * 255).rounded()))
                             outputBase[destination + 2] = UInt8(clamping: Int((rendered[pixel] * 255).rounded()))
