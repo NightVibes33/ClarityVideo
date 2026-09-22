@@ -429,9 +429,21 @@ final class AppState {
         beginExport()
     }
 
+    func leaveCompletedResult(startAnother: Bool = false) {
+        if let job = activeJob, job.status == .completed {
+            SecurityScopedFileManager.removeWorkspaceCopyIfOwned(job.sourceURL)
+        }
+        importedURL = nil
+        assetInfo = nil
+        comparisonPreview = nil
+        previewErrorMessage = nil
+        route = startAnother ? .importVideo : .home
+    }
+
     func deleteActiveOutput() {
         guard let job = activeJob else { return }
         if let url = job.outputURL { try? FileManager.default.removeItem(at: url) }
+        SecurityScopedFileManager.removeWorkspaceCopyIfOwned(job.sourceURL)
         recentJobs.removeAll { $0.id == job.id }
         JobHistoryStore.save(recentJobs)
         if pendingFilesExportURL == job.outputURL {
