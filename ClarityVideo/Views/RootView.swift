@@ -1014,17 +1014,6 @@ struct SettingsView: View {
                             divider
 
                             settingsToggle(
-                                icon: "gauge.with.dots.needle.50percent",
-                                title: "Preserve source frame rate",
-                                isOn: Binding(
-                                    get: { state.configuration.preserveFrameRate },
-                                    set: { state.configuration.preserveFrameRate = $0 }
-                                )
-                            )
-
-                            divider
-
-                            settingsToggle(
                                 icon: "photo.on.rectangle.angled",
                                 title: "Save to Photos after export",
                                 isOn: Binding(
