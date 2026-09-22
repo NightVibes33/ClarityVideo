@@ -392,16 +392,22 @@ def partition_windows(value: torch.Tensor, window_size: int) -> torch.Tensor:
     batch_count, height, width, channels = value.shape
     if height % window_size or width % window_size:
         raise ValueError("spatial dimensions must be divisible by window size")
+    height_groups = height // window_size
+    width_groups = width // window_size
+
+    # Core ML rejects even transient tensors above rank 5. The natural Swin
+    # window layout is rank 6 ([B, Hg, Wy, Wg, Wx, C]), so fold B and Hg
+    # together first. This preserves the exact window ordering while keeping
+    # every intermediate at rank <= 5.
+    folded = value.reshape(
+        batch_count * height_groups,
+        window_size,
+        width_groups,
+        window_size,
+        channels,
+    )
     return (
-        value.reshape(
-            batch_count,
-            height // window_size,
-            window_size,
-            width // window_size,
-            window_size,
-            channels,
-        )
-        .permute(0, 1, 3, 2, 4, 5)
+        folded.permute(0, 2, 1, 3, 4)
         .reshape(-1, window_size * window_size, channels)
     )
 
@@ -415,18 +421,25 @@ def reverse_windows(
     window_size: int,
 ) -> torch.Tensor:
     channels = windows.shape[-1]
-    return (
-        windows.reshape(
-            batch_count,
-            height // window_size,
-            width // window_size,
-            window_size,
-            window_size,
-            channels,
-        )
-        .permute(0, 1, 3, 2, 4, 5)
-        .reshape(batch_count, height, width, channels)
+    height_groups = height // window_size
+    width_groups = width // window_size
+
+    # Inverse of partition_windows without constructing the rank-6 Swin
+    # layout. [B*Hg, Wg, Wy, Wx, C] -> [B*Hg, Wy, Wg, Wx, C] -> NHWC.
+    folded = windows.reshape(
+        batch_count * height_groups,
+        width_groups,
+        window_size,
+        window_size,
+        channels,
     )
+    rows = folded.permute(0, 2, 1, 3, 4).reshape(
+        batch_count * height_groups,
+        window_size,
+        width,
+        channels,
+    )
+    return rows.reshape(batch_count, height, width, channels)
 
 
 def window_attention(
