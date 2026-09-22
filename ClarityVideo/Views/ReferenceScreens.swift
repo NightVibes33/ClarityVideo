@@ -739,6 +739,7 @@ struct ReferenceHomeView: View {
     @Environment(AppState.self) private var state
     @State private var showingSettings = false
     @State private var showingProjects = false
+    @State private var showingQuality = false
 
     var body: some View {
         ZStack {
@@ -754,8 +755,8 @@ struct ReferenceHomeView: View {
 
                         Spacer()
 
-                        roundTopButton(icon: "crown.fill", accessibility: "Recent Projects", usesBrand: true) {
-                            showingProjects = true
+                        roundTopButton(icon: "crown.fill", accessibility: "Quality Settings", usesBrand: true) {
+                            showingQuality = true
                         }
                     }
                     .padding(.horizontal, 20)
@@ -854,6 +855,11 @@ struct ReferenceHomeView: View {
         }
         .fullScreenCover(isPresented: $showingProjects) {
             ClarityProjectsView()
+                .environment(state)
+                .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showingQuality) {
+            ClarityQualitySheet()
                 .environment(state)
                 .preferredColorScheme(.dark)
         }
@@ -1004,6 +1010,124 @@ private enum ImportSource: String, CaseIterable, Identifiable {
 private enum ImportFilter: String, CaseIterable, Identifiable {
     case all = "All", videos = "Videos", favorites = "Favorites", recents = "Recents"
     var id: String { rawValue }
+}
+
+struct ClarityQualitySheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            ClarityScreenBackdrop()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 15) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Quality")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("Your default enhancement setup")
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+
+                        Spacer()
+
+                        ClarityPillButton(title: "Done") { dismiss() }
+                    }
+
+                    NativePanel {
+                        VStack(spacing: 0) {
+                            qualityRow(
+                                icon: "sparkles",
+                                title: "Enhancement Mode",
+                                options: QualityPreset.allCases.map(\.rawValue),
+                                selected: state.configuration.qualityPreset.rawValue
+                            ) { value in
+                                guard let preset = QualityPreset(rawValue: value) else { return }
+                                state.configuration.applyPreset(
+                                    preset,
+                                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                                )
+                            }
+
+                            divider
+
+                            qualityRow(
+                                icon: "4k.tv.fill",
+                                title: "Target Resolution",
+                                options: state.capabilities.supports8KHEVCEncode ? ["4K", "8K"] : ["4K"],
+                                selected: state.configuration.resolution == .uhd8K ? "8K" : "4K"
+                            ) { value in
+                                state.configuration.resolution = value == "8K" ? .uhd8K : .uhd4K
+                                if state.configuration.resolution == .uhd8K {
+                                    state.configuration.codec = .hevc
+                                }
+                                state.configuration.clampBitrateToSupportedRange()
+                            }
+
+                            divider
+
+                            qualityRow(
+                                icon: "brain.head.profile",
+                                title: "AI Upscaler",
+                                options: IOSNeuralHeadService.bundledModelURL() == nil
+                                    ? ["Apple SR"]
+                                    : ["Apple SR", "DLSS 5"],
+                                selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+                            ) { value in
+                                state.configuration.upscaler = value == "DLSS 5" ? .dlss5 : .appleSR
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                    }
+
+                    HStack(spacing: 12) {
+                        ClarityIconTile(icon: "lock.shield.fill", size: 42, iconSize: 16)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Applied to new enhancements")
+                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("You can still change these controls for each video in Enhance.")
+                                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+        }
+        .presentationDetents([.height(430), .medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func qualityRow(
+        icon: String,
+        title: String,
+        options: [String],
+        selected: String,
+        onSelect: @escaping (String) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 11) {
+                ClarityIconTile(icon: icon, size: 38, iconSize: 15)
+                Text(title)
+                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            NativeChoiceRow(options: options, selected: selected, select: onSelect)
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.07))
+            .frame(height: 0.7)
+    }
 }
 
 struct ClarityProjectsView: View {
