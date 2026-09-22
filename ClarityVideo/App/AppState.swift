@@ -56,8 +56,26 @@ final class AppState {
     var outputBytesSoFar: Int64 = 0
     var isGeneratingPreview = false
     var isPreparingModel = false
-    var saveToPhotosAfterExport = true
-    var saveToFilesAfterExport = false
+    var saveToPhotosAfterExport = UserDefaults.standard.object(
+        forKey: "clarity.export.save-to-photos"
+    ) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(
+                saveToPhotosAfterExport,
+                forKey: "clarity.export.save-to-photos"
+            )
+        }
+    }
+    var saveToFilesAfterExport = UserDefaults.standard.object(
+        forKey: "clarity.export.save-to-files"
+    ) as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(
+                saveToFilesAfterExport,
+                forKey: "clarity.export.save-to-files"
+            )
+        }
+    }
     var pendingFilesExportURL: URL?
     private var pauseRequested = false
     let engine = VideoProcessingCoordinator()
@@ -85,8 +103,30 @@ final class AppState {
 
     func refreshCapabilities() async {
         capabilities = await capabilityDetector.detect()
-        if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
-        CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
+
+        if !capabilities.temporalNoiseFilteringAvailable {
+            configuration.denoise = 0
+        }
+
+        if !capabilities.supports8KHEVCEncode,
+           configuration.resolution == .uhd8K {
+            configuration.resolution = .uhd4K
+            configuration.clampBitrateToSupportedRange()
+        }
+
+        if configuration.resolution == .uhd8K {
+            configuration.codec = .hevc
+        }
+
+        if IOSNeuralHeadService.bundledModelURL() == nil,
+           configuration.upscaler == .dlss5 {
+            configuration.upscaler = .appleSR
+        }
+
+        CapabilitySnapshotStore.save(
+            capabilities: capabilities,
+            lastSuccessfulSelfTest: lastSuccessfulSelfTest
+        )
     }
     func importVideo(from url: URL, sourceLabel: String = "video") async {
         errorMessage = nil
@@ -297,16 +337,16 @@ final class AppState {
 
     func runRecoveredNeuralHeadSelfTest() async {
 #if targetEnvironment(simulator)
-        diagnosticStatus = "Recovered neural inference must be validated on a physical iPhone."
+        diagnosticStatus = "DLSS 5 neural inference must be validated on a physical iPhone."
         return
 #else
         guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
-            diagnosticStatus = "Recovered neural model is not bundled in this build."
+            diagnosticStatus = "DLSS 5 neural model is not bundled in this build."
             return
         }
 
         isPreparingModel = true
-        diagnosticStatus = "Loading recovered neural model..."
+        diagnosticStatus = "Loading DLSS 5 neural model..."
         defer { isPreparingModel = false }
 
         do {
@@ -356,7 +396,7 @@ final class AppState {
             let seconds = Double(components.seconds)
                 + Double(components.attoseconds) / 1_000_000_000_000_000_000
             diagnosticStatus = String(
-                format: "Recovered neural head passed: 128x128 tile in %.3f s (%.2f tiles/s)",
+                format: "DLSS 5 neural test passed: 128x128 tile in %.3f s (%.2f tiles/s)",
                 seconds,
                 1 / max(seconds, 0.000_001)
             )
@@ -366,7 +406,7 @@ final class AppState {
                 lastSuccessfulSelfTest: lastSuccessfulSelfTest
             )
         } catch {
-            diagnosticStatus = "Recovered neural head failed: " + error.localizedDescription
+            diagnosticStatus = "DLSS 5 neural test failed: " + error.localizedDescription
             errorMessage = error.localizedDescription
         }
 #endif
