@@ -73,7 +73,7 @@ extension ClarityVideoTests {
         XCTAssertTrue(plan.requiresFinalResize)
     }
 
-    func test4KTo8KUsesMemorySafeRouteWhenOnlyFourXIsAvailable() throws {
+    func test4KTo8KUsesTiledNeuralRouteWhenOnlyFourXIsAvailable() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
         caps.supportedFullScaleFactors = [4]
@@ -81,8 +81,21 @@ extension ClarityVideoTests {
             sourceWidth: 3840, sourceHeight: 2160, target: .uhd8K, qualityPreset: .quality,
             capabilities: caps, lowLatencyFactorsForSource: []
         )
-        XCTAssertEqual(plan.route, .nativeEnhancement)
+        XCTAssertEqual(plan.route, .tiledSuperResolution)
+        XCTAssertEqual(plan.aiScaleFactor, 4)
         XCTAssertTrue(plan.requiresFinalResize)
+        XCTAssertTrue(plan.disclosure.contains("tiles"))
+    }
+
+    func testRequestedUpscaleFailsWhenNoNeuralRouteExists() {
+        XCTAssertThrowsError(
+            try PipelinePlanner.plan(
+                sourceWidth: 1920, sourceHeight: 1080, target: .uhd4K, qualityPreset: .quality,
+                capabilities: DeviceEnhancementCapabilities(), lowLatencyFactorsForSource: []
+            )
+        ) { error in
+            XCTAssertTrue(error is PipelinePlanningError)
+        }
     }
 
     func testPlannerAvoidsLargeHalfFloatCanvasFor720pTo4K() throws {
