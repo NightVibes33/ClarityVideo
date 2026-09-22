@@ -1701,10 +1701,20 @@ struct ReferenceExportView: View {
     }
 
     private var videoSummary: some View {
+        let filename = state.assetInfo?.fileName ?? "My Video"
         let duration = state.assetInfo?.durationText ?? "00:00"
         let resolution = state.configuration.resolution == .uhd8K ? "8K" : "4K"
-        let upscaler = state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
-        let summary = duration + " · " + resolution + " · " + upscaler
+        let engine = state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
+        let metadata = duration + " · " + resolution + " · " + engine
+        let finalSizeText: String? = state.assetInfo.map { info in
+            let bytes = StorageEstimator.estimatedOutputBytes(
+                info: info,
+                configuration: state.configuration
+            )
+            return "~ "
+                + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+                + " final video"
+        }
 
         return NativePanel {
             HStack(spacing: 13) {
@@ -1725,25 +1735,16 @@ struct ReferenceExportView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(state.assetInfo?.fileName ?? "My Video")
+                    Text(filename)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .lineLimit(1)
 
-                    Text(summary)
+                    Text(metadata)
                         .font(.system(size: 10.5, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.60))
 
-                    if let info = state.assetInfo {
-                        let outputBytes = StorageEstimator.estimatedOutputBytes(
-                            info: info,
-                            configuration: state.configuration
-                        )
-                        let outputText = ByteCountFormatter.string(
-                            fromByteCount: outputBytes,
-                            countStyle: .file
-                        )
-
-                        Text("~ " + outputText + " final video")
+                    if let finalSizeText {
+                        Text(finalSizeText)
                             .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                             .foregroundStyle(.cyan.opacity(0.76))
                     }
