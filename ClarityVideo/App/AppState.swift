@@ -48,6 +48,15 @@ final class AppState {
             capabilities = snapshot.capabilities
             lastSuccessfulSelfTest = snapshot.lastSuccessfulSelfTest
         }
+        if let snapshotRoute = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] {
+            switch snapshotRoute {
+            case "home": route = .home
+            case "import": route = .importVideo
+            case "enhance": route = .editor
+            case "export": route = .exportSetup
+            default: break
+            }
+        }
         Task { await refreshCapabilities() }
     }
 
