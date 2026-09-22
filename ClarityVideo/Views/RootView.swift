@@ -187,7 +187,7 @@ private struct ClarityNoticeOverlay: View {
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(title)
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .font(.system(size: 20.5, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                         Text("ClarityVideo")
                             .font(.system(size: 10.5, weight: .semibold, design: .rounded))
@@ -843,7 +843,7 @@ struct SettingsView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Good to know")
-                                .font(.system(size: 19, weight: .bold, design: .rounded))
+                                .font(.system(size: 20.5, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.68))
                                 .padding(.leading, 8)
 
@@ -867,7 +867,7 @@ struct SettingsView: View {
                                 ClarityIconTile(icon: "externaldrive.fill", size: 38, iconSize: 15)
 
                                 Text("Free storage")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .font(.system(size: 15, weight: .medium, design: .rounded))
                                     .foregroundStyle(.white)
 
                                 Spacer()
@@ -876,7 +876,7 @@ struct SettingsView: View {
                                     .font(.system(size: 12.5, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.cyan.opacity(0.80))
                             }
-                            .padding(.vertical, 7)
+                            .padding(.vertical, 10)
 
                             divider
 
@@ -893,7 +893,7 @@ struct SettingsView: View {
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Clear processing cache")
-                                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                                            .font(.system(size: 15, weight: .medium, design: .rounded))
                                             .foregroundStyle(.red)
 
                                         Text("Removes previews, checkpoints, and disposable processing files.")
@@ -904,7 +904,7 @@ struct SettingsView: View {
 
                                     Spacer()
                                 }
-                                .padding(.vertical, 7)
+                                .padding(.vertical, 10)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1187,7 +1187,7 @@ struct SettingsView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
-                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .font(.system(size: 20.5, weight: .bold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.68))
                 .padding(.leading, 8)
 
@@ -1214,7 +1214,7 @@ struct SettingsView: View {
         VStack(spacing: 9) {
             HStack {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(enabled ? .white : .white.opacity(0.38))
 
                 Spacer()
@@ -1284,7 +1284,7 @@ struct SettingsView: View {
             ClarityIconTile(icon: icon, size: 40, iconSize: 16)
 
             Text(title)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
@@ -1307,32 +1307,32 @@ struct SettingsView: View {
 
     private func infoRow(icon: String, title: String, value: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
+            ClarityIconTile(icon: icon, size: 44, iconSize: 17)
 
             Text(title)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
 
             Text(value)
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.58))
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 10)
     }
 
     private func featureRow(icon: String, title: String) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
+            ClarityIconTile(icon: icon, size: 44, iconSize: 17)
 
             Text(title)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 10)
     }
 
     private func actionRow(
@@ -1341,10 +1341,10 @@ struct SettingsView: View {
         showsChevron: Bool = false
     ) -> some View {
         HStack(spacing: 14) {
-            ClarityIconTile(icon: icon, size: 38, iconSize: 15)
+            ClarityIconTile(icon: icon, size: 44, iconSize: 17)
 
             Text(title)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
 
             Spacer()
@@ -1355,7 +1355,7 @@ struct SettingsView: View {
                     .foregroundStyle(.white.opacity(0.40))
             }
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 10)
     }
 
     private var divider: some View {
