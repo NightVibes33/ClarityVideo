@@ -17,7 +17,7 @@ enum AppError: LocalizedError, Sendable {
         case .noVideoTrack: "The selected file has no readable video track."
         case let .importFailedReason(message): "Video import failed: " + message
         case .importFailed: "The selected video could not be copied into the private workspace."
-        case let .insufficientStorage(required, available): "Not enough free storage. Required \(ByteCountFormatter.string(fromByteCount: required, countStyle: .file)); available \(ByteCountFormatter.string(fromByteCount: available, countStyle: .file))."
+        case let .insufficientStorage(required, available): "This export needs about \(ByteCountFormatter.string(fromByteCount: required, countStyle: .file)) free while it runs. You currently have \(ByteCountFormatter.string(fromByteCount: available, countStyle: .file)) available."
         case let .unsupported(message): message
         case let .exportFailed(message): message
         }
