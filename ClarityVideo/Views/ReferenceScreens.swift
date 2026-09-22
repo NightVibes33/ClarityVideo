@@ -1874,6 +1874,25 @@ struct ReferenceEditorView: View {
                         .padding(13)
                     }
 
+                    if !canEnhance {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(capabilityMessage)
+                                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.62))
+                                .lineLimit(2)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .stroke(Color.orange.opacity(0.22), lineWidth: 0.7)
+                        )
+                    }
+
                     Button {
                         pausePlayers()
                         state.route = .exportSetup
@@ -1887,12 +1906,15 @@ struct ReferenceEditorView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(
-                            ClarityNativeTheme.brand,
+                            canEnhance
+                                ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                : AnyShapeStyle(Color.white.opacity(0.07)),
                             in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                         )
-                        .shadow(color: Color.blue.opacity(0.30), radius: 16, y: 8)
+                        .shadow(color: canEnhance ? Color.blue.opacity(0.30) : .clear, radius: 16, y: 8)
                     }
                     .buttonStyle(ClarityPressStyle(pressedScale: 0.992))
+                    .disabled(!canEnhance)
                     .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 16)
@@ -2234,6 +2256,37 @@ struct ReferenceEditorView: View {
         ) { value in
             state.configuration.upscaler = value == "DLSS 5" ? .dlss5 : .appleSR
         }
+    }
+
+    private var canEnhance: Bool {
+        let upscalerAvailable: Bool
+        switch state.configuration.upscaler {
+        case .appleSR:
+            upscalerAvailable = state.capabilities.fullSuperResolutionAvailable
+                || state.capabilities.lowLatencySuperResolutionAvailable
+        case .dlss5:
+            upscalerAvailable = IOSNeuralHeadService.bundledModelURL() != nil
+        }
+
+        let outputAvailable = state.configuration.resolution == .uhd8K
+            ? state.capabilities.supports8KHEVCEncode
+            : true
+
+        return upscalerAvailable && outputAvailable
+    }
+
+    private var capabilityMessage: String {
+        if state.configuration.resolution == .uhd8K,
+           !state.capabilities.supports8KHEVCEncode {
+            return "8K is unavailable on this device. Choose 4K to continue."
+        }
+
+        if state.configuration.upscaler == .dlss5,
+           IOSNeuralHeadService.bundledModelURL() == nil {
+            return "DLSS 5 is not installed in this build. Choose Apple SR."
+        }
+
+        return "Apple Super Resolution is unavailable on this device."
     }
 
     private func configurePlayersAndPreview() {
