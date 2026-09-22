@@ -39,7 +39,7 @@ final class AIAssetReaderWriterPipeline {
         let naturalSize = try await track.load(.naturalSize)
         let sourceWidth = Int(abs(naturalSize.width))
         let sourceHeight = Int(abs(naturalSize.height))
-        let wantsNeuralRenderer = job.configuration.mode == .dlss5
+        let wantsNeuralRenderer = job.configuration.upscaler == .dlss5
         if wantsNeuralRenderer && job.assetInfo.isHDR {
             throw AppError.unsupported("The experimental neural renderer currently accepts SDR video only.")
         }
@@ -60,7 +60,7 @@ final class AIAssetReaderWriterPipeline {
         let sourceLowLatencyFactors = AppleFrameProcessorService.lowLatencyScaleFactors(width: sourceWidth, height: sourceHeight)
         let plan = try PipelinePlanner.plan(
             sourceWidth: sourceWidth, sourceHeight: sourceHeight,
-            target: job.configuration.resolution, mode: job.configuration.mode,
+            target: job.configuration.resolution, qualityPreset: job.configuration.qualityPreset,
             capabilities: planningCapabilities, lowLatencyFactorsForSource: sourceLowLatencyFactors
         )
         let targetSize = CGSize(width: plan.targetWidth, height: plan.targetHeight)
@@ -184,7 +184,7 @@ final class AIAssetReaderWriterPipeline {
             ? (plan.requiresFinalResize ? " (spatial upscale)" : " (on-device enhancement)")
             : " (Apple AI upscale)")
         if wantsNeuralRenderer {
-            result.outputCodec = (result.outputCodec ?? selectedCodec) + " + recovered DLSS 5 neural rendering"
+            result.outputCodec = (result.outputCodec ?? selectedCodec) + " + DLSS 5 experimental neural prepass"
         }
         let writerInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         writerInput.expectsMediaDataInRealTime = false
