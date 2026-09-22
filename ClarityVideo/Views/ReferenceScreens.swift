@@ -5,6 +5,8 @@ import AVKit
 import UniformTypeIdentifiers
 import UIKit
 
+// App Store release-candidate UI surface.
+
 enum ClarityNativeTheme {
     static let background = Color(red: 0.001, green: 0.008, blue: 0.021)
     static let panel = Color(red: 0.010, green: 0.030, blue: 0.070)
