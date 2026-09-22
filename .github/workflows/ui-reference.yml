@@ -3,7 +3,7 @@ name: Verify native Clarity reference UI
 on:
   workflow_dispatch:
   push:
-    branches: [neural-ios-port]
+    branches: [native-ui-verify]
     paths:
       - 'ClarityVideo/Views/**'
       - 'ClarityVideo/App/AppState.swift'
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: clarity-native-reference-ui-v2
+  group: clarity-native-reference-ui-isolated
   cancel-in-progress: true
 
 jobs:
