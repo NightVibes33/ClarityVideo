@@ -65,7 +65,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
     var denoise = 0.2
     var detailRecovery = 0.5
     var sharpening = 0.15
-    var bitrateMbps = 55
+    var bitrateMbps = 40
     var codec: OutputCodec = .hevc
     var hdrBehavior: HDRBehavior = .preserve
     var preserveFrameRate = true
@@ -86,7 +86,7 @@ struct ExportConfiguration: Codable, Equatable, Sendable {
         denoise = try values.decodeIfPresent(Double.self, forKey: .denoise) ?? 0.2
         detailRecovery = try values.decodeIfPresent(Double.self, forKey: .detailRecovery) ?? 0.5
         sharpening = try values.decodeIfPresent(Double.self, forKey: .sharpening) ?? 0.15
-        bitrateMbps = try values.decodeIfPresent(Int.self, forKey: .bitrateMbps) ?? 55
+        bitrateMbps = try values.decodeIfPresent(Int.self, forKey: .bitrateMbps) ?? 40
         codec = try values.decodeIfPresent(OutputCodec.self, forKey: .codec) ?? .hevc
         hdrBehavior = try values.decodeIfPresent(HDRBehavior.self, forKey: .hdrBehavior) ?? .preserve
         preserveFrameRate = try values.decodeIfPresent(Bool.self, forKey: .preserveFrameRate) ?? true
