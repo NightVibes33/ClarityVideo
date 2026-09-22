@@ -77,10 +77,36 @@ jobs:
           xcrun simctl privacy "$DEVICE" grant photos com.nightvibes33.clarityvideo || true
 
           for route in home import enhance export; do
-            SIMCTL_CHILD_CLARITY_UI_ROUTE="$route"               xcrun simctl launch --terminate-running-process "$DEVICE" com.nightvibes33.clarityvideo >/dev/null
-            sleep 2
-            xcrun simctl io "$DEVICE" screenshot "artifacts/ui-reference/$route.png"
+            echo "Capturing $route"
+            ROUTE="$route" DEVICE="$DEVICE" python3 - <<'PY'
+          import os, subprocess, sys, time
+          route = os.environ["ROUTE"]
+          device = os.environ["DEVICE"]
+          env = os.environ.copy()
+          env["SIMCTL_CHILD_CLARITY_UI_ROUTE"] = route
+
+          try:
+              subprocess.run(
+                  ["xcrun", "simctl", "launch", "--terminate-running-process", device, "com.nightvibes33.clarityvideo"],
+                  env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=20
+              )
+          except subprocess.TimeoutExpired:
+              print(f"launch timed out for {route}", file=sys.stderr)
+              subprocess.run(["xcrun", "simctl", "terminate", device, "com.nightvibes33.clarityvideo"], check=False)
+              raise
+
+          time.sleep(2)
+          subprocess.run(
+              ["xcrun", "simctl", "io", device, "screenshot", f"artifacts/ui-reference/{route}.png"],
+              check=True, timeout=20
+          )
+          print(f"captured {route}")
+          PY
           done
+          test -s artifacts/ui-reference/home.png
+          test -s artifacts/ui-reference/import.png
+          test -s artifacts/ui-reference/enhance.png
+          test -s artifacts/ui-reference/export.png
 
       - uses: actions/upload-artifact@v4
         with:
