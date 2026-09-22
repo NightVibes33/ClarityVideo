@@ -407,22 +407,52 @@ struct ReferenceEditorView: View {
             }
 
             // Quality preset is independent from the selected AI upscaler.
-            ExactHotspot(rect: CGRect(x: 0.035, y: 0.690, width: 0.31, height: 0.060)) {
-                state.configuration.applyPreset(
-                    .balanced,
-                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+            GeometryReader { geometry in
+                HStack(spacing: 4) {
+                    ForEach(QualityPreset.allCases) { preset in
+                        Button {
+                            state.configuration.applyPreset(
+                                preset,
+                                temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                            )
+                        } label: {
+                            Text(preset.rawValue)
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(
+                                    state.configuration.qualityPreset == preset
+                                        ? AnyShapeStyle(
+                                            LinearGradient(
+                                                colors: [.purple, .blue, .cyan],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("(preset.rawValue) quality preset")
+                        .accessibilityAddTraits(
+                            state.configuration.qualityPreset == preset ? .isSelected : []
+                        )
+                    }
+                }
+                .padding(4)
+                .frame(
+                    width: geometry.size.width * 0.935,
+                    height: geometry.size.height * 0.060
                 )
-            }
-            ExactHotspot(rect: CGRect(x: 0.35, y: 0.690, width: 0.31, height: 0.060)) {
-                state.configuration.applyPreset(
-                    .quality,
-                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                .background(
+                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    in: RoundedRectangle(cornerRadius: 10)
                 )
-            }
-            ExactHotspot(rect: CGRect(x: 0.67, y: 0.690, width: 0.30, height: 0.060)) {
-                state.configuration.applyPreset(
-                    .ultra,
-                    temporalDenoiseAvailable: state.capabilities.temporalNoiseFilteringAvailable
+                .position(
+                    x: geometry.size.width * 0.502,
+                    y: geometry.size.height * 0.720
                 )
             }
 
@@ -652,27 +682,84 @@ struct ReferenceExportView: View {
                 state.errorMessage = "ProRes is not enabled in this processing backend yet."
             }
 
-            // Quality row.
-            ExactHotspot(rect: CGRect(x: 0.07, y: 0.455, width: 0.29, height: 0.055)) {
-                setQuality(0)
-            }
-            ExactHotspot(rect: CGRect(x: 0.36, y: 0.455, width: 0.29, height: 0.055)) {
-                setQuality(1)
-            }
-            ExactHotspot(rect: CGRect(x: 0.65, y: 0.455, width: 0.30, height: 0.055)) {
-                setQuality(2)
+            // Quality row with live selection feedback.
+            GeometryReader { geometry in
+                HStack(spacing: 4) {
+                    ForEach(Array(["Standard", "High", "Maximum"].enumerated()), id: .offset) { index, title in
+                        Button {
+                            setQuality(index)
+                        } label: {
+                            Text(title)
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(
+                                    quality == index
+                                        ? AnyShapeStyle(
+                                            LinearGradient(
+                                                colors: [.purple, .blue, .cyan],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("(title) export quality")
+                        .accessibilityAddTraits(quality == index ? .isSelected : [])
+                    }
+                }
+                .padding(4)
+                .frame(
+                    width: geometry.size.width * 0.88,
+                    height: geometry.size.height * 0.055
+                )
+                .background(
+                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    in: RoundedRectangle(cornerRadius: 9)
+                )
+                .position(
+                    x: geometry.size.width * 0.51,
+                    y: geometry.size.height * 0.4825
+                )
             }
 
-            // Toggles.
-            ExactHotspot(rect: CGRect(x: 0.83, y: 0.535, width: 0.17, height: 0.060)) {
-                state.configuration.hdrBehavior =
-                    state.configuration.hdrBehavior == .preserve ? .convertToSDR : .preserve
-            }
-            ExactHotspot(rect: CGRect(x: 0.83, y: 0.590, width: 0.17, height: 0.060)) {
-                state.saveToPhotosAfterExport.toggle()
-            }
-            ExactHotspot(rect: CGRect(x: 0.83, y: 0.645, width: 0.17, height: 0.060)) {
-                state.saveToFilesAfterExport.toggle()
+            // Live toggles over the exact reference positions.
+            GeometryReader { geometry in
+                referenceToggle(
+                    isOn: state.configuration.hdrBehavior == .preserve,
+                    label: "Preserve HDR",
+                    geometry: geometry,
+                    y: 0.565
+                ) {
+                    guard state.assetInfo?.isHDR == true else { return }
+                    if state.configuration.hdrBehavior == .preserve {
+                        state.configuration.hdrBehavior = .convertToSDR
+                    } else {
+                        state.errorMessage = "Verified HDR preservation is not available yet for this AI path. Clarity will not silently strip HDR metadata."
+                    }
+                }
+
+                referenceToggle(
+                    isOn: state.saveToPhotosAfterExport,
+                    label: "Save to Photos",
+                    geometry: geometry,
+                    y: 0.620
+                ) {
+                    state.saveToPhotosAfterExport.toggle()
+                }
+
+                referenceToggle(
+                    isOn: state.saveToFilesAfterExport,
+                    label: "Also Save to Files",
+                    geometry: geometry,
+                    y: 0.675
+                ) {
+                    state.saveToFilesAfterExport.toggle()
+                }
             }
 
             // Start Export.
@@ -686,6 +773,46 @@ struct ReferenceExportView: View {
         .onAppear {
             quality = closestQualityIndex()
         }
+    }
+
+    @ViewBuilder
+    private func referenceToggle(
+        isOn: Bool,
+        label: String,
+        geometry: GeometryProxy,
+        y: CGFloat,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Capsule()
+                .fill(
+                    isOn
+                        ? AnyShapeStyle(
+                            LinearGradient(
+                                colors: [.purple, .blue, .cyan],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        : AnyShapeStyle(Color.white.opacity(0.16))
+                )
+                .frame(
+                    width: geometry.size.width * 0.105,
+                    height: geometry.size.height * 0.027
+                )
+                .overlay(alignment: isOn ? .trailing : .leading) {
+                    Circle()
+                        .fill(.white)
+                        .padding(2)
+                }
+        }
+        .buttonStyle(.plain)
+        .position(
+            x: geometry.size.width * 0.90,
+            y: geometry.size.height * y
+        )
+        .accessibilityLabel(label)
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 
     private func setQuality(_ value: Int) {
