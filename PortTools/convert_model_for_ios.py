@@ -47,22 +47,48 @@ def main() -> None:
 
     example = torch.zeros((1, 16, args.size, args.size), dtype=torch.float32)
     network = NCHWHead(recovered.load_model(args.weights)).eval()
+
+    # TorchScript represents many fixed tensor extents as aten::Int nodes. Core
+    # ML Tools 9 then tries to scalarize a constant ndarray while translating
+    # those nodes (network/6666 in CI). torch.export keeps the same fixed input
+    # contract without emitting that TorchScript scalarization path.
     with torch.inference_mode():
-        traced = torch.jit.freeze(torch.jit.trace(network, example, strict=True))
-    casts = [node for node in traced.inlined_graph.nodes() if node.kind() == "aten::Int"]
-    print(f"Fixed-shape graph has {len(casts)} dynamic integer casts", flush=True)
-    for node in casts[:3]:
-        print(str(node.sourceRange())[:250], flush=True)
+        exported = torch.export.export(network, (example,), strict=True)
+    print("Captured fixed-shape graph with torch.export", flush=True)
+
     converted = ct.convert(
-        traced,
+        exported,
         convert_to="mlprogram",
         minimum_deployment_target=ct.target.iOS26,
         compute_precision=ct.transform.FP16ComputePrecision(
             op_selector=lambda operation: operation.op_type not in {"reduce_mean", "reduce_sum", "softmax"}
         ),
         skip_model_load=True,
-        inputs=[ct.TensorType(name="color", shape=example.shape, dtype=np.float32)],
-        outputs=[ct.TensorType(name="restored", dtype=np.float32)],
+    )
+
+    # ExportedProgram owns its I/O names, so normalize them after conversion to
+    # the stable names consumed by IOSNeuralHeadService.
+    spec = converted.get_spec()
+    if len(spec.description.input) != 1 or len(spec.description.output) != 1:
+        raise RuntimeError("Recovered neural head must expose exactly one input and one output")
+    ct.utils.rename_feature(
+        spec,
+        spec.description.input[0].name,
+        "color",
+        rename_inputs=True,
+        rename_outputs=False,
+    )
+    ct.utils.rename_feature(
+        spec,
+        spec.description.output[0].name,
+        "restored",
+        rename_inputs=False,
+        rename_outputs=True,
+    )
+    converted = ct.models.MLModel(
+        spec,
+        weights_dir=converted.weights_dir,
+        skip_model_load=True,
     )
     converted.author = "MLX-DLSS contributors; iOS conversion by ClarityVideo"
     converted.user_defined_metadata["com.mlxdlss.architecture"] = "mlxdlss.neural-rendering-transformer.v1"
