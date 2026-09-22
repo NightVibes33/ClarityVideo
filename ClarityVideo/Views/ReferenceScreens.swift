@@ -755,13 +755,13 @@ struct ReferenceEditorView: View {
         ZStack {
             ClarityNativeTheme.background.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     NativeHeader(title: "Enhance", onBack: { state.route = .importVideo })
-                    comparisonCard.frame(height: 250)
+                    comparisonCard.frame(height: 238)
                     playbackBar
 
                     NativePanel {
-                        VStack(alignment: .leading, spacing: 17) {
+                        VStack(alignment: .leading, spacing: 10) {
                             Text("Enhancement Settings")
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
 
@@ -771,8 +771,12 @@ struct ReferenceEditorView: View {
                             settingLabel("Enhancement Mode")
                             qualityControl
 
-                            settingLabel("AI Upscaler")
-                            upscalerControl
+                            HStack(spacing: 10) {
+                                settingLabel("AI Upscaler")
+                                Spacer(minLength: 8)
+                                upscalerControl
+                                    .frame(maxWidth: 230)
+                            }
 
                             NativeValueSlider(
                                 title: "Denoise",
@@ -787,7 +791,7 @@ struct ReferenceEditorView: View {
                                 value: Binding(get: { state.configuration.sharpening }, set: { state.configuration.sharpening = $0 })
                             )
                         }
-                        .padding(14)
+                        .padding(12)
                     }
 
                     Button {
@@ -903,7 +907,7 @@ struct ReferenceEditorView: View {
     }
 
     private var playbackBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button {
                 if isPlaying {
                     pausePlayers()
@@ -916,8 +920,8 @@ struct ReferenceEditorView: View {
                 }
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(width: 44, height: 44)
+                    .font(.system(size: 15, weight: .bold))
+                    .frame(width: 34, height: 34)
             }
             .accessibilityLabel(isPlaying ? "Pause preview" : "Play preview")
             Text("00:00").font(.caption.monospacedDigit()).foregroundStyle(.white.opacity(0.66))
@@ -1036,17 +1040,17 @@ private struct NativeChoiceRow: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .padding(.vertical, 7)
                         .background(
                             option == selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
-                            in: RoundedRectangle(cornerRadius: 9)
+                            in: RoundedRectangle(cornerRadius: 8)
                         )
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
-        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 11))
+        .padding(3)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -1061,6 +1065,7 @@ private struct NativeValueSlider: View {
                 .frame(width: 104, alignment: .leading)
             Slider(value: $value, in: 0...1)
                 .tint(.cyan)
+                .frame(height: 28)
                 .accessibilityLabel(title)
                 .accessibilityValue("\(Int((value * 100).rounded())) percent")
             Text("\(Int((value * 100).rounded()))")
@@ -1079,7 +1084,7 @@ struct ReferenceExportView: View {
         ZStack {
             ClarityNativeTheme.background.ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     NativeHeader(title: "Export", trailingIcon: "magnifyingglass", onBack: { state.route = .editor })
                     videoSummary
                     exportSettings
@@ -1092,7 +1097,7 @@ struct ReferenceExportView: View {
                         }
                         .font(.headline)
                         .foregroundStyle(.white)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 14)
                         .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
@@ -1106,19 +1111,19 @@ struct ReferenceExportView: View {
                         HStack(spacing: 12) {
                             RoundedRectangle(cornerRadius: 11)
                                 .fill(Color.blue.opacity(0.13))
-                                .frame(width: 44, height: 44)
-                                .overlay(Image(systemName: "camera.aperture").font(.title2).foregroundStyle(.blue))
+                                .frame(width: 40, height: 40)
+                                .overlay(Image(systemName: "camera.aperture").font(.title3).foregroundStyle(.blue))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("AI Powered. On Device.").font(.subheadline.bold())
                                 Text("Your privacy stays with you.").font(.caption).foregroundStyle(ClarityNativeTheme.muted)
                             }
                             Spacer()
                         }
-                        .padding(13)
+                        .padding(11)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 20)
+                .padding(.bottom, 16)
             }
         }
         .preferredColorScheme(.dark)
@@ -1135,8 +1140,8 @@ struct ReferenceExportView: View {
                         Rectangle().fill(.indigo.opacity(0.3))
                     }
                 }
-                .frame(width: 82, height: 74)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(width: 72, height: 66)
+                .clipShape(RoundedRectangle(cornerRadius: 11))
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(state.assetInfo?.fileName ?? "My Video")
@@ -1153,13 +1158,13 @@ struct ReferenceExportView: View {
                 }
                 Spacer()
             }
-            .padding(13)
+            .padding(11)
         }
     }
 
     private var exportSettings: some View {
         NativePanel {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("Export Settings").font(.headline)
                 Divider().overlay(Color.white.opacity(0.07))
 
@@ -1203,7 +1208,7 @@ struct ReferenceExportView: View {
                     )
                 )
             }
-            .padding(14)
+            .padding(12)
         }
     }
 
