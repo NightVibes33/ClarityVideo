@@ -146,6 +146,14 @@ jobs:
               exported=torch.export.export(network,(example,),strict=True).run_decompositions({})
           fx_nodes=list(exported.graph_module.graph.nodes)
           print('exported_fx_nodes=',len(fx_nodes),flush=True)
+          for n in fx_nodes:
+              val=n.meta.get('val')
+              shape=getattr(val,'shape',None)
+              if shape is not None and len(shape)>5:
+                  print('RANKGT5',n.name,'op=',n.op,'target=',n.target,'shape=',tuple(shape),flush=True)
+                  stack=n.meta.get('stack_trace')
+                  if stack:
+                      print('STACK',stack[-1500:],flush=True)
           kinds={}
           for n in fx_nodes:
               target=str(n.target)
