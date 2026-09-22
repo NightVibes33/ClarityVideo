@@ -30,6 +30,19 @@ final class ClarityVideoTests: XCTestCase {
         )
     }
 
+    func testBalancedPresetMatchesReferenceDefaults() {
+        var configuration = ExportConfiguration()
+        XCTAssertEqual(configuration.qualityPreset, .balanced)
+        XCTAssertEqual(configuration.denoise, 0.20, accuracy: 0.001)
+        XCTAssertEqual(configuration.detailRecovery, 0.50, accuracy: 0.001)
+        XCTAssertEqual(configuration.sharpening, 0.15, accuracy: 0.001)
+
+        configuration.applyPreset(.quality, temporalDenoiseAvailable: true)
+        XCTAssertEqual(configuration.denoise, 0.28, accuracy: 0.001)
+        XCTAssertEqual(configuration.detailRecovery, 0.60, accuracy: 0.001)
+        XCTAssertEqual(configuration.sharpening, 0.20, accuracy: 0.001)
+    }
+
     func testStorageEstimateIncludesSafetyAndTemporarySpace() {
         let info = VideoAssetInfo(fileName: "test.mov", encodedWidth: 1920, encodedHeight: 1080, displayWidth: 1920, displayHeight: 1080, frameRate: 30, codec: "hvc1", isHDR: false, duration: 60, estimatedSourceBytes: 10)
         let required = StorageEstimator.requiredBytes(info: info, configuration: ExportConfiguration())
