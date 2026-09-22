@@ -190,6 +190,62 @@ struct ClarityPillButton: View {
     }
 }
 
+struct ClaritySwitchControl: View {
+    @Binding var isOn: Bool
+    var accessibilityLabel: String
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                isOn.toggle()
+            }
+        } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(
+                        isOn
+                            ? AnyShapeStyle(ClarityNativeTheme.brand)
+                            : AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.11),
+                                        Color.white.opacity(0.055)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .frame(width: 52, height: 30)
+                    .overlay(
+                        Capsule()
+                            .stroke(
+                                isOn
+                                    ? Color.cyan.opacity(0.52)
+                                    : Color.white.opacity(0.10),
+                                lineWidth: 0.8
+                            )
+                    )
+                    .shadow(
+                        color: isOn ? Color.cyan.opacity(0.20) : .clear,
+                        radius: 6
+                    )
+
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 24, height: 24)
+                    .overlay(Circle().stroke(Color.cyan.opacity(isOn ? 0.22 : 0.08), lineWidth: 0.7))
+                    .shadow(color: .black.opacity(0.30), radius: 3, y: 1)
+                    .padding(3)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
 struct ClarityWaveDecoration: View {
     var body: some View {
         GeometryReader { proxy in
@@ -1459,7 +1515,7 @@ struct ReferenceEditorView: View {
             ClarityScreenBackdrop()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
+                VStack(spacing: 11) {
                     NativeHeader(title: "Enhance", onBack: { state.route = .importVideo })
 
                     previewShell
@@ -1467,7 +1523,7 @@ struct ReferenceEditorView: View {
                     storageStatusCard
 
                     NativePanel {
-                        VStack(alignment: .leading, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 10) {
                             settingRow(title: "Target Resolution") {
                                 resolutionControl
                             }
@@ -1551,11 +1607,11 @@ struct ReferenceEditorView: View {
     private var previewShell: some View {
         VStack(spacing: 0) {
             comparisonCanvas
-                .frame(height: 255)
+                .frame(height: 220)
 
             playbackBar
                 .padding(.horizontal, 12)
-                .frame(height: 54)
+                .frame(height: 50)
                 .background(Color.black.opacity(0.28))
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -1961,9 +2017,9 @@ private struct NativeValueSlider: View {
                         .frame(width: 16, height: 16)
                         .overlay(Circle().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
                         .shadow(color: .cyan.opacity(0.32), radius: 5)
-                        .position(x: thumbX, y: 22)
+                        .position(x: thumbX, y: 19)
                 }
-                .frame(height: 44)
+                .frame(height: 38)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
@@ -1982,14 +2038,14 @@ private struct NativeValueSlider: View {
                     }
                 }
             }
-            .frame(height: 44)
+            .frame(height: 38)
 
             Text("\(Int((value * 100).rounded()))")
                 .font(.caption.monospacedDigit())
                 .frame(width: 30, alignment: .trailing)
                 .foregroundStyle(.white.opacity(0.72))
         }
-        .frame(minHeight: 44)
+        .frame(minHeight: 40)
     }
 }
 
@@ -2256,10 +2312,16 @@ struct ReferenceExportView: View {
     }
 
     private func nativeToggle(_ title: String, isOn: Binding<Bool>) -> some View {
-        Toggle(title, isOn: isOn)
-            .font(.system(size: 12.5, weight: .medium, design: .rounded))
-            .tint(.cyan)
-            .padding(.vertical, 2)
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            ClaritySwitchControl(isOn: isOn, accessibilityLabel: title)
+        }
+        .padding(.vertical, 2)
     }
 
     private func setQuality(_ index: Int) {
