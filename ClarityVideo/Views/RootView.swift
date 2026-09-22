@@ -113,78 +113,69 @@ private struct ClarityNoticeOverlay: View {
     let dismiss: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.72)
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.34)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
-                .onTapGesture { }
+                .onTapGesture(perform: dismiss)
 
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.blue.opacity(0.42), Color.purple.opacity(0.26)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 46, height: 46)
+            HStack(alignment: .top, spacing: 13) {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: noticeColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 48, height: 48)
+                    .overlay(
                         Image(systemName: noticeIcon)
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(.cyan)
-                    }
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title)
-                            .font(.system(size: 20.5, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
-                        Text("ClarityVideo")
-                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                            .tracking(1.2)
-                            .foregroundStyle(.white.opacity(0.42))
-                    }
-                    Spacer()
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                    )
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title)
+                        .font(.system(size: 16.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text(message)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.66))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(message)
-                    .font(.system(size: 13.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .lineSpacing(4)
-                    .padding(.top, 16)
+                Spacer(minLength: 6)
 
                 Button(action: dismiss) {
-                    Text("Got it")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.055), in: Circle())
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 18)
+                .accessibilityLabel("Dismiss")
             }
-            .padding(20)
-            .frame(maxWidth: 350)
+            .padding(15)
             .background(
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(ClarityNativeTheme.surface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 26, style: .continuous)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.cyan.opacity(0.56), Color.blue.opacity(0.30), Color.purple.opacity(0.24)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(ClarityNativeTheme.border, lineWidth: 0.9)
                     )
-                    .shadow(color: Color.blue.opacity(0.20), radius: 30)
-                    .shadow(color: .black.opacity(0.65), radius: 34, y: 18)
+                    .shadow(color: Color.blue.opacity(0.20), radius: 22, y: 10)
+                    .shadow(color: .black.opacity(0.55), radius: 28, y: 14)
             )
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .accessibilityElement(children: .contain)
     }
@@ -194,6 +185,13 @@ private struct ClarityNoticeOverlay: View {
         if message.localizedCaseInsensitiveContains("HDR") { return "sun.max.trianglebadge.exclamationmark.fill" }
         if message.localizedCaseInsensitiveContains("encoder") { return "video.badge.exclamationmark" }
         return "exclamationmark.triangle.fill"
+    }
+
+    private var noticeColors: [Color] {
+        if message.localizedCaseInsensitiveContains("storage") {
+            return [Color.orange.opacity(0.85), Color.red.opacity(0.52)]
+        }
+        return [Color.blue.opacity(0.80), Color.purple.opacity(0.58)]
     }
 }
 
