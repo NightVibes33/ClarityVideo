@@ -5,7 +5,7 @@
  objectVersion = 77;
  objects = {
   A1 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = { A2 = { CreatedOnToolsVersion = 26.0; }; A3 = { CreatedOnToolsVersion = 26.0; TestTargetID = A2; }; }; }; buildConfigurationList = C0; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = G0; minimizedProjectReferenceProxies = 1; preferredProjectObjectVersion = 77; productRefGroup = GP; projectDirPath = ""; projectRoot = ""; targets = (A2, A3); };
-  A2 = { isa = PBXNativeTarget; buildConfigurationList = C1; buildPhases = (I1, S1, F1, R1); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (G1); name = ClarityVideo; packageProductDependencies = (); productName = ClarityVideo; productReference = P1; productType = "com.apple.product-type.application"; };
+  A2 = { isa = PBXNativeTarget; buildConfigurationList = C1; buildPhases = (S1, F1, R1); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (G1); name = ClarityVideo; packageProductDependencies = (); productName = ClarityVideo; productReference = P1; productType = "com.apple.product-type.application"; };
   A3 = { isa = PBXNativeTarget; buildConfigurationList = C2; buildPhases = (S2, F2, R2); buildRules = (); dependencies = (D1); fileSystemSynchronizedGroups = (G2); name = ClarityVideoTests; packageProductDependencies = (); productName = ClarityVideoTests; productReference = P2; productType = "com.apple.product-type.bundle.unit-test"; };
   E1 = { isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Resources/Info.plist); target = A2; };
   G0 = { isa = PBXGroup; children = (G1, G2, GP); sourceTree = "<group>"; };
@@ -16,7 +16,6 @@
   P2 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClarityVideoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
   S1 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
   F1 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-  I1 = { isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; files = (); inputFileListPaths = (); inputPaths = (); name = "Generate ClarityVideo App Icon"; outputFileListPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "/bin/sh \"$SRCROOT/Scripts/GenerateAppIcon.sh\""; };
   R1 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
   S2 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
   F2 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
