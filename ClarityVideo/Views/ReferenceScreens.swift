@@ -363,12 +363,47 @@ struct ReferenceEditorView: View {
                 isPlaying.toggle()
             }
 
-            // Target resolution.
-            ExactHotspot(rect: CGRect(x: 0.39, y: 0.585, width: 0.27, height: 0.060)) {
-                state.configuration.resolution = .uhd4K
-            }
-            ExactHotspot(rect: CGRect(x: 0.67, y: 0.585, width: 0.30, height: 0.060)) {
-                state.configuration.resolution = .uhd8K
+            // Target resolution is an explicit choice independent of engine/preset.
+            GeometryReader { geometry in
+                HStack(spacing: 4) {
+                    ForEach([OutputResolution.uhd4K, .uhd8K]) { resolution in
+                        Button {
+                            state.configuration.resolution = resolution
+                        } label: {
+                            Text(resolution == .uhd4K ? "4K" : "8K")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 7)
+                                .background(
+                                    state.configuration.resolution == resolution
+                                        ? AnyShapeStyle(
+                                            LinearGradient(
+                                                colors: [.purple, .blue, .cyan],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        : AnyShapeStyle(Color.white.opacity(0.06)),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(4)
+                .frame(
+                    width: geometry.size.width * 0.935,
+                    height: geometry.size.height * 0.060
+                )
+                .background(
+                    Color(red: 0.018, green: 0.035, blue: 0.062).opacity(0.98),
+                    in: RoundedRectangle(cornerRadius: 10)
+                )
+                .position(
+                    x: geometry.size.width * 0.502,
+                    y: geometry.size.height * 0.615
+                )
             }
 
             // Quality preset is independent from the selected AI upscaler.
