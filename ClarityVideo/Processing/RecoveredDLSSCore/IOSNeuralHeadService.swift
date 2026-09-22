@@ -118,7 +118,7 @@ final class IOSNeuralHeadService {
                     }
                 }
                 let provider = try MLDictionaryFeatureProvider(dictionary: ["color": MLFeatureValue(multiArray: input)])
-                let predicted = try await model.prediction(from: provider)
+                let predicted = try model.prediction(from: provider, options: MLPredictionOptions())
                 guard let head = predicted.featureValue(for: "restored")?.multiArrayValue,
                       head.dataType == .float32 else { throw Failure.incompatibleModel }
                 let headValues = head.dataPointer.assumingMemoryBound(to: Float.self)
