@@ -3,7 +3,7 @@ name: Verify native Clarity reference UI
 on:
   workflow_dispatch:
   push:
-    branches: [neural-ios-port]
+    branches: [native-ui-final-verify]
     paths:
       - 'ClarityVideo/Views/**'
       - 'ClarityVideo/App/AppState.swift'
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: clarity-native-reference-ui-v2
+  group: clarity-native-final-verify-v1
   cancel-in-progress: true
 
 jobs:
@@ -56,10 +56,19 @@ jobs:
           test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
           test "$(sips -g pixelHeight ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelHeight/ {print $2}')" = "1024"
 
+      - name: Build iPhone source
+        run: |
+          set -euo pipefail
+          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
+
       - name: Build simulator app
         run: |
           set -euo pipefail
-          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo             -sdk iphonesimulator -configuration Release             -derivedDataPath "$RUNNER_TEMP/UIReference"             CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project ClarityVideo.xcodeproj -scheme ClarityVideo \
+            -sdk iphonesimulator -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/UIReference" \
+            CODE_SIGNING_ALLOWED=NO build
 
       - name: Capture all reference screens
         run: |
