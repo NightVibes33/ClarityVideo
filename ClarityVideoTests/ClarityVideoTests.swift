@@ -298,6 +298,15 @@ extension ClarityVideoTests {
         )
         XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
     }
+
+    func testCheckpointRejectsVersionThreeAfterFailClosedRoutingChange() {
+        let configuration = ExportConfiguration()
+        let checkpoint = ProcessingCheckpoint(
+            jobID: UUID(), sourceFingerprint: "source", configuration: configuration,
+            expectedSegmentCount: 1, pipelineVersion: 3
+        )
+        XCTAssertFalse(checkpoint.isCompatible(sourceFingerprint: "source", configuration: configuration, segmentCount: 1))
+    }
 }
 
 
