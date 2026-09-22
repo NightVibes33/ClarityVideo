@@ -1638,157 +1638,257 @@ struct ReferenceExportView: View {
 
     var body: some View {
         ZStack {
-            ClarityNativeTheme.background.ignoresSafeArea()
+            ClarityScreenBackdrop()
+
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 10) {
+                VStack(spacing: 14) {
                     NativeHeader(title: "Export", onBack: { state.route = .editor })
+
                     videoSummary
+                    storageStatus
                     exportSettings
 
                     Button { state.beginExport() } label: {
-                        HStack {
-                            Spacer()
+                        HStack(spacing: 10) {
                             Text("Start Export")
-                            Spacer()
+                            Image(systemName: "arrow.right")
                         }
-                        .font(.headline)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .padding(.vertical, 14)
-                        .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            ClarityNativeTheme.brand,
+                            in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        )
+                        .shadow(color: Color.blue.opacity(0.28), radius: 15, y: 7)
                     }
                     .buttonStyle(.plain)
 
-                    Text("Keep Clarity open for fastest processing.\nLong exports keep checkpoints if iOS pauses them.")
-                        .font(.system(size: 10, weight: .medium))
+                    Text("Keep Clarity open for fastest processing. Long exports keep checkpoints if iOS pauses them.")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white.opacity(0.45))
+                        .padding(.horizontal, 18)
 
                     NativePanel {
-                        HStack(spacing: 12) {
-                            RoundedRectangle(cornerRadius: 11)
-                                .fill(Color.blue.opacity(0.13))
-                                .frame(width: 40, height: 40)
-                                .overlay(Image(systemName: "camera.aperture").font(.title3).foregroundStyle(.blue))
+                        HStack(spacing: 13) {
+                            ClarityIconTile(icon: "lock.shield.fill", size: 44, iconSize: 18)
+
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("AI Powered. On Device.").font(.subheadline.bold())
-                                Text("Your privacy stays with you.").font(.caption).foregroundStyle(ClarityNativeTheme.muted)
+                                Text("AI Powered. On Device.")
+                                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                                Text("Your original and enhanced video stay local unless you share them.")
+                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                    .foregroundStyle(ClarityNativeTheme.muted)
                             }
-                            Spacer()
+
+                            Spacer(minLength: 0)
                         }
-                        .padding(11)
+                        .padding(13)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 18)
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { qualityIndex = closestQualityIndex() }
+        .onAppear {
+            state.configuration.clampBitrateToSupportedRange()
+            qualityIndex = closestQualityIndex()
+        }
     }
 
     private var videoSummary: some View {
         NativePanel {
-            HStack(spacing: 12) {
+            HStack(spacing: 13) {
                 Group {
                     if let mountain = ClarityArt.mountain {
-                        Image(uiImage: mountain).resizable().scaledToFill()
+                        Image(uiImage: mountain)
+                            .resizable()
+                            .scaledToFill()
                     } else {
                         Rectangle().fill(.indigo.opacity(0.3))
                     }
                 }
-                .frame(width: 72, height: 66)
-                .clipShape(RoundedRectangle(cornerRadius: 11))
+                .frame(width: 78, height: 70)
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 0.8)
+                )
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(state.assetInfo?.fileName ?? "My Video")
-                        .font(.subheadline.bold()).lineLimit(1)
-                    Text("\(state.assetInfo?.durationText ?? "00:00") · \(state.configuration.resolution == .uhd8K ? "8K" : "4K") · \(state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")")
-                        .font(.caption).foregroundStyle(.white.opacity(0.62))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+
+                    Text(
+                        (state.assetInfo?.durationText ?? "00:00")
+                        + " · "
+                        + (state.configuration.resolution == .uhd8K ? "8K" : "4K")
+                        + " · "
+                        + (state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR")
+                    )
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.60))
+
                     if let info = state.assetInfo {
-                        let outputBytes = StorageEstimator.estimatedOutputBytes(info: info, configuration: state.configuration)
-                        let requiredBytes = StorageEstimator.requiredBytes(info: info, configuration: state.configuration)
-                        Text("~ " + ByteCountFormatter.string(fromByteCount: outputBytes, countStyle: .file) + " final video")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.58))
-                        Text("~ " + ByteCountFormatter.string(fromByteCount: requiredBytes, countStyle: .file) + " free while exporting")
-                            .font(.system(size: 10.5, weight: .medium))
-                            .foregroundStyle(Color.cyan.opacity(0.72))
+                        Text(
+                            "~ "
+                            + ByteCountFormatter.string(
+                                fromByteCount: StorageEstimator.estimatedOutputBytes(
+                                    info: info,
+                                    configuration: state.configuration
+                                ),
+                                countStyle: .file
+                            )
+                            + " final video"
+                        )
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.cyan.opacity(0.76))
                     }
                 }
-                Spacer()
+
+                Spacer(minLength: 0)
             }
-            .padding(11)
+            .padding(13)
         }
+    }
+
+    private var storageStatus: some View {
+        let required = state.assetInfo.map {
+            StorageEstimator.requiredBytes(info: $0, configuration: state.configuration)
+        } ?? 0
+        let available = try? StorageEstimator.availableBytes()
+        let enough = available.map { $0 >= required } ?? true
+
+        return HStack(spacing: 12) {
+            Circle()
+                .fill(enough ? Color.green.opacity(0.78) : Color.orange.opacity(0.82))
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Image(systemName: enough ? "checkmark" : "exclamationmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Temporary export storage")
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.62))
+
+                Text(storageText(required: required, available: available))
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer()
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (enough ? Color.green : Color.orange).opacity(0.16),
+                            Color(red: 0.01, green: 0.05, blue: 0.09).opacity(0.98)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke((enough ? Color.green : Color.orange).opacity(0.48), lineWidth: 0.8)
+                )
+        )
     }
 
     private var exportSettings: some View {
         NativePanel {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Export Settings").font(.headline)
+            VStack(alignment: .leading, spacing: 13) {
+                Text("Export Settings")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+
                 Divider().overlay(Color.white.opacity(0.07))
 
                 settingLabel("Format")
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     exportChoice("HEVC (H.265)", selected: state.configuration.codec == .hevc) {
                         state.configuration.codec = .hevc
                     }
+
                     exportChoice(
                         "H.264",
                         selected: state.configuration.codec == .h264,
-                        enabled: state.configuration.resolution == .uhd4K && !(state.assetInfo?.isHDR ?? false)
+                        enabled: state.configuration.resolution == .uhd4K
+                            && !(state.assetInfo?.isHDR ?? false)
                     ) {
                         state.configuration.codec = .h264
                     }
                 }
 
                 settingLabel("Quality")
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     ForEach(0..<3, id: \.self) { index in
                         let labels = ["Standard", "High", "Maximum"]
-                        exportChoice(labels[index], selected: index == qualityIndex) { setQuality(index) }
+                        exportChoice(labels[index], selected: index == qualityIndex) {
+                            setQuality(index)
+                        }
                     }
                 }
 
                 nativeToggle(
-                    "Preserve HDR (when available)",
+                    "Preserve HDR when available",
                     isOn: Binding(
                         get: { state.configuration.hdrBehavior == .preserve },
-                        set: { state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR }
+                        set: {
+                            state.configuration.hdrBehavior = $0 ? .preserve : .convertToSDR
+                        }
                     )
                 )
+
                 nativeToggle(
-                    "Save to Photos",
-                    isOn: Binding(
-                        get: { state.saveToPhotosAfterExport },
-                        set: { state.saveToPhotosAfterExport = $0 }
-                    )
-                )
-                nativeToggle(
-                    "Also Save to Files",
-                    isOn: Binding(
-                        get: { state.saveToFilesAfterExport },
-                        set: { state.saveToFilesAfterExport = $0 }
-                    )
+                    "Save to Photos when finished",
+                    isOn: Bindable(state).saveToPhotosAfterExport
                 )
             }
-            .padding(12)
+            .padding(15)
         }
     }
 
     private func settingLabel(_ text: String) -> some View {
-        Text(text).font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.74))
+        Text(text)
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.72))
     }
 
-    private func exportChoice(_ title: String, selected: Bool, enabled: Bool = true, action: @escaping () -> Void) -> some View {
+    private func exportChoice(
+        _ title: String,
+        selected: Bool,
+        enabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11.5, weight: .bold, design: .rounded))
                 .foregroundStyle(enabled ? .white : .white.opacity(0.42))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
+                .padding(.vertical, 10)
                 .background(
-                    selected ? AnyShapeStyle(ClarityNativeTheme.brand) : AnyShapeStyle(Color.white.opacity(0.055)),
-                    in: RoundedRectangle(cornerRadius: 9)
+                    selected
+                        ? AnyShapeStyle(ClarityNativeTheme.brand)
+                        : AnyShapeStyle(Color.white.opacity(0.055)),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(
+                            selected ? Color.cyan.opacity(0.42) : Color.white.opacity(0.04),
+                            lineWidth: 0.7
+                        )
                 )
         }
         .buttonStyle(.plain)
@@ -1797,21 +1897,32 @@ struct ReferenceExportView: View {
 
     private func nativeToggle(_ title: String, isOn: Binding<Bool>) -> some View {
         Toggle(title, isOn: isOn)
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 12.5, weight: .medium, design: .rounded))
             .tint(.cyan)
+            .padding(.vertical, 2)
     }
 
     private func setQuality(_ index: Int) {
         qualityIndex = index
         let values = state.configuration.exportBitrateOptionsMbps
+        guard values.indices.contains(index) else { return }
         state.configuration.bitrateMbps = values[index]
     }
 
     private func closestQualityIndex() -> Int {
         let values = state.configuration.exportBitrateOptionsMbps
         return values.enumerated().min {
-            abs($0.element - state.configuration.bitrateMbps) < abs($1.element - state.configuration.bitrateMbps)
+            abs($0.element - state.configuration.bitrateMbps)
+                < abs($1.element - state.configuration.bitrateMbps)
         }?.offset ?? 1
+    }
+
+    private func storageText(required: Int64, available: Int64?) -> String {
+        let requiredText = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
+        guard let available else { return requiredText + " estimated" }
+        return requiredText
+            + " • Available "
+            + ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
     }
 }
 
