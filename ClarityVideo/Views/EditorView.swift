@@ -563,7 +563,9 @@ struct ResultsView: View {
                     if let job = state.activeJob, let url = job.outputURL {
                         completionHero(job, url: url)
 
-                        if FileManager.default.fileExists(atPath: job.sourceURL.path) {
+                        if isSnapshotMode {
+                            snapshotOutputPreview
+                        } else if FileManager.default.fileExists(atPath: job.sourceURL.path) {
                             ComparisonPlaybackView(beforeURL: job.sourceURL, afterURL: url)
                         } else {
                             outputPreview(url)
@@ -623,6 +625,52 @@ struct ResultsView: View {
                 }
             }
         }
+    }
+
+    private var isSnapshotMode: Bool {
+#if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1"
+#else
+        false
+#endif
+    }
+
+    private var snapshotOutputPreview: some View {
+        ZStack(alignment: .bottomLeading) {
+            if let image = UIImage(named: "MountainReference") {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.58), Color.black],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+
+            LinearGradient(
+                colors: [.clear, Color.black.opacity(0.74)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.cyan)
+                Text("Enhanced preview")
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+            .padding(12)
+        }
+        .frame(height: 220)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(ClarityNativeTheme.border, lineWidth: 0.8)
+        )
     }
 
     private func completionHero(_ job: ProcessingJob, url: URL) -> some View {
