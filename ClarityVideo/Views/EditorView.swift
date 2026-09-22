@@ -193,15 +193,22 @@ struct EditorView: View {
         @Bindable var state = state
         return DisclosureGroup {
             VStack(spacing: 14) {
-                Picker("Color", selection: $state.configuration.hdrBehavior) {
-                    ForEach(HDRBehavior.allCases) { Text($0.rawValue).tag($0) }
+                if state.assetInfo?.isHDR == true {
+                    Text("HDR is converted to SDR for supported 4K exports.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.65))
                 }
                 Picker("Format", selection: $state.configuration.codec) {
                     ForEach(OutputCodec.allCases.filter { codec in
                         codec == .hevc || (state.configuration.resolution == .uhd4K && state.assetInfo?.isHDR == false)
                     }) { Text($0.rawValue).tag($0) }
                 }
-                Stepper("Bitrate  ·  \(state.configuration.bitrateMbps) Mbps", value: $state.configuration.bitrateMbps, in: 20...300, step: 5)
+                Stepper(
+                    "Bitrate  ·  \(state.configuration.bitrateMbps) Mbps",
+                    value: $state.configuration.bitrateMbps,
+                    in: (state.configuration.exportBitrateOptionsMbps.first ?? 24)...(state.configuration.exportBitrateOptionsMbps.last ?? 85),
+                    step: 5
+                )
                 if let info = state.assetInfo {
                     HStack {
                         Text("Estimated output").foregroundStyle(.white.opacity(0.60))
