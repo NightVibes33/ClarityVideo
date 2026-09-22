@@ -103,8 +103,30 @@ final class AppState {
 
     func refreshCapabilities() async {
         capabilities = await capabilityDetector.detect()
-        if !capabilities.temporalNoiseFilteringAvailable { configuration.denoise = 0 }
-        CapabilitySnapshotStore.save(capabilities: capabilities, lastSuccessfulSelfTest: lastSuccessfulSelfTest)
+
+        if !capabilities.temporalNoiseFilteringAvailable {
+            configuration.denoise = 0
+        }
+
+        if !capabilities.supports8KHEVCEncode,
+           configuration.resolution == .uhd8K {
+            configuration.resolution = .uhd4K
+            configuration.clampBitrateToSupportedRange()
+        }
+
+        if configuration.resolution == .uhd8K {
+            configuration.codec = .hevc
+        }
+
+        if IOSNeuralHeadService.bundledModelURL() == nil,
+           configuration.upscaler == .dlss5 {
+            configuration.upscaler = .appleSR
+        }
+
+        CapabilitySnapshotStore.save(
+            capabilities: capabilities,
+            lastSuccessfulSelfTest: lastSuccessfulSelfTest
+        )
     }
     func importVideo(from url: URL, sourceLabel: String = "video") async {
         errorMessage = nil
