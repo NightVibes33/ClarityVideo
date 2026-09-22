@@ -401,12 +401,12 @@ struct ReferenceImportVideoView: View {
     private var filteredAssets: [PHAsset] {
         switch filter {
         case .favorites:
-            assets.filter(\.isFavorite)
+            return assets.filter(\.isFavorite)
         case .recents:
             let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? .distantPast
-            assets.filter { ($0.creationDate ?? .distantPast) >= cutoff }
+            return assets.filter { ($0.creationDate ?? .distantPast) >= cutoff }
         case .all, .videos:
-            assets
+            return assets
         }
     }
 
