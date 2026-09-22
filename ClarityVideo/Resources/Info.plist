@@ -4,6 +4,7 @@
 <key>NSPhotoLibraryUsageDescription</key><string>Select videos to enhance privately on this device.</string>
 <key>NSPhotoLibraryAddUsageDescription</key><string>Save enhanced videos to your photo library.</string>
 <key>NSCameraUsageDescription</key><string>Record a video to enhance directly in ClarityVideo.</string>
+<key>NSMicrophoneUsageDescription</key><string>Record audio with videos captured in ClarityVideo.</string>
 <key>UILaunchScreen</key><dict/>
 <key>ClaritySourceRevision</key><string>$(CLARITY_SOURCE_REVISION)</string>
 </dict></plist>
