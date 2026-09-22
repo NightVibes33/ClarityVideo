@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: neural-ios-port-${{ github.workflow }}
+  group: neural-ios-port-v2-${{ github.workflow }}
   cancel-in-progress: true
 jobs:
   convert:
@@ -41,32 +41,34 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          PREVIOUS="$(gh run list --workflow ios-neural-model.yml --branch neural-ios-port --status success --limit 1 --json databaseId,headSha --jq '.[0] | "\(.databaseId) \(.headSha)"' || true)"
-          if [ -z "$PREVIOUS" ]; then
-            echo "reused=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          read -r PREVIOUS_RUN PREVIOUS_SHA <<< "$PREVIOUS"
-          git fetch --no-tags --depth=1 origin "$PREVIOUS_SHA"
-          if ! git diff --quiet "$PREVIOUS_SHA" HEAD -- PortTools/convert_model_for_ios.py PortTools/mlxdlss; then
-            echo "reused=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          rm -rf "$RUNNER_TEMP/prior-neural-model"
-          mkdir -p "$RUNNER_TEMP/prior-neural-model"
-          if ! gh run download "$PREVIOUS_RUN" --name dlss-neural-head-ios26 --dir "$RUNNER_TEMP/prior-neural-model"; then
-            echo "reused=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          PACKAGE="$(find "$RUNNER_TEMP/prior-neural-model" -type d -name 'DLSSNeuralHead128.mlpackage' -print -quit)"
-          if [ -z "$PACKAGE" ] || [ ! -s "$PACKAGE/Manifest.json" ]; then
-            echo "reused=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          rm -rf artifacts/DLSSNeuralHead128.mlpackage
-          cp -R "$PACKAGE" artifacts/DLSSNeuralHead128.mlpackage
-          echo "reused=true" >> "$GITHUB_OUTPUT"
-          echo "Reused Core ML package from compatible run $PREVIOUS_RUN ($PREVIOUS_SHA)"
+          for attempt in $(seq 1 90); do
+            while read -r PREVIOUS_RUN PREVIOUS_SHA; do
+              [ -n "$PREVIOUS_RUN" ] || continue
+              git fetch --no-tags --depth=1 origin "$PREVIOUS_SHA" >/dev/null 2>&1 || continue
+              if ! git diff --quiet "$PREVIOUS_SHA" HEAD -- PortTools/convert_model_for_ios.py PortTools/mlxdlss; then
+                continue
+              fi
+              rm -rf "$RUNNER_TEMP/prior-neural-model"
+              mkdir -p "$RUNNER_TEMP/prior-neural-model"
+              if ! gh run download "$PREVIOUS_RUN" --name dlss-neural-head-ios26 --dir "$RUNNER_TEMP/prior-neural-model"; then
+                continue
+              fi
+              PACKAGE="$(find "$RUNNER_TEMP/prior-neural-model" -type d -name 'DLSSNeuralHead128.mlpackage' -print -quit)"
+              if [ -n "$PACKAGE" ] && [ -s "$PACKAGE/Manifest.json" ]; then
+                rm -rf artifacts/DLSSNeuralHead128.mlpackage
+                cp -R "$PACKAGE" artifacts/DLSSNeuralHead128.mlpackage
+                echo "reused=true" >> "$GITHUB_OUTPUT"
+                echo "Reused Core ML package from compatible run $PREVIOUS_RUN ($PREVIOUS_SHA)"
+                exit 0
+              fi
+            done < <(
+              gh run list --workflow ios-neural-model.yml --branch neural-ios-port --status success --limit 10 \
+                --json databaseId,headSha --jq '.[] | "\(.databaseId) \(.headSha)"' || true
+            )
+            echo "No compatible completed model artifact yet (attempt $attempt/90)."
+            sleep 30
+          done
+          echo "reused=false" >> "$GITHUB_OUTPUT"
       - name: Install model conversion dependencies
         if: steps.neural-model-cache.outputs.cache-hit != 'true' && steps.prior-neural-model.outputs.reused != 'true'
         run: |
