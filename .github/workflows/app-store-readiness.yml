@@ -38,6 +38,7 @@ jobs:
           plutil -lint ClarityVideo/Resources/PrivacyInfo.xcprivacy
           test "$(sips -g pixelWidth ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelWidth/ {print $2}')" = "1024"
           test "$(sips -g pixelHeight ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/pixelHeight/ {print $2}')" = "1024"
+          test "$(sips -g hasAlpha ClarityVideo/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png | awk '/hasAlpha/ {print $2}')" = "no"
           grep -q 'NSPrivacyAccessedAPICategoryDiskSpace' ClarityVideo/Resources/PrivacyInfo.xcprivacy
           grep -q 'NSPrivacyAccessedAPICategoryFileTimestamp' ClarityVideo/Resources/PrivacyInfo.xcprivacy
           grep -q 'NSPrivacyAccessedAPICategoryUserDefaults' ClarityVideo/Resources/PrivacyInfo.xcprivacy
@@ -45,6 +46,17 @@ jobs:
           grep -q 'NSPhotoLibraryAddUsageDescription' ClarityVideo/Resources/Info.plist
           grep -q 'NSCameraUsageDescription' ClarityVideo/Resources/Info.plist
           grep -q 'NSMicrophoneUsageDescription' ClarityVideo/Resources/Info.plist
+
+      - name: Verify on-device privacy claims
+        run: |
+          set -euo pipefail
+          if grep -R --include='*.swift' -E 'URLSession|NWConnection|Firebase|Sentry|Amplitude|Mixpanel' ClarityVideo; then
+            echo "Unexpected networking or analytics API found in app sources."
+            exit 1
+          fi
+          grep -q '<key>NSPrivacyTracking</key>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q '<false/>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
+          grep -q '<key>NSPrivacyCollectedDataTypes</key>' ClarityVideo/Resources/PrivacyInfo.xcprivacy
 
       - name: Build unsigned Release app for device
         run: |
