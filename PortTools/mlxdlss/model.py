@@ -163,7 +163,7 @@ def vendor_approximate_softmax(value: torch.Tensor) -> torch.Tensor:
         raise ValueError("vendor softmax expects a non-empty row")
     if value.shape[-1] % 2:
         raise ValueError("vendor softmax expects an even token count")
-    if torch.jit.is_tracing():
+    if torch.jit.is_tracing() or torch.compiler.is_compiling():
         return e4m3_round_trip(value.softmax(dim=-1))
     affine = (value.to(torch.float16).to(torch.float32) * 0.044921875 + 1.30078125).to(
         torch.float16
