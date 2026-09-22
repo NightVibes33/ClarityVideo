@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: clarity-app-store-readiness
+  group: clarity-app-store-readiness-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
