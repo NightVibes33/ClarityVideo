@@ -327,6 +327,15 @@ struct ReferenceImportVideoView: View {
     @State private var showingFiles = false
     @State private var showingCamera = false
     @State private var authorizationDenied = false
+    @State private var snapshotSelection = 4
+
+    private var isSnapshotMode: Bool {
+#if targetEnvironment(simulator)
+        ProcessInfo.processInfo.environment["CLARITY_UI_SNAPSHOT"] == "1"
+#else
+        false
+#endif
+    }
 
     private let grid = [
         GridItem(.flexible(), spacing: 6),
@@ -344,7 +353,9 @@ struct ReferenceImportVideoView: View {
                 sourceSelector.padding(.horizontal, 16)
                 filterSelector.padding(.horizontal, 16)
 
-                if authorizationDenied {
+                if isSnapshotMode {
+                    snapshotGrid
+                } else if authorizationDenied {
                     Spacer()
                     ContentUnavailableView(
                         "Photos Access Needed",
@@ -370,7 +381,10 @@ struct ReferenceImportVideoView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { selectionFooter }
         .preferredColorScheme(.dark)
-        .task { await loadPhotoAssets() }
+        .task {
+            guard !isSnapshotMode else { return }
+            await loadPhotoAssets()
+        }
         .onChange(of: source) { _, newValue in
             if newValue == .files { showingFiles = true }
             if newValue == .camera { showingCamera = true }
@@ -458,9 +472,42 @@ struct ReferenceImportVideoView: View {
         }
     }
 
+    private var snapshotGrid: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVGrid(columns: grid, spacing: 6) {
+                ForEach(Array(NativeSnapshotVideo.samples.enumerated()), id: \.offset) { index, item in
+                    Button { snapshotSelection = index } label: {
+                        NativeSnapshotVideoThumbnail(item: item, selected: snapshotSelection == index)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+    }
+
     private var selectionFooter: some View {
         VStack(spacing: 10) {
-            if let selectedAsset {
+            if isSnapshotMode {
+                let item = NativeSnapshotVideo.samples[snapshotSelection]
+                NativePanel {
+                    HStack(spacing: 11) {
+                        NativeSnapshotVideoThumbnail(item: item, selected: false)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("1 Video Selected").font(.subheadline.bold())
+                            Text("\(item.duration) · 1080p · 412 MB")
+                                .font(.caption)
+                                .foregroundStyle(ClarityNativeTheme.muted)
+                        }
+                        Spacer()
+                    }
+                    .padding(11)
+                }
+                .padding(.horizontal, 16)
+            } else if let selectedAsset {
                 NativePanel {
                     HStack(spacing: 11) {
                         NativeVideoThumbnail(asset: selectedAsset, selected: false)
@@ -479,6 +526,7 @@ struct ReferenceImportVideoView: View {
             }
 
             Button {
+                if isSnapshotMode { return }
                 guard let selectedAsset else { return }
                 Task {
                     do {
@@ -499,10 +547,10 @@ struct ReferenceImportVideoView: View {
                 .foregroundStyle(.white)
                 .padding(.vertical, 15)
                 .background(ClarityNativeTheme.brand, in: RoundedRectangle(cornerRadius: 14))
-                .opacity(selectedAsset == nil ? 0.45 : 1)
+                .opacity((isSnapshotMode || selectedAsset != nil) ? 1 : 0.45)
             }
             .buttonStyle(.plain)
-            .disabled(selectedAsset == nil || state.isImporting)
+            .disabled((!isSnapshotMode && selectedAsset == nil) || state.isImporting)
             .padding(.horizontal, 16)
         }
         .padding(.top, 10)
@@ -530,6 +578,81 @@ struct ReferenceImportVideoView: View {
     private func durationText(_ seconds: Double) -> String {
         let total = max(0, Int(seconds.rounded()))
         return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+private struct NativeSnapshotVideo {
+    let duration: String
+    let symbol: String
+    let accent: Color
+    let mountain: Bool
+
+    static let samples: [NativeSnapshotVideo] = [
+        .init(duration: "0:12", symbol: "cloud.sun.fill", accent: .blue, mountain: true),
+        .init(duration: "0:34", symbol: "building.2.fill", accent: .orange, mountain: false),
+        .init(duration: "1:20", symbol: "water.waves", accent: .cyan, mountain: true),
+        .init(duration: "0:08", symbol: "pawprint.fill", accent: .brown, mountain: false),
+        .init(duration: "2:15", symbol: "mountain.2.fill", accent: .indigo, mountain: true),
+        .init(duration: "0:45", symbol: "leaf.fill", accent: .green, mountain: false),
+        .init(duration: "1:03", symbol: "figure.run", accent: .green, mountain: false),
+        .init(duration: "0:27", symbol: "mountain.2.fill", accent: .yellow, mountain: true),
+        .init(duration: "0:16", symbol: "sparkles", accent: .orange, mountain: false),
+        .init(duration: "3:21", symbol: "building.columns.fill", accent: .blue, mountain: false),
+        .init(duration: "0:39", symbol: "figure.equestrian.sports", accent: .brown, mountain: false),
+        .init(duration: "1:17", symbol: "water.waves", accent: .cyan, mountain: true)
+    ]
+}
+
+private struct NativeSnapshotVideoThumbnail: View {
+    let item: NativeSnapshotVideo
+    let selected: Bool
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            if item.mountain, let mountain = ClarityArt.mountain {
+                Image(uiImage: mountain)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(
+                    colors: [item.accent.opacity(0.70), Color.black.opacity(0.88)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .overlay(
+                    Image(systemName: item.symbol)
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.72))
+                )
+            }
+
+            Text(item.duration)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(.black.opacity(0.72), in: Capsule())
+                .padding(5)
+
+            if selected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.cyan, .blue)
+                    .padding(5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1.05, contentMode: .fit)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(selected ? Color.cyan : Color.white.opacity(0.08), lineWidth: selected ? 2 : 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Snapshot video, \(item.duration)")
+        .accessibilityValue(selected ? "Selected" : "Not selected")
     }
 }
 
