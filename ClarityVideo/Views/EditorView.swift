@@ -916,67 +916,34 @@ struct ComparisonPlaybackView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            GeometryReader { geometry in
-                let splitX = max(0, min(geometry.size.width, geometry.size.width * reveal))
-                ZStack(alignment: .leading) {
-                    ZStack {
-                        VideoPlayer(player: afterPlayer)
-                            .scaleEffect(zoom, anchor: cropAnchor)
-                        VideoPlayer(player: beforePlayer)
-                            .scaleEffect(zoom, anchor: cropAnchor)
-                            .mask(alignment: .leading) {
-                                HStack(spacing: 0) {
-                                    Rectangle().frame(width: max(1, splitX))
-                                    Spacer(minLength: 0)
-                                }
-                            }
-                    }
-                    HStack {
-                        Text("BEFORE")
-                        Spacer()
-                        Text("AFTER")
-                    }
-                    .font(.caption2.bold())
-                    .foregroundStyle(.white)
-                    .padding(10)
-                    .allowsHitTesting(false)
-                    Rectangle()
-                        .fill(.white)
-                        .frame(width: 3)
-                        .shadow(color: .black.opacity(0.65), radius: 2)
-                        .offset(x: max(0, min(geometry.size.width - 3, splitX - 1.5)))
-                        .allowsHitTesting(false)
-                    Image(systemName: "arrow.left.and.right.circle.fill")
-                        .font(.system(size: 30, weight: .semibold))
-                        .foregroundStyle(.white, .black.opacity(0.72))
-                        .offset(x: max(0, min(geometry.size.width - 30, splitX - 15)), y: geometry.size.height / 2 - 15)
-                        .allowsHitTesting(false)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                    reveal = max(0, min(1, value.location.x / max(1, geometry.size.width)))
-                })
-                .accessibilityLabel("Before and after quality comparison")
-                .accessibilityValue("Before \(Int(reveal * 100)) percent")
-                .accessibilityAdjustableAction { direction in
-                    reveal = max(0, min(1, reveal + (direction == .increment ? 0.05 : -0.05)))
+        NativePanel {
+            VStack(spacing: 12) {
+                comparisonCanvas
+                    .frame(height: 230)
+
+                revealControl
+
+                VStack(spacing: 9) {
+                    comparisonOptionRow(
+                        title: "Zoom",
+                        options: [
+                            ("100%", zoom == 1.0, { zoom = 1.0 }),
+                            ("200%", zoom == 2.0, { zoom = 2.0 }),
+                            ("400%", zoom == 4.0, { zoom = 4.0 })
+                        ]
+                    )
+
+                    comparisonOptionRow(
+                        title: "Detail",
+                        options: [
+                            ("Top", cropAnchor == .top, { cropAnchor = .top }),
+                            ("Center", cropAnchor == .center, { cropAnchor = .center }),
+                            ("Bottom", cropAnchor == .bottom, { cropAnchor = .bottom })
+                        ]
+                    )
                 }
             }
-            .frame(height: 230)
-            HStack { Text("Before"); Slider(value: $reveal, in: 0...1); Text("After") }
-                .font(.caption.bold())
-            Picker("Zoom", selection: $zoom) {
-                Text("100%").tag(1.0)
-                Text("200%").tag(2.0)
-                Text("400%").tag(4.0)
-            }.pickerStyle(.segmented)
-            Picker("Detail crop", selection: $cropAnchor) {
-                Text("Top").tag(UnitPoint.top)
-                Text("Center").tag(UnitPoint.center)
-                Text("Bottom").tag(UnitPoint.bottom)
-            }.pickerStyle(.segmented)
+            .padding(12)
         }
         .onAppear {
             beforePlayer.seek(to: .zero)
@@ -1001,5 +968,179 @@ struct ComparisonPlaybackView: View {
             beforePlayer.pause()
             afterPlayer.pause()
         }
+    }
+
+    private var comparisonCanvas: some View {
+        GeometryReader { geometry in
+            let splitX = max(0, min(geometry.size.width, geometry.size.width * reveal))
+
+            ZStack(alignment: .leading) {
+                VideoPlayer(player: afterPlayer)
+                    .scaleEffect(zoom, anchor: cropAnchor)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+
+                VideoPlayer(player: beforePlayer)
+                    .scaleEffect(zoom, anchor: cropAnchor)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .mask(alignment: .leading) {
+                        Rectangle().frame(width: max(1, splitX))
+                    }
+
+                HStack {
+                    comparisonBadge("BEFORE")
+                    Spacer()
+                    comparisonBadge("AFTER")
+                }
+                .padding(10)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .allowsHitTesting(false)
+
+                Rectangle()
+                    .fill(.white.opacity(0.95))
+                    .frame(width: 2)
+                    .shadow(color: .black.opacity(0.65), radius: 2)
+                    .offset(x: max(0, min(geometry.size.width - 2, splitX - 1)))
+                    .allowsHitTesting(false)
+
+                Circle()
+                    .fill(Color(red: 0.03, green: 0.18, blue: 0.42))
+                    .frame(width: 36, height: 36)
+                    .overlay(Circle().stroke(Color.cyan.opacity(0.92), lineWidth: 1.4))
+                    .overlay(
+                        Image(systemName: "arrow.left.and.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.cyan)
+                    )
+                    .shadow(color: Color.cyan.opacity(0.18), radius: 7)
+                    .offset(
+                        x: max(0, min(geometry.size.width - 36, splitX - 18)),
+                        y: geometry.size.height / 2 - 18
+                    )
+                    .allowsHitTesting(false)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(ClarityNativeTheme.border, lineWidth: 0.8)
+            )
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        reveal = max(0, min(1, value.location.x / max(1, geometry.size.width)))
+                    }
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Before and after quality comparison")
+            .accessibilityValue("Before \(Int(reveal * 100)) percent")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment:
+                    reveal = min(1, reveal + 0.05)
+                case .decrement:
+                    reveal = max(0, reveal - 0.05)
+                @unknown default:
+                    break
+                }
+            }
+        }
+    }
+
+    private var revealControl: some View {
+        HStack(spacing: 10) {
+            Text("Before")
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.66))
+
+            GeometryReader { geometry in
+                let width = max(1, geometry.size.width)
+                let thumbX = max(8, min(width - 8, width * reveal))
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.09))
+                        .frame(height: 5)
+
+                    Capsule()
+                        .fill(ClarityNativeTheme.brand)
+                        .frame(width: max(5, width * reveal), height: 5)
+
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 18, height: 18)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.38), lineWidth: 0.8))
+                        .shadow(color: Color.cyan.opacity(0.26), radius: 5)
+                        .position(x: thumbX, y: 12)
+                }
+                .frame(height: 24)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { drag in
+                            reveal = max(0, min(1, drag.location.x / width))
+                        }
+                )
+            }
+            .frame(height: 24)
+
+            Text("After")
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.66))
+        }
+    }
+
+    private func comparisonOptionRow(
+        title: String,
+        options: [(String, Bool, () -> Void)]
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.60))
+                .frame(width: 42, alignment: .leading)
+
+            HStack(spacing: 5) {
+                ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                    Button(action: option.2) {
+                        Text(option.0)
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(
+                                option.1
+                                    ? AnyShapeStyle(ClarityNativeTheme.brand)
+                                    : AnyShapeStyle(Color.white.opacity(0.055)),
+                                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .stroke(
+                                        option.1 ? Color.cyan.opacity(0.42) : Color.white.opacity(0.04),
+                                        lineWidth: 0.7
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(4)
+            .background(
+                Color.black.opacity(0.20),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+        }
+    }
+
+    private func comparisonBadge(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+            .tracking(0.8)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(.black.opacity(0.62), in: Capsule())
     }
 }
