@@ -428,6 +428,7 @@ struct ReferenceHomeView: View {
         ZStack {
             ClarityScreenBackdrop()
 
+            GeometryReader { viewport in
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     HStack {
@@ -516,11 +517,12 @@ struct ReferenceHomeView: View {
                             .foregroundStyle(.white.opacity(0.94))
                             .padding(.bottom, 20)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 255)
+                    .frame(width: viewport.size.width, height: 255)
                     .clipped()
                     .padding(.top, 2)
                 }
+                .frame(width: viewport.size.width)
+            }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { homeTabBar }
