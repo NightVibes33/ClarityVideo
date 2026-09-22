@@ -44,6 +44,7 @@ jobs:
           grep -q 'NSPhotoLibraryUsageDescription' ClarityVideo/Resources/Info.plist
           grep -q 'NSPhotoLibraryAddUsageDescription' ClarityVideo/Resources/Info.plist
           grep -q 'NSCameraUsageDescription' ClarityVideo/Resources/Info.plist
+          grep -q 'NSMicrophoneUsageDescription' ClarityVideo/Resources/Info.plist
 
       - name: Build unsigned Release app for device
         run: |
