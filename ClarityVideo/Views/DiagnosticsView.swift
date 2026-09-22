@@ -6,7 +6,7 @@ struct DiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var exportURL: URL?
     @State private var isRunning = false
-    @State private var showClearCacheConfirmation = false
+    @State private var showClearCacheConfirmation = ProcessInfo.processInfo.environment["CLARITY_UI_ROUTE"] == "diagnostics-confirm"
     @State private var showsCompactHeader = false
 
     var body: some View {
