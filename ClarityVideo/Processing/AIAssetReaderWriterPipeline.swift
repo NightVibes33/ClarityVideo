@@ -243,7 +243,10 @@ final class AIAssetReaderWriterPipeline {
             guard let sourceBuffer = CMSampleBufferGetImageBuffer(sample) else { continue }
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
             let isSceneCut = sceneCutDetector.isSceneCut(sourceBuffer)
-            if isSceneCut { processor.resetTemporalHistory() }
+            if isSceneCut {
+                processor.resetTemporalHistory()
+                neuralRenderer?.resetTemporalHistory()
+            }
             let enhancementSource: CVPixelBuffer
             if let activeDenoiser = denoiser {
                 do {

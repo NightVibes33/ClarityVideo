@@ -2,6 +2,7 @@ import CoreImage
 import CoreML
 import CoreVideo
 import Foundation
+import Vision
 
 /// Runs the recovered four-channel neural-rendering head on decoded video frames.
 /// Its output retains the input resolution. The existing super-resolution stage
@@ -27,6 +28,9 @@ final class IOSNeuralHeadService {
     // one export task at a time; the framework's async prediction runs off actor.
     nonisolated(unsafe) private let model: MLModel
     private let context = CIContext(options: [.cacheIntermediates: false])
+    private var previousFrame: CVPixelBuffer?
+
+    func resetTemporalHistory() { previousFrame = nil }
 
     init(modelURL: URL) throws {
         let url: URL
@@ -69,11 +73,31 @@ final class IOSNeuralHeadService {
                                                kCVPixelFormatType_32BGRA, attributes as CFDictionary, &result)
         guard resultStatus == kCVReturnSuccess, let result else { throw Failure.pixelBuffer(resultStatus) }
         context.render(CIImage(cvPixelBuffer: source), to: decoded)
+        // Ask Vision for current-to-previous pixel displacement. Do this once per
+        // frame, never once per tile; scene cuts explicitly clear the history.
+        let flow: CVPixelBuffer?
+        if let previousFrame {
+            let request = VNGenerateOpticalFlowRequest(targetedCVPixelBuffer: previousFrame, options: [:])
+            request.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
+            request.computationAccuracy = .medium
+            try VNImageRequestHandler(cvPixelBuffer: decoded, options: [:]).perform([request])
+            flow = request.results?.first?.pixelBuffer
+            guard let flow,
+                  CVPixelBufferGetPixelFormatType(flow) == kCVPixelFormatType_TwoComponent32Float,
+                  CVPixelBufferGetWidth(flow) == width,
+                  CVPixelBufferGetHeight(flow) == height else { throw Failure.incompatibleModel }
+        } else {
+            flow = nil
+        }
+        if let flow { CVPixelBufferLockBaseAddress(flow, .readOnly) }
+        if let previousFrame { CVPixelBufferLockBaseAddress(previousFrame, .readOnly) }
         CVPixelBufferLockBaseAddress(decoded, .readOnly)
         CVPixelBufferLockBaseAddress(result, [])
         defer {
             CVPixelBufferUnlockBaseAddress(result, [])
             CVPixelBufferUnlockBaseAddress(decoded, .readOnly)
+            if let previousFrame { CVPixelBufferUnlockBaseAddress(previousFrame, .readOnly) }
+            if let flow { CVPixelBufferUnlockBaseAddress(flow, .readOnly) }
         }
         guard let inputBase = CVPixelBufferGetBaseAddress(decoded)?.assumingMemoryBound(to: UInt8.self),
               let outputBase = CVPixelBufferGetBaseAddress(result)?.assumingMemoryBound(to: UInt8.self) else {
@@ -101,9 +125,42 @@ final class IOSNeuralHeadService {
                                                  dataType: .float32, layout: .nhwc),
                     bytes: rgb.withUnsafeBytes { Data($0) }
                 )
-                let features = try NeuralRenderingFirstFramePreprocessor.makeFeatureTensor(
-                    from: color, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber)
-                )
+                let features: HostTensor
+                if let previousFrame, let flow,
+                   let previousBase = CVPixelBufferGetBaseAddress(previousFrame)?.assumingMemoryBound(to: UInt8.self),
+                   let flowBase = CVPixelBufferGetBaseAddress(flow)?.assumingMemoryBound(to: UInt8.self) {
+                    let previousStride = CVPixelBufferGetBytesPerRow(previousFrame)
+                    let flowStride = CVPixelBufferGetBytesPerRow(flow)
+                    var history = [Float](repeating: 0, count: Self.tileSize * Self.tileSize * 3)
+                    var motion = [Float](repeating: 0, count: Self.tileSize * Self.tileSize * 2)
+                    for y in 0..<Self.tileSize {
+                        for x in 0..<Self.tileSize {
+                            let px = min(width - 1, tileX + x), py = min(height - 1, tileY + y)
+                            let inputOffset = py * previousStride + px * 4
+                            let rgbOffset = (y * Self.tileSize + x) * 3
+                            history[rgbOffset] = Float(previousBase[inputOffset + 2]) / 255
+                            history[rgbOffset + 1] = Float(previousBase[inputOffset + 1]) / 255
+                            history[rgbOffset + 2] = Float(previousBase[inputOffset]) / 255
+                            let flowOffset = py * flowStride + px * MemoryLayout<Float>.size * 2
+                            let displacement = flowBase.advanced(by: flowOffset).withMemoryRebound(to: Float.self, capacity: 2) {
+                                ($0[0], $0[1])
+                            }
+                            guard displacement.0.isFinite, displacement.1.isFinite else { throw Failure.incompatibleModel }
+                            let motionOffset = (y * Self.tileSize + x) * 2
+                            motion[motionOffset] = displacement.0 / Float(Self.tileSize)
+                            motion[motionOffset + 1] = displacement.1 / Float(Self.tileSize)
+                        }
+                    }
+                    let historyTensor = try HostTensor(descriptor: TensorDescriptor(name: "history", shape: [1, Self.tileSize, Self.tileSize, 3], dataType: .float32, layout: .nhwc), bytes: history.withUnsafeBytes { Data($0) })
+                    let motionTensor = try HostTensor(descriptor: TensorDescriptor(name: "motion", shape: [1, Self.tileSize, Self.tileSize, 2], dataType: .float32, layout: .nhwc), bytes: motion.withUnsafeBytes { Data($0) })
+                    // This recovered model has no measured depth input for ordinary video.
+                    // The observed-zero descriptor makes no claim of engine depth.
+                    let depth = [Float](repeating: 0, count: Self.tileSize * Self.tileSize)
+                    let depthTensor = try HostTensor(descriptor: TensorDescriptor(name: "depth", shape: [1, Self.tileSize, Self.tileSize, 1], dataType: .float32, layout: .nhwc), bytes: depth.withUnsafeBytes { Data($0) })
+                    features = try NeuralRenderingTemporalReferencePreprocessor.makeFeatureTensor(currentColor: color, historyColor: historyTensor, normalizedMotion: motionTensor, depth: depthTensor, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber))
+                } else {
+                    features = try NeuralRenderingFirstFramePreprocessor.makeFeatureTensor(from: color, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber))
+                }
                 let input = try MLMultiArray(shape: [1, 16, NSNumber(value: Self.tileSize), NSNumber(value: Self.tileSize)],
                                              dataType: .float32)
                 let featureValues = features.bytes.withUnsafeBytes { bytes in
@@ -164,6 +221,7 @@ final class IOSNeuralHeadService {
             }
         }
         CVBufferPropagateAttachments(source, result)
+        previousFrame = decoded
         return result
     }
 }
