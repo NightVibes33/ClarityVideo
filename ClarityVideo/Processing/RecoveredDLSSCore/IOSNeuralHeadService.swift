@@ -77,10 +77,10 @@ final class IOSNeuralHeadService {
         // frame, never once per tile; scene cuts explicitly clear the history.
         let flow: CVPixelBuffer?
         if let previousFrame {
-            let request = VNGenerateOpticalFlowRequest(targetedCVPixelBuffer: previousFrame, options: [:])
+            let request = VNGenerateOpticalFlowRequest(targetedCVPixelBuffer: decoded, options: [:])
             request.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
             request.computationAccuracy = .medium
-            try VNImageRequestHandler(cvPixelBuffer: decoded, options: [:]).perform([request])
+            try VNImageRequestHandler(cvPixelBuffer: previousFrame, options: [:]).perform([request])
             flow = request.results?.first?.pixelBuffer
             guard let flow,
                   CVPixelBufferGetPixelFormatType(flow) == kCVPixelFormatType_TwoComponent32Float,

@@ -1305,7 +1305,7 @@ struct ReferenceEditorView: View {
 
                     previewShell
 
-                    storageStatusCard
+                    if state.assetInfo != nil { storageStatusCard }
 
                     NativePanel {
                         VStack(alignment: .leading, spacing: 14) {
@@ -1369,6 +1369,8 @@ struct ReferenceEditorView: View {
                         .shadow(color: Color.blue.opacity(0.30), radius: 16, y: 8)
                     }
                     .buttonStyle(.plain)
+                    .disabled(state.importedURL == nil)
+                    .opacity(state.importedURL == nil ? 0.5 : 1)
                     .padding(.bottom, 16)
                 }
                 .padding(.horizontal, 16)
@@ -1420,30 +1422,47 @@ struct ReferenceEditorView: View {
                     }
                     .overlay(Color.black.opacity(0.12))
 
-                Rectangle()
-                    .fill(Color.white.opacity(0.92))
-                    .frame(width: 2)
-                    .offset(x: split - 1)
+                if afterPlayer != nil {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.92))
+                        .frame(width: 2)
+                        .offset(x: split - 1)
 
-                Circle()
-                    .fill(Color(red: 0.03, green: 0.18, blue: 0.42))
-                    .frame(width: 38, height: 38)
-                    .overlay(Circle().stroke(Color.cyan.opacity(0.92), lineWidth: 1.5))
-                    .overlay(
-                        Image(systemName: "arrow.left.and.right")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.cyan)
-                    )
-                    .offset(x: split - 19, y: geometry.size.height / 2 - 19)
+                    Circle()
+                        .fill(Color(red: 0.03, green: 0.18, blue: 0.42))
+                        .frame(width: 38, height: 38)
+                        .overlay(Circle().stroke(Color.cyan.opacity(0.92), lineWidth: 1.5))
+                        .overlay(
+                            Image(systemName: "arrow.left.and.right")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.cyan)
+                        )
+                        .offset(x: split - 19, y: geometry.size.height / 2 - 19)
+                }
 
-                Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(12)
+                if state.importedURL != nil {
+                    Text(state.configuration.resolution == .uhd8K ? "8K" : "4K")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 9))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(12)
+                }
+
+                if state.importedURL == nil {
+                    Label("Import a video to preview", systemImage: "video.badge.plus")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if afterPlayer == nil && !state.isGeneratingPreview {
+                    Text("Enhanced preview not available yet")
+                        .font(.caption.bold())
+                        .padding(9)
+                        .background(.black.opacity(0.72), in: Capsule())
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .padding(12)
+                }
 
                 if state.isGeneratingPreview {
                     VStack(spacing: 9) {
@@ -1475,7 +1494,8 @@ struct ReferenceEditorView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         reveal = max(0.05, min(0.95, value.location.x / max(1, geometry.size.width)))
-                    }
+                    },
+                including: afterPlayer == nil ? .none : .all
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Before and after comparison")
@@ -1494,10 +1514,8 @@ struct ReferenceEditorView: View {
     private func comparisonLayer(player: AVPlayer?) -> some View {
         if let player {
             VideoPlayer(player: player).allowsHitTesting(false)
-        } else if let mountain = ClarityArt.mountain {
-            Image(uiImage: mountain).resizable().scaledToFill()
         } else {
-            Rectangle().fill(Color.indigo.opacity(0.35))
+            Rectangle().fill(Color(red: 0.03, green: 0.08, blue: 0.18))
         }
     }
 
@@ -1519,6 +1537,7 @@ struct ReferenceEditorView: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
+            .disabled(beforePlayer == nil)
             .accessibilityLabel(isPlaying ? "Pause preview" : "Play preview")
 
             Text("00:00")
