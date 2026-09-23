@@ -1,11 +1,5 @@
 import Foundation
 
-// Only the network geometry and first-frame feature path are vendored here.
-// Keep the error contract used by geometry's optional feature extension.
-public enum NeuralRenderingTemporalPreprocessorError: Error, Equatable, Sendable {
-  case spatialShapeMismatch(name: String, expected: [Int], actual: [Int])
-}
-
 public enum NeuralRenderingNetworkGeometryError: Error, Equatable, Sendable {
   case invalidOutput(width: Int, height: Int)
   case networkSmallerThanOutput(
