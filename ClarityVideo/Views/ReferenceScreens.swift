@@ -1680,7 +1680,7 @@ struct ReferenceEditorView: View {
             selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"
         ) { value in
             if value == "DLSS 5" {
-                guard IOSNeuralHeadService.bundledModelURL() != nil else {
+                guard IOSNeuralHeadService.isReady() else {
                     state.errorMessage = "DLSS 5 experimental model is not bundled in this build."
                     return
                 }

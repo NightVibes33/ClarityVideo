@@ -119,7 +119,7 @@ final class AppState {
             configuration.codec = .hevc
         }
 
-        if IOSNeuralHeadService.bundledModelURL() == nil,
+        if !IOSNeuralHeadService.isReady(),
            configuration.upscaler == .dlss5 {
             configuration.upscaler = .appleSR
         }
@@ -201,8 +201,8 @@ final class AppState {
         // Clamp legacy/recent-job settings so older 160–220 Mbps presets cannot
         // resurrect multi-gigabyte scratch-space requirements on short exports.
         configuration.clampBitrateToSupportedRange()
-        if configuration.upscaler == .dlss5 && IOSNeuralHeadService.bundledModelURL() == nil {
-            errorMessage = "The neural model is not installed in this build. Choose Apple SR."
+        if configuration.upscaler == .dlss5 && !IOSNeuralHeadService.isReady() {
+            errorMessage = "The neural renderer or its depth guide is not installed in this build. Choose Apple SR."
             return
         }
         if assetInfo.isHDR && configuration.resolution == .uhd8K {
@@ -349,8 +349,8 @@ final class AppState {
         diagnosticStatus = "DLSS 5 neural inference must be validated on a physical iPhone."
         return
 #else
-        guard let modelURL = IOSNeuralHeadService.bundledModelURL() else {
-            diagnosticStatus = "DLSS 5 neural model is not bundled in this build."
+        guard IOSNeuralHeadService.isReady(), let modelURL = IOSNeuralHeadService.bundledModelURL() else {
+            diagnosticStatus = "The neural renderer and depth guide must both be bundled."
             return
         }
 

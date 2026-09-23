@@ -145,7 +145,7 @@ struct EditorView: View {
                 Text("AI Upscaler").font(.subheadline.weight(.semibold)).foregroundStyle(.white.opacity(0.82))
                 Picker("AI upscaler", selection: $state.configuration.upscaler) {
                     Text("Apple SR").tag(UpscalerEngine.appleSR)
-                    if IOSNeuralHeadService.bundledModelURL() != nil {
+                    if IOSNeuralHeadService.isReady() {
                         Text("DLSS 5").tag(UpscalerEngine.dlss5)
                     }
                 }

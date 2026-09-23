@@ -914,7 +914,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 settingTitle("AI Upscaler")
                                 SettingsChoiceRow(
-                                    options: IOSNeuralHeadService.bundledModelURL() == nil
+                                    options: !IOSNeuralHeadService.isReady()
                                         ? ["Apple SR"]
                                         : ["Apple SR", "DLSS 5"],
                                     selected: state.configuration.upscaler == .dlss5 ? "DLSS 5" : "Apple SR"

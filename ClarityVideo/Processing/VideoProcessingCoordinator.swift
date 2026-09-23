@@ -13,8 +13,8 @@ final class VideoProcessingCoordinator {
         var result = job
         result.status = .preparing
         guard let outputURL = job.outputURL else { throw AppError.exportFailed("Missing output destination.") }
-        if job.configuration.upscaler == .dlss5 && IOSNeuralHeadService.bundledModelURL() == nil {
-            throw AppError.exportFailed("DLSS 5 model is not installed in this build.")
+        if job.configuration.upscaler == .dlss5 && !IOSNeuralHeadService.isReady() {
+            throw AppError.exportFailed("The neural renderer or its depth guide is not installed in this build.")
         }
         let probe = AppleFrameProcessorService.probe()
         if job.configuration.upscaler == .dlss5 && !probe.fullSupported && !probe.lowLatencySupported {

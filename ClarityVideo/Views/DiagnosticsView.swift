@@ -75,7 +75,7 @@ struct DiagnosticsView: View {
                                     icon: "brain.head.profile",
                                     title: state.isPreparingModel ? "Running DLSS 5 test…" : "Run DLSS 5 device test",
                                     subtitle: "Validate the experimental neural upscaler",
-                                    enabled: !state.isPreparingModel && IOSNeuralHeadService.bundledModelURL() != nil
+                                    enabled: !state.isPreparingModel && IOSNeuralHeadService.isReady()
                                 ) {
                                     Task { await state.runRecoveredNeuralHeadSelfTest() }
                                 }

@@ -1,0 +1,8 @@
+Depth Anything V2 Small Core ML model
+https://huggingface.co/apple/coreml-depth-anything-v2-small
+Copyright its respective authors and contributors.
+Distributed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+This model infers relative monocular depth. It does not provide measured
+game-engine depth, exact scene geometry, or depth for occluded surfaces.

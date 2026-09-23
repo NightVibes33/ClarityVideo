@@ -45,8 +45,8 @@ final class AIAssetReaderWriterPipeline {
         }
         let neuralRenderer: IOSNeuralHeadService?
         if wantsNeuralRenderer {
-            guard let url = IOSNeuralHeadService.bundledModelURL() else {
-                throw AppError.exportFailed("DLSS 5 model is not installed in this build.")
+            guard IOSNeuralHeadService.isReady(), let url = IOSNeuralHeadService.bundledModelURL() else {
+                throw AppError.exportFailed("The neural renderer or its depth guide is not installed in this build.")
             }
             neuralRenderer = try IOSNeuralHeadService(modelURL: url)
         } else {

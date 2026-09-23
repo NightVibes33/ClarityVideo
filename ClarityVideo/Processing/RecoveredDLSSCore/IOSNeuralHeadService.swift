@@ -28,6 +28,7 @@ final class IOSNeuralHeadService {
     // one export task at a time; the framework's async prediction runs off actor.
     nonisolated(unsafe) private let model: MLModel
     private let context = CIContext(options: [.cacheIntermediates: false])
+    private let depthEstimator: EstimatedDepthGuideService
     private var previousFrame: CVPixelBuffer?
 
     func resetTemporalHistory() { previousFrame = nil }
@@ -43,18 +44,24 @@ final class IOSNeuralHeadService {
         }
         let configuration = MLModelConfiguration()
         configuration.computeUnits = .all
-        model = try MLModel(contentsOf: url, configuration: configuration)
-        guard model.modelDescription.inputDescriptionsByName["color"]?.multiArrayConstraint?.shape.map(\.intValue)
+        let loadedModel = try MLModel(contentsOf: url, configuration: configuration)
+        guard loadedModel.modelDescription.inputDescriptionsByName["color"]?.multiArrayConstraint?.shape.map(\.intValue)
                 == [1, 16, Self.tileSize, Self.tileSize],
-              model.modelDescription.outputDescriptionsByName["restored"]?.multiArrayConstraint?.shape.map(\.intValue)
+              loadedModel.modelDescription.outputDescriptionsByName["restored"]?.multiArrayConstraint?.shape.map(\.intValue)
                 == [1, 4, Self.tileSize, Self.tileSize] else {
             throw Failure.incompatibleModel
         }
+        model = loadedModel
+        depthEstimator = try EstimatedDepthGuideService()
     }
 
     static func bundledModelURL() -> URL? {
         Bundle.main.url(forResource: "DLSSNeuralHead128", withExtension: "mlmodelc")
             ?? Bundle.main.url(forResource: "DLSSNeuralHead128", withExtension: "mlpackage")
+    }
+
+    static func isReady() -> Bool {
+        bundledModelURL() != nil && EstimatedDepthGuideService.bundledModelURL() != nil
     }
 
     func render(source: CVPixelBuffer, frameNumber: Int) async throws -> CVPixelBuffer {
@@ -73,6 +80,18 @@ final class IOSNeuralHeadService {
                                                kCVPixelFormatType_32BGRA, attributes as CFDictionary, &result)
         guard resultStatus == kCVReturnSuccess, let result else { throw Failure.pixelBuffer(resultStatus) }
         context.render(CIImage(cvPixelBuffer: source), to: decoded)
+        // Infer a relative per-pixel depth layer from the actual frame, once
+        // per frame. The temporal guide uses it to choose foreground motion.
+        let depthGuide = try await depthEstimator.estimate(source: decoded)
+        CVPixelBufferLockBaseAddress(depthGuide, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depthGuide, .readOnly) }
+        guard let depthBase = CVPixelBufferGetBaseAddress(depthGuide)?.assumingMemoryBound(to: UInt8.self),
+              CVPixelBufferGetPixelFormatType(depthGuide) == kCVPixelFormatType_OneComponent32Float else {
+            throw Failure.incompatibleModel
+        }
+        let depthWidth = CVPixelBufferGetWidth(depthGuide)
+        let depthHeight = CVPixelBufferGetHeight(depthGuide)
+        let depthStride = CVPixelBufferGetBytesPerRow(depthGuide)
         // Ask Vision for current-to-previous pixel displacement. Do this once per
         // frame, never once per tile; scene cuts explicitly clear the history.
         let historyFrame = previousFrame
@@ -154,11 +173,20 @@ final class IOSNeuralHeadService {
                     }
                     let historyTensor = try HostTensor(descriptor: TensorDescriptor(name: "history", shape: [1, Self.tileSize, Self.tileSize, 3], dataType: .float32, layout: .nhwc), bytes: history.withUnsafeBytes { Data($0) })
                     let motionTensor = try HostTensor(descriptor: TensorDescriptor(name: "motion", shape: [1, Self.tileSize, Self.tileSize, 2], dataType: .float32, layout: .nhwc), bytes: motion.withUnsafeBytes { Data($0) })
-                    // This recovered model has no measured depth input for ordinary video.
-                    // The observed-zero descriptor makes no claim of engine depth.
-                    let depth = [Float](repeating: 0, count: Self.tileSize * Self.tileSize)
+                    var depth = [Float](repeating: 0, count: Self.tileSize * Self.tileSize)
+                    for y in 0..<Self.tileSize {
+                        for x in 0..<Self.tileSize {
+                            let px = min(width - 1, tileX + x), py = min(height - 1, tileY + y)
+                            let dx = min(depthWidth - 1, px * depthWidth / width)
+                            let dy = min(depthHeight - 1, py * depthHeight / height)
+                            let offset = dy * depthStride + dx * MemoryLayout<Float>.size
+                            let value = depthBase.advanced(by: offset).withMemoryRebound(to: Float.self, capacity: 1) { $0.pointee }
+                            guard value.isFinite else { throw Failure.incompatibleModel }
+                            depth[y * Self.tileSize + x] = value
+                        }
+                    }
                     let depthTensor = try HostTensor(descriptor: TensorDescriptor(name: "depth", shape: [1, Self.tileSize, Self.tileSize, 1], dataType: .float32, layout: .nhwc), bytes: depth.withUnsafeBytes { Data($0) })
-                    features = try NeuralRenderingTemporalReferencePreprocessor.makeFeatureTensor(currentColor: color, historyColor: historyTensor, normalizedMotion: motionTensor, depth: depthTensor, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber))
+                    features = try NeuralRenderingTemporalReferencePreprocessor.makeFeatureTensor(currentColor: color, historyColor: historyTensor, normalizedMotion: motionTensor, depth: depthTensor, depthInverted: true, depthGuideMode: .closestDepth, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber))
                 } else {
                     features = try NeuralRenderingFirstFramePreprocessor.makeFeatureTensor(from: color, noiseFrameIndex: UInt32(truncatingIfNeeded: frameNumber))
                 }
