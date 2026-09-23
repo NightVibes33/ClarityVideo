@@ -42,7 +42,7 @@ final class IOSNeuralHeadService {
             throw Failure.missingModel
         }
         let configuration = MLModelConfiguration()
-        configuration.computeUnits = .cpuAndGPU
+        configuration.computeUnits = .all
         model = try MLModel(contentsOf: url, configuration: configuration)
         guard model.modelDescription.inputDescriptionsByName["color"]?.multiArrayConstraint?.shape.map(\.intValue)
                 == [1, 16, Self.tileSize, Self.tileSize],
@@ -75,12 +75,13 @@ final class IOSNeuralHeadService {
         context.render(CIImage(cvPixelBuffer: source), to: decoded)
         // Ask Vision for current-to-previous pixel displacement. Do this once per
         // frame, never once per tile; scene cuts explicitly clear the history.
+        let historyFrame = previousFrame
         let flow: CVPixelBuffer?
-        if let previousFrame {
+        if let historyFrame {
             let request = VNGenerateOpticalFlowRequest(targetedCVPixelBuffer: decoded, options: [:])
             request.outputPixelFormat = kCVPixelFormatType_TwoComponent32Float
             request.computationAccuracy = .medium
-            try VNImageRequestHandler(cvPixelBuffer: previousFrame, options: [:]).perform([request])
+            try VNImageRequestHandler(cvPixelBuffer: historyFrame, options: [:]).perform([request])
             flow = request.results?.first?.pixelBuffer
             guard let flow,
                   CVPixelBufferGetPixelFormatType(flow) == kCVPixelFormatType_TwoComponent32Float,
@@ -90,13 +91,13 @@ final class IOSNeuralHeadService {
             flow = nil
         }
         if let flow { CVPixelBufferLockBaseAddress(flow, .readOnly) }
-        if let previousFrame { CVPixelBufferLockBaseAddress(previousFrame, .readOnly) }
+        if let historyFrame { CVPixelBufferLockBaseAddress(historyFrame, .readOnly) }
         CVPixelBufferLockBaseAddress(decoded, .readOnly)
         CVPixelBufferLockBaseAddress(result, [])
         defer {
             CVPixelBufferUnlockBaseAddress(result, [])
             CVPixelBufferUnlockBaseAddress(decoded, .readOnly)
-            if let previousFrame { CVPixelBufferUnlockBaseAddress(previousFrame, .readOnly) }
+            if let historyFrame { CVPixelBufferUnlockBaseAddress(historyFrame, .readOnly) }
             if let flow { CVPixelBufferUnlockBaseAddress(flow, .readOnly) }
         }
         guard let inputBase = CVPixelBufferGetBaseAddress(decoded)?.assumingMemoryBound(to: UInt8.self),
@@ -126,10 +127,10 @@ final class IOSNeuralHeadService {
                     bytes: rgb.withUnsafeBytes { Data($0) }
                 )
                 let features: HostTensor
-                if let previousFrame, let flow,
-                   let previousBase = CVPixelBufferGetBaseAddress(previousFrame)?.assumingMemoryBound(to: UInt8.self),
+                if let historyFrame, let flow,
+                   let previousBase = CVPixelBufferGetBaseAddress(historyFrame)?.assumingMemoryBound(to: UInt8.self),
                    let flowBase = CVPixelBufferGetBaseAddress(flow)?.assumingMemoryBound(to: UInt8.self) {
-                    let previousStride = CVPixelBufferGetBytesPerRow(previousFrame)
+                    let previousStride = CVPixelBufferGetBytesPerRow(historyFrame)
                     let flowStride = CVPixelBufferGetBytesPerRow(flow)
                     var history = [Float](repeating: 0, count: Self.tileSize * Self.tileSize * 3)
                     var motion = [Float](repeating: 0, count: Self.tileSize * Self.tileSize * 2)

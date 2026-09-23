@@ -94,6 +94,31 @@ final class ClarityVideoTests: XCTestCase {
 }
 
 extension ClarityVideoTests {
+    func testTemporalHistoryReprojectsUsingCurrentToPreviousMotion() throws {
+        func tensor(_ name: String, _ channels: Int, _ values: [Float]) throws -> HostTensor {
+            try HostTensor(
+                descriptor: TensorDescriptor(name: name, shape: [1, 1, 2, channels], dataType: .float32, layout: .nhwc),
+                bytes: values.withUnsafeBytes { Data($0) }
+            )
+        }
+        let color = try tensor("color", 3, [0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+        let history = try tensor("history", 3, [0, 0, 0, 1, 1, 1])
+        let depth = try tensor("depth", 1, [0, 0])
+        let staticFeatures = try NeuralRenderingTemporalReferencePreprocessor.makeFeatureTensor(
+            currentColor: color, historyColor: history,
+            normalizedMotion: tensor("motion", 2, [0, 0, 0, 0]), depth: depth
+        )
+        let movedFeatures = try NeuralRenderingTemporalReferencePreprocessor.makeFeatureTensor(
+            currentColor: color, historyColor: history,
+            normalizedMotion: tensor("motion", 2, [0.5, 0, 0, 0]), depth: depth
+        )
+        func firstHistoryChannel(_ tensor: HostTensor) -> Float {
+            tensor.bytes.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 7 * MemoryLayout<Float>.size, as: Float.self) }
+        }
+        XCTAssertLessThan(firstHistoryChannel(staticFeatures), firstHistoryChannel(movedFeatures))
+        XCTAssertEqual(firstHistoryChannel(movedFeatures), 0.0625, accuracy: 0.0001)
+    }
+
     func testNative4KInputAvoidsOversizedAIIntermediate() throws {
         var caps = DeviceEnhancementCapabilities()
         caps.fullSuperResolutionAvailable = true
